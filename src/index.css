@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    min-height: 100vh;
+  }
+  body {
+    margin: 0;
+    background: #11101a;
+    color: #d9d2f0;
+    font-family: 'Manrope', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+  h1, h2, h3, h4 {
+    font-family: 'Fraunces', serif;
+    font-weight: 400;
+    color: #f4f0ff;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  * { box-sizing: border-box; }
+  button { font-family: inherit; }
+  .pb-safe { padding-bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full font-sans font-medium select-none transition-transform duration-150 active:translate-y-[1px] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-md { @apply px-6 py-3.5 text-sm; }
+  .btn-sm { @apply px-4 py-2.5 text-[13px]; }
+  .btn-lg { @apply px-8 py-4 text-[15px]; }
+  .btn-primary {
+    @apply text-white bg-primary-btn shadow-btn-primary hover:brightness-110;
+  }
+  .btn-secondary {
+    @apply text-fg-0 border border-line-2 hover:bg-white/10;
+    background: rgba(180,160,255,0.08);
+  }
+  .btn-ghost {
+    @apply bg-transparent text-fg-1 hover:text-fg-0;
+  }
+  .btn-destructive {
+    @apply text-white;
+    background: linear-gradient(180deg, oklch(0.60 0.20 25), oklch(0.50 0.22 20));
+  }
+  .panel {
+    @apply bg-bg-1 border border-line rounded-md p-6;
+  }
+  .field-input {
+    @apply w-full rounded-sm border border-line-2 bg-black/30 text-fg-0 px-4 py-3.5 text-[15px] outline-none transition;
+  }
+  .field-input:focus {
+    border-color: oklch(0.78 0.16 300);
+    box-shadow: 0 0 0 4px oklch(0.55 0.18 300 / 0.2);
+  }
+  .label-mono {
+    @apply font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3;
+  }
+  .card-practice {
+    @apply relative overflow-hidden rounded-lg border border-line-2 p-5 flex flex-col justify-between min-h-[200px];
+    background: linear-gradient(180deg, rgba(45,30,80,.6), rgba(25,17,50,.85));
+  }
+  .card-practice::before {
+    content: '';
+    position: absolute;
+    inset: -40%;
+    background: radial-gradient(circle at 70% 30%, oklch(0.55 0.2 300 / 0.4), transparent 50%);
+    pointer-events: none;
+  }
+  .card-practice > * { position: relative; }
+}
