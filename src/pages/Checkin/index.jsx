@@ -1,11 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import Button from '../../components/ui/Button'
 import Slider from '../../components/ui/Slider'
 import ScreenShell from '../../components/ui/ScreenShell'
 import { useCheckinStore } from '../../store/useCheckinStore'
 import { interpretIS } from '../../utils/scoreCalc'
 import { postCheckin } from '../../api/checkin'
+
+const EASE = [0.22, 0.8, 0.36, 1]
+const stepVariants = {
+  forward: {
+    initial: { opacity: 0, x: 36 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -36 },
+  },
+  backward: {
+    initial: { opacity: 0, x: -36 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 36 },
+  },
+}
 
 const QUESTIONS = [
   {
@@ -58,6 +73,9 @@ export default function Checkin() {
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState([5, 5, 5, 5])
   const [result, setResult] = useState(null)
+  const prevStepRef = useRef(0)
+  const direction = step >= prevStepRef.current ? 'forward' : 'backward'
+  prevStepRef.current = step
 
   useEffect(() => {
     if (todayDone) navigate('/', { replace: true })
@@ -107,33 +125,37 @@ export default function Checkin() {
     <ScreenShell>
       <div className="flex min-h-[90dvh] flex-col">
         <Progress step={step + 1} total={4} />
-        <div className="mt-6 label-mono">{q.title}</div>
-        <h1 className="mt-2 font-serif text-[26px] leading-tight text-fg-0">
-          {step === 0 ? 'Как ты сейчас?' : q.question}
-        </h1>
-        {step > 0 && (
-          <p className="mt-3 text-[14px] text-fg-2">Займёт меньше минуты</p>
-        )}
 
-        <div className="mt-10 flex-1 animate-fade-in">
-          {step === 0 ? (
-            <>
-              <p className="mb-6 text-[15px] text-fg-1">{q.question}</p>
-              <Slider
-                value={answers[step]}
-                onChange={setAnswer}
-                leftLabel={q.left}
-                rightLabel={q.right}
-              />
-            </>
-          ) : (
-            <Slider
-              value={answers[step]}
-              onChange={setAnswer}
-              leftLabel={q.left}
-              rightLabel={q.right}
-            />
-          )}
+        <div className="relative mt-6 flex-1 overflow-hidden">
+          <AnimatePresence mode="wait" initial={false} custom={direction}>
+            <motion.div
+              key={step}
+              initial={stepVariants[direction].initial}
+              animate={stepVariants[direction].animate}
+              exit={stepVariants[direction].exit}
+              transition={{ duration: 0.3, ease: EASE }}
+            >
+              <div className="label-mono">{q.title}</div>
+              <h1 className="mt-2 font-serif text-[26px] leading-tight text-fg-0">
+                {step === 0 ? 'Как ты сейчас?' : q.question}
+              </h1>
+              {step > 0 && (
+                <p className="mt-3 text-[14px] text-fg-2">Займёт меньше минуты</p>
+              )}
+
+              <div className="mt-10">
+                {step === 0 && (
+                  <p className="mb-6 text-[15px] text-fg-1">{q.question}</p>
+                )}
+                <Slider
+                  value={answers[step]}
+                  onChange={setAnswer}
+                  leftLabel={q.left}
+                  rightLabel={q.right}
+                />
+              </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         <div className="mt-6 flex gap-3">

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
@@ -8,6 +9,15 @@ import VoiceMusicModal from '../../components/VoiceMusicModal'
 import { mockPractices } from '../../api/mock'
 import { useCheckinStore } from '../../store/useCheckinStore'
 import { useProgression } from '../../hooks/useProgression'
+
+const EASE = [0.22, 0.8, 0.36, 1]
+const gridContainer = {
+  animate: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
+}
+const cardItem = {
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE } },
+}
 
 const COMP_MIN = Number(import.meta.env.VITE_COMPANIONS_MIN || 47)
 const COMP_MAX = Number(import.meta.env.VITE_COMPANIONS_MAX || 312)
@@ -110,11 +120,18 @@ export default function Home() {
 
       <section className="mt-8">
         <SectionHead num="01" title="Расслабление" subtitle="Бесплатно · 3–5 практик" />
-        <div className="grid grid-cols-2 gap-3">
+        <motion.div
+          className="grid grid-cols-2 gap-3"
+          variants={gridContainer}
+          initial="initial"
+          animate="animate"
+        >
           {mockPractices.relaxation.map((p) => (
-            <Card key={p.id} title={p.title} duration={p.duration} onPlay={() => goPlay(p.id)} />
+            <motion.div key={p.id} variants={cardItem}>
+              <Card title={p.title} duration={p.duration} onPlay={() => goPlay(p.id)} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </section>
 
       <section className="mt-10">
@@ -133,43 +150,55 @@ export default function Home() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-3">
+        <motion.div
+          className="grid grid-cols-2 gap-3"
+          variants={gridContainer}
+          initial="initial"
+          animate="animate"
+        >
           {mockPractices.awareness.map((p, idx) => {
             const unlocked = subscription.active && isPracticeUnlocked(p.id)
             const completed = isPracticeCompleted(p.id)
             return (
-              <Card
-                key={p.id}
-                title={p.title}
-                duration={p.duration}
-                locked={!unlocked}
-                completed={completed}
-                lockedLabel={idx === 0 ? 'Заблокировано' : 'Скоро'}
-                onPlay={() => goPlay(p.id)}
-              />
+              <motion.div key={p.id} variants={cardItem}>
+                <Card
+                  title={p.title}
+                  duration={p.duration}
+                  locked={!unlocked}
+                  completed={completed}
+                  lockedLabel={idx === 0 ? 'Заблокировано' : 'Скоро'}
+                  onPlay={() => goPlay(p.id)}
+                />
+              </motion.div>
             )
           })}
-        </div>
+        </motion.div>
       </section>
 
       <section className="mt-10">
         <SectionHead num="03" title="Авторский" subtitle="Авторские практики" />
-        <div className="grid grid-cols-2 gap-3">
+        <motion.div
+          className="grid grid-cols-2 gap-3"
+          variants={gridContainer}
+          initial="initial"
+          animate="animate"
+        >
           {mockPractices.author.map((p) => {
             const isBonus = bonusUnlocked.includes(p.id)
             return (
-              <Card
-                key={p.id}
-                title={p.title}
-                duration={p.duration}
-                badge={isBonus ? 'Бонус 🎁' : undefined}
-                price={isBonus ? undefined : p.price}
-                onPlay={isBonus ? () => goPlay(p.id) : undefined}
-                onBuy={() => navigate('/subscription')}
-              />
+              <motion.div key={p.id} variants={cardItem}>
+                <Card
+                  title={p.title}
+                  duration={p.duration}
+                  badge={isBonus ? 'Бонус 🎁' : undefined}
+                  price={isBonus ? undefined : p.price}
+                  onPlay={isBonus ? () => goPlay(p.id) : undefined}
+                  onBuy={() => navigate('/subscription')}
+                />
+              </motion.div>
             )
           })}
-        </div>
+        </motion.div>
       </section>
 
       <VoiceMusicModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />

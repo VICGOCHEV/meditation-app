@@ -1,3 +1,5 @@
+import { motion } from 'framer-motion'
+
 const sizeMap = { sm: 'btn-sm', md: 'btn-md', lg: 'btn-lg' }
 const variantMap = {
   primary: 'btn-primary',
@@ -23,10 +25,14 @@ export default function Button({
   children,
   ...rest
 }) {
+  const isDisabled = disabled || loading
   return (
-    <button
+    <motion.button
       type={type}
-      disabled={disabled || loading}
+      disabled={isDisabled}
+      whileTap={isDisabled ? undefined : { scale: 0.97 }}
+      whileHover={isDisabled ? undefined : { y: -1 }}
+      transition={{ type: 'spring', stiffness: 500, damping: 30, mass: 0.6 }}
       className={[
         'btn',
         sizeMap[size],
@@ -38,6 +44,6 @@ export default function Button({
     >
       {loading ? <Spinner /> : null}
       {children}
-    </button>
+    </motion.button>
   )
 }

@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import Slider from '../../components/ui/Slider'
@@ -7,6 +8,20 @@ import { useProgression } from '../../hooks/useProgression'
 import { useProgressStore } from '../../store/useProgressStore'
 import { calcIT, calcIO, calcKT, interpretKT } from '../../utils/scoreCalc'
 import { postDeepAnalysis } from '../../api/checkin'
+
+const EASE = [0.22, 0.8, 0.36, 1]
+const stepVariants = {
+  forward: {
+    initial: { opacity: 0, x: 36 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -36 },
+  },
+  backward: {
+    initial: { opacity: 0, x: -36 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 36 },
+  },
+}
 
 const Q = [
   { block: 'А', title: 'Прошлое', text: 'Насколько навязчивыми были мысли о прошлом в последние 3 дня?' },
@@ -30,6 +45,9 @@ export default function DeepAnalysis() {
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState(Array(10).fill(5))
   const [result, setResult] = useState(null)
+  const prevStepRef = useRef(0)
+  const direction = step >= prevStepRef.current ? 'forward' : 'backward'
+  prevStepRef.current = step
 
   if (!canDoDeepAnalysis) {
     return (
@@ -146,24 +164,35 @@ export default function DeepAnalysis() {
           ))}
         </div>
 
-        {showBlockHeader && (
-          <div className="mt-6 label-mono text-lilac">
-            {q.block === 'А' ? 'Блок А · Тревожность' : 'Блок Б · Осознанность'}
-          </div>
-        )}
+        <div className="relative mt-6 flex-1 overflow-hidden">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={step}
+              initial={stepVariants[direction].initial}
+              animate={stepVariants[direction].animate}
+              exit={stepVariants[direction].exit}
+              transition={{ duration: 0.3, ease: EASE }}
+            >
+              {showBlockHeader && (
+                <div className="label-mono text-lilac">
+                  {q.block === 'А' ? 'Блок А · Тревожность' : 'Блок Б · Осознанность'}
+                </div>
+              )}
+              <div className="mt-6 label-mono">{q.title}</div>
+              <h1 className="mt-2 font-serif text-[22px] leading-tight text-fg-0">
+                {q.text}
+              </h1>
 
-        <div className="mt-6 label-mono">{q.title}</div>
-        <h1 className="mt-2 font-serif text-[22px] leading-tight text-fg-0">
-          {q.text}
-        </h1>
-
-        <div className="mt-10 flex-1 animate-fade-in">
-          <Slider
-            value={answers[step]}
-            onChange={setAnswer}
-            leftLabel="0"
-            rightLabel="10"
-          />
+              <div className="mt-10">
+                <Slider
+                  value={answers[step]}
+                  onChange={setAnswer}
+                  leftLabel="0"
+                  rightLabel="10"
+                />
+              </div>
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         <div className="mt-6 flex gap-3">
