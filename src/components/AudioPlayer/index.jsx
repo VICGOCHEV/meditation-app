@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AmorphSphere from '../AmorphSphere'
 import { useAudio, formatTime } from '../../hooks/useAudio'
 import { usePlayerStore } from '../../store/usePlayerStore'
@@ -30,6 +30,15 @@ export default function AudioPlayer({
   const savePosition = usePlayerStore((s) => s.savePosition)
   const loadPosition = usePlayerStore((s) => s.loadPosition)
   const saveTimer = useRef(null)
+
+  // Defer mounting AmorphSphere until the route opacity fade completes —
+  // while opacity < 1 the route wrapper is a stacking context and screen
+  // blend cannot reach the global AppBackground (visible as black).
+  const [shaderReady, setShaderReady] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setShaderReady(true), 750)
+    return () => clearTimeout(t)
+  }, [])
 
   const initialPos = loadPosition(practiceId)
 
@@ -79,7 +88,9 @@ export default function AudioPlayer({
         role="button"
         aria-label={isPlaying ? 'Пауза' : 'Играть'}
       >
-        <AmorphSphere blendMode="screen" className="pointer-events-none absolute inset-0" />
+        {shaderReady && (
+          <AmorphSphere blendMode="screen" className="pointer-events-none absolute inset-0" />
+        )}
 
         <h1 className="relative z-10 px-6 text-center font-serif text-[32px] leading-tight text-fg-0">
           {title}

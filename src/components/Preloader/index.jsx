@@ -23,8 +23,18 @@ export default function Preloader({ onDone }) {
     }
     const v = videoRef.current
     if (v) {
+      // Imperatively ensure muted before play — iOS won't autoplay otherwise,
+      // and React's `muted` prop occasionally fails to make it onto the
+      // initial DOM attribute fast enough.
+      v.muted = true
+      v.defaultMuted = true
       const tryPlay = v.play()
-      if (tryPlay && typeof tryPlay.catch === 'function') tryPlay.catch(() => {})
+      if (tryPlay && typeof tryPlay.catch === 'function') {
+        // Autoplay denied (typical on touch devices without prior gesture).
+        // Skip the preloader instead of leaving the user staring at the
+        // browser's tap-to-play overlay.
+        tryPlay.catch(() => finish())
+      }
     }
     const fallback = setTimeout(finish, FALLBACK_TIMEOUT)
     const onEnded = () => {
@@ -51,11 +61,17 @@ export default function Preloader({ onDone }) {
           <video
             ref={videoRef}
             src="/preloader.mp4"
-            className="h-full w-full object-cover"
+            className="pointer-events-none h-full w-full object-cover"
             autoPlay
             muted
+            defaultMuted
             playsInline
+            webkit-playsinline="true"
+            x5-playsinline="true"
             preload="auto"
+            controls={false}
+            disableRemotePlayback
+            disablePictureInPicture
           />
         </motion.div>
       )}
