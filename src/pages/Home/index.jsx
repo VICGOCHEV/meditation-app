@@ -12,11 +12,16 @@ import { useProgression } from '../../hooks/useProgression'
 
 const EASE = [0.22, 0.8, 0.36, 1]
 const gridContainer = {
-  animate: { transition: { staggerChildren: 0.06, delayChildren: 0.05 } },
+  animate: { transition: { staggerChildren: 0.12, delayChildren: 0.15 } },
 }
 const cardItem = {
-  initial: { opacity: 0, y: 16 },
-  animate: { opacity: 1, y: 0, transition: { duration: 0.35, ease: EASE } },
+  initial: { opacity: 0, y: 24, filter: 'blur(6px)' },
+  animate: {
+    opacity: 1,
+    y: 0,
+    filter: 'blur(0px)',
+    transition: { duration: 0.85, ease: EASE },
+  },
 }
 
 const COMP_MIN = Number(import.meta.env.VITE_COMPANIONS_MIN || 47)
@@ -31,7 +36,7 @@ function CompanionsCounter() {
     <div className="panel flex items-center justify-between">
       <div>
         <div className="label-mono">Соратники</div>
-        <div className="mt-1 text-[14px] text-fg-2">Сейчас медитируют</div>
+        <div className="mt-1 text-[14px] text-fg-2">Сейчас в практике</div>
       </div>
       <div className="text-right">
         <div className="font-serif text-3xl text-fg-0">{count}</div>

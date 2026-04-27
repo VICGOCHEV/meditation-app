@@ -11,15 +11,94 @@ import { postCheckin } from '../../api/checkin'
 const EASE = [0.22, 0.8, 0.36, 1]
 const stepVariants = {
   forward: {
-    initial: { opacity: 0, x: 36 },
+    initial: { opacity: 0, x: 48 },
     animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -36 },
+    exit: { opacity: 0, x: -48 },
   },
   backward: {
-    initial: { opacity: 0, x: -36 },
+    initial: { opacity: 0, x: -48 },
     animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: 36 },
+    exit: { opacity: 0, x: 48 },
   },
+}
+
+const STATE_NAMES = ['Шторм', 'Туман', 'Ясность', 'Поток']
+const CYCLE_STEP_MS = 460
+const CYCLE_TOTAL_MS = 2400
+
+function ResultScreen({ result, onContinue }) {
+  const [phase, setPhase] = useState('cycling')
+  const [tickIdx, setTickIdx] = useState(0)
+
+  useEffect(() => {
+    if (phase !== 'cycling') return
+    const interval = setInterval(() => setTickIdx((i) => i + 1), CYCLE_STEP_MS)
+    const settle = setTimeout(() => {
+      clearInterval(interval)
+      setPhase('settled')
+    }, CYCLE_TOTAL_MS)
+    return () => {
+      clearInterval(interval)
+      clearTimeout(settle)
+    }
+  }, [phase])
+
+  const displayed =
+    phase === 'cycling' ? STATE_NAMES[tickIdx % STATE_NAMES.length] : result.state
+
+  return (
+    <ScreenShell>
+      <div className="flex min-h-[80dvh] flex-col items-center justify-center text-center">
+        <motion.div
+          className="label-mono mb-3 text-lilac"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: phase === 'settled' ? 1 : 0.4, y: 0 }}
+          transition={{ duration: 0.9, ease: EASE, delay: phase === 'settled' ? 0.1 : 0 }}
+        >
+          Индекс состояния · {result.IS}/40
+        </motion.div>
+
+        <div className="relative h-[72px] w-full overflow-hidden">
+          <AnimatePresence>
+            <motion.h1
+              key={displayed + (phase === 'cycling' ? `-${tickIdx}` : '-final')}
+              className="absolute inset-0 flex items-center justify-center font-serif text-[52px] font-light leading-none text-fg-0"
+              initial={{ opacity: 0, y: 18, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -18, filter: 'blur(10px)' }}
+              transition={
+                phase === 'settled'
+                  ? { duration: 1.1, ease: EASE }
+                  : { duration: 0.42, ease: EASE }
+              }
+            >
+              {displayed}
+            </motion.h1>
+          </AnimatePresence>
+        </div>
+
+        <motion.p
+          className="mt-8 max-w-sm text-[15px] leading-relaxed text-fg-1"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: phase === 'settled' ? 1 : 0, y: phase === 'settled' ? 0 : 12 }}
+          transition={{ duration: 0.9, ease: EASE, delay: phase === 'settled' ? 0.4 : 0 }}
+        >
+          {result.text}
+        </motion.p>
+
+        <motion.div
+          className="mt-10 w-full"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: phase === 'settled' ? 1 : 0, y: phase === 'settled' ? 0 : 16 }}
+          transition={{ duration: 0.8, ease: EASE, delay: phase === 'settled' ? 0.7 : 0 }}
+        >
+          <Button size="lg" fullWidth onClick={onContinue}>
+            Начать практику
+          </Button>
+        </motion.div>
+      </div>
+    </ScreenShell>
+  )
 }
 
 const QUESTIONS = [
@@ -78,8 +157,13 @@ export default function Checkin() {
   prevStepRef.current = step
 
   useEffect(() => {
-    if (todayDone) navigate('/', { replace: true })
-  }, [todayDone, navigate])
+    // Only redirect if checkin was already done BEFORE entering this screen.
+    // After completing it on this screen we keep the result visible.
+    if (useCheckinStore.getState().todayCheckinDone) {
+      navigate('/', { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const setAnswer = (v) => {
     const next = answers.slice()
@@ -98,26 +182,9 @@ export default function Checkin() {
     postCheckin({ q1, q2, q3, q4, IS }).catch(() => {})
   }
 
-  if (result) {
-    return (
-      <ScreenShell>
-        <div className="flex min-h-[80dvh] flex-col items-center justify-center text-center animate-fade-in">
-          <div className="label-mono mb-3 text-lilac">Индекс состояния · {result.IS}/40</div>
-          <h1 className="font-serif text-[48px] leading-none text-fg-0">
-            {result.state}
-          </h1>
-          <p className="mt-6 max-w-sm text-[15px] leading-relaxed text-fg-1">
-            {result.text}
-          </p>
-          <div className="mt-10 w-full">
-            <Button size="lg" fullWidth onClick={() => navigate('/')}>
-              Начать практику
-            </Button>
-          </div>
-        </div>
-      </ScreenShell>
-    )
-  }
+  if (result) return <ResultScreen result={result} onContinue={() => navigate('/')} />
+
+
 
   const q = QUESTIONS[step]
 
@@ -133,7 +200,7 @@ export default function Checkin() {
               initial={stepVariants[direction].initial}
               animate={stepVariants[direction].animate}
               exit={stepVariants[direction].exit}
-              transition={{ duration: 0.3, ease: EASE }}
+              transition={{ duration: 0.65, ease: EASE }}
             >
               <div className="label-mono">{q.title}</div>
               <h1 className="mt-2 font-serif text-[26px] leading-tight text-fg-0">

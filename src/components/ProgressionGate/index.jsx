@@ -5,7 +5,9 @@ export default function ProtectedRoute({ children }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const location = useLocation()
   if (!isAuthenticated) {
-    return <Navigate to="/auth/login" replace state={{ from: location.pathname }} />
+    // Unauth visitors always go through onboarding first.
+    // Login is reached only at the end of the onboarding flow.
+    return <Navigate to="/onboarding" replace state={{ from: location.pathname }} />
   }
   return children
 }

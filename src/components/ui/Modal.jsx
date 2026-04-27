@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 
 const EASE = [0.22, 0.8, 0.36, 1]
@@ -11,7 +12,9 @@ export default function Modal({ open, onClose, children, title }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  return (
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -19,7 +22,7 @@ export default function Modal({ open, onClose, children, title }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.18, ease: EASE }}
+          transition={{ duration: 0.45, ease: EASE }}
         >
           <motion.div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -27,7 +30,7 @@ export default function Modal({ open, onClose, children, title }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.18, ease: EASE }}
+            transition={{ duration: 0.45, ease: EASE }}
           />
           <motion.div
             className="relative w-full max-w-md rounded-xl border border-line-2 bg-bg-2 p-6 shadow-shadow-2"
@@ -36,7 +39,7 @@ export default function Modal({ open, onClose, children, title }) {
             initial={{ opacity: 0, y: 32, scale: 0.96 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.97 }}
-            transition={{ duration: 0.28, ease: EASE }}
+            transition={{ duration: 0.6, ease: EASE }}
           >
             {title && (
               <h3 className="mb-3 font-serif text-2xl text-fg-0">{title}</h3>
@@ -45,6 +48,7 @@ export default function Modal({ open, onClose, children, title }) {
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   )
 }

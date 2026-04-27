@@ -171,7 +171,7 @@ export default function DeepAnalysis() {
               initial={stepVariants[direction].initial}
               animate={stepVariants[direction].animate}
               exit={stepVariants[direction].exit}
-              transition={{ duration: 0.3, ease: EASE }}
+              transition={{ duration: 0.65, ease: EASE }}
             >
               {showBlockHeader && (
                 <div className="label-mono text-lilac">

@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lenis smooth scroll — required boilerplate so RAF-driven scroll
+   doesn't fight with native scroll-behavior. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: clip;
+}
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
 @layer base {
   :root {
     color-scheme: dark;
@@ -20,10 +39,10 @@
     font-feature-settings: 'ss01', 'cv11';
   }
   h1, h2, h3, h4 {
-    font-family: 'Fraunces', serif;
-    font-weight: 400;
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-weight: 300;
     color: #f4f0ff;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.02em;
     margin: 0;
   }
   * { box-sizing: border-box; }

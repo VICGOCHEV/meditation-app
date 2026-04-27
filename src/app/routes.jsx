@@ -10,7 +10,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import ProtectedRoute from '../components/ProgressionGate'
 
 import Onboarding from '../pages/Onboarding'
-import Auth from '../pages/Auth'
 import Login from '../pages/Auth/Login'
 import Register from '../pages/Auth/Register'
 import ResetPassword from '../pages/Auth/ResetPassword'
@@ -25,14 +24,14 @@ const Player = lazy(() => import('../pages/Player'))
 const EASE = [0.22, 0.8, 0.36, 1]
 
 const forward = {
-  initial: { opacity: 0, x: 24 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -24 },
+  initial: { opacity: 0, x: 40, filter: 'blur(8px)' },
+  animate: { opacity: 1, x: 0, filter: 'blur(0px)' },
+  exit: { opacity: 0, x: -40, filter: 'blur(8px)' },
 }
 const backward = {
-  initial: { opacity: 0, x: -24 },
-  animate: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: 24 },
+  initial: { opacity: 0, x: -40, filter: 'blur(8px)' },
+  animate: { opacity: 1, x: 0, filter: 'blur(0px)' },
+  exit: { opacity: 0, x: 40, filter: 'blur(8px)' },
 }
 
 export default function AppRoutes() {
@@ -49,12 +48,11 @@ export default function AppRoutes() {
         initial={direction.initial}
         animate={direction.animate}
         exit={direction.exit}
-        transition={{ duration: 0.32, ease: EASE }}
+        transition={{ duration: 0.7, ease: EASE }}
         className="min-h-dvh w-full"
       >
         <Routes location={location}>
           <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/auth" element={<Auth />} />
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/register" element={<Register />} />
           <Route path="/auth/reset" element={<ResetPassword />} />

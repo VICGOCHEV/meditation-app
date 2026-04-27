@@ -79,7 +79,7 @@ export default function AudioPlayer({
         role="button"
         aria-label={isPlaying ? 'Пауза' : 'Играть'}
       >
-        <AmorphSphere className="pointer-events-none absolute inset-0" />
+        <AmorphSphere blendMode="screen" className="pointer-events-none absolute inset-0" />
 
         <h1 className="relative z-10 px-6 text-center font-serif text-[32px] leading-tight text-fg-0">
           {title}

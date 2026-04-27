@@ -30,9 +30,10 @@ export default {
         err: 'oklch(0.66 0.18 20)',
       },
       fontFamily: {
-        serif: ["'Fraunces'", 'serif'],
         sans: ["'Manrope'", 'system-ui', 'sans-serif'],
+        serif: ["'Manrope'", 'system-ui', 'sans-serif'],
         mono: ["'JetBrains Mono'", 'monospace'],
+        display: ["'Manrope'", 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         xs: '6px',
