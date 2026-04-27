@@ -185,12 +185,12 @@ const amorphFragment = /* glsl */ `
     // Grain only inside blob — keep outside clean.
     col += (hash(gl_FragCoord.xy + t) - 0.5) * 0.015 * body;
 
-    // Apply `cut` to alpha as well as color: in the deep multi-shell
-    // overlap zone `cut` shrinks the per-shell mixes (intentional — keeps
-    // the colour from melting), but with `body` still ≈ 1 the pixel turned
-    // into opaque near-black. Multiplying alpha by cut makes that zone
-    // physically transparent — the overlap reads as "see-through" instead
-    // of black.
+    // Apply cut to alpha as well as colour: in the deep multi-shell
+    // overlap zone cut shrinks the per-shell mixes (intentional — keeps
+    // the colour from melting), but with body still close to 1 the pixel
+    // turned into opaque near-black. Multiplying alpha by cut makes that
+    // zone physically transparent — the overlap reads as see-through
+    // instead of black.
     gl_FragColor = vec4(col, body * cut);
   }
 `
