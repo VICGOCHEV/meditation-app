@@ -182,15 +182,16 @@ const amorphFragment = /* glsl */ `
     float pinkHit = pow(smoothstep(0.55, 1.00, lighting), 2.0);
     col += cPink * pinkHit * body * cut * 0.36;
 
-    // Base violet ramp tied to body — without this the deep core (where
-    // many shells overlap and cut shrinks the mix factors) ends up with
-    // tiny col and full body, producing visibly opaque black pixels.
-    col += mix(cDeep, cMid, lighting) * body * 0.65;
-
     // Grain only inside blob — keep outside clean.
     col += (hash(gl_FragCoord.xy + t) - 0.5) * 0.015 * body;
 
-    gl_FragColor = vec4(col, body);
+    // Apply `cut` to alpha as well as color: in the deep multi-shell
+    // overlap zone `cut` shrinks the per-shell mixes (intentional — keeps
+    // the colour from melting), but with `body` still ≈ 1 the pixel turned
+    // into opaque near-black. Multiplying alpha by cut makes that zone
+    // physically transparent — the overlap reads as "see-through" instead
+    // of black.
+    gl_FragColor = vec4(col, body * cut);
   }
 `
 
