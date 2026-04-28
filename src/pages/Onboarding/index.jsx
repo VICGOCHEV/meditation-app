@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Button from '../../components/ui/Button'
 import ScreenShell from '../../components/ui/ScreenShell'
 import OnboardingFog from '../../components/OnboardingFog'
-import PlayShader from '../../components/PlayShader'
 import { usePlayerStore } from '../../store/usePlayerStore'
 
 const EASE = [0.22, 0.8, 0.36, 1]
@@ -216,49 +215,52 @@ export default function Onboarding() {
               </h1>
 
               <motion.div
-                className="mt-10 flex flex-col items-center gap-8"
+                className="mt-10 flex flex-col gap-3"
                 variants={cardListVar}
               >
-                <motion.button
-                  type="button"
-                  onClick={() => {
-                    if (!selectedVoice) setVoice('male')
-                  }}
-                  variants={cardItemVar}
-                  whileTap={{ scale: 0.96 }}
-                  aria-label="Прослушать голос"
-                  className="relative h-[200px] w-[200px] rounded-full"
-                >
-                  <PlayShader className="absolute inset-0 h-full w-full" />
-                </motion.button>
-
-                <motion.div
-                  className="grid w-full grid-cols-2 gap-3"
-                  variants={cardItemVar}
-                >
-                  {[
-                    { id: 'male', label: 'Мужской' },
-                    { id: 'female', label: 'Женский' },
-                  ].map((v) => {
-                    const on = selectedVoice === v.id
-                    return (
-                      <motion.button
-                        key={v.id}
-                        type="button"
-                        onClick={() => setVoice(v.id)}
-                        whileTap={{ scale: 0.97 }}
-                        className={[
-                          'rounded-full border px-4 py-3 text-[14px] font-medium transition',
-                          on
-                            ? 'border-lilac bg-white/10 text-fg-0'
-                            : 'border-line-2 bg-white/[0.04] text-fg-1 hover:bg-white/[0.08]',
-                        ].join(' ')}
-                      >
-                        {v.label}
-                      </motion.button>
-                    )
-                  })}
-                </motion.div>
+                {[
+                  { id: 'male', label: 'Мужской' },
+                  { id: 'female', label: 'Женский' },
+                ].map((v) => {
+                  const on = selectedVoice === v.id
+                  return (
+                    <motion.button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setVoice(v.id)}
+                      variants={cardItemVar}
+                      whileTap={{ scale: 0.98 }}
+                      className={[
+                        'group relative flex items-center gap-4 rounded-lg border px-4 py-3.5 text-left transition',
+                        on
+                          ? 'border-lilac bg-white/10'
+                          : 'border-line-2 bg-white/[0.04] hover:bg-white/[0.08]',
+                      ].join(' ')}
+                    >
+                      <PlayCircle size={48} />
+                      <div className="flex flex-1 flex-col">
+                        <span className="text-[15px] font-medium text-fg-0">Прослушать</span>
+                        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3">
+                          {v.label}
+                        </span>
+                      </div>
+                      {on && (
+                        <span
+                          className="flex h-6 w-6 items-center justify-center rounded-full"
+                          style={{
+                            background: 'oklch(0.72 0.13 160 / 0.25)',
+                            border: '1px solid oklch(0.72 0.13 160 / 0.5)',
+                            color: 'oklch(0.85 0.13 160)',
+                          }}
+                        >
+                          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
+                            <path d="M5 12l4 4L19 7" />
+                          </svg>
+                        </span>
+                      )}
+                    </motion.button>
+                  )
+                })}
               </motion.div>
             </div>
           )}
