@@ -148,7 +148,8 @@ export default function Home() {
               Оформи подписку, чтобы открыть все практики
             </div>
             <div className="mt-3">
-              <Button size="sm" onClick={() => navigate('/subscription')}>
+              {/* Excluded from app-wide ShinyButton — kept compact and inline. */}
+              <Button size="sm" variant="secondary" onClick={() => navigate('/subscription')}>
                 Оформить подписку
               </Button>
             </div>

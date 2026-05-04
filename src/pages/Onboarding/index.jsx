@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
-import Button from '../../components/ui/Button'
+import ShinyButton from '../../components/ui/ShinyButton'
 import ScreenShell from '../../components/ui/ScreenShell'
 import OnboardingFog from '../../components/OnboardingFog'
+import { GlassLayers } from '../../components/ui/LiquidGlass'
 import { usePlayerStore } from '../../store/usePlayerStore'
 
 const EASE = [0.22, 0.8, 0.36, 1]
@@ -224,41 +225,46 @@ export default function Onboarding() {
                 ].map((v) => {
                   const on = selectedVoice === v.id
                   return (
-                    <motion.button
+                    <motion.div
                       key={v.id}
-                      type="button"
-                      onClick={() => setVoice(v.id)}
                       variants={cardItemVar}
                       whileTap={{ scale: 0.98 }}
                       className={[
-                        'group relative flex items-center gap-4 rounded-lg border px-4 py-3.5 text-left transition',
+                        'group relative isolate overflow-hidden rounded-lg border transition',
                         on
                           ? 'border-lilac bg-white/10'
                           : 'border-line-2 bg-white/[0.04] hover:bg-white/[0.08]',
                       ].join(' ')}
                     >
-                      <PlayCircle size={48} />
-                      <div className="flex flex-1 flex-col">
-                        <span className="text-[15px] font-medium text-fg-0">Прослушать</span>
-                        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3">
-                          {v.label}
-                        </span>
-                      </div>
-                      {on && (
-                        <span
-                          className="flex h-6 w-6 items-center justify-center rounded-full"
-                          style={{
-                            background: 'oklch(0.72 0.13 160 / 0.25)',
-                            border: '1px solid oklch(0.72 0.13 160 / 0.5)',
-                            color: 'oklch(0.85 0.13 160)',
-                          }}
-                        >
-                          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
-                            <path d="M5 12l4 4L19 7" />
-                          </svg>
-                        </span>
-                      )}
-                    </motion.button>
+                      <GlassLayers radius="rounded-lg" />
+                      <button
+                        type="button"
+                        onClick={() => setVoice(v.id)}
+                        className="relative z-10 flex w-full items-center gap-4 px-4 py-3.5 text-left"
+                      >
+                        <PlayCircle size={48} />
+                        <div className="flex flex-1 flex-col">
+                          <span className="text-[15px] font-medium text-fg-0">Прослушать</span>
+                          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3">
+                            {v.label}
+                          </span>
+                        </div>
+                        {on && (
+                          <span
+                            className="flex h-6 w-6 items-center justify-center rounded-full"
+                            style={{
+                              background: 'oklch(0.72 0.13 160 / 0.25)',
+                              border: '1px solid oklch(0.72 0.13 160 / 0.5)',
+                              color: 'oklch(0.85 0.13 160)',
+                            }}
+                          >
+                            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
+                              <path d="M5 12l4 4L19 7" />
+                            </svg>
+                          </span>
+                        )}
+                      </button>
+                    </motion.div>
                   )
                 })}
               </motion.div>
@@ -290,41 +296,46 @@ export default function Onboarding() {
                 {MUSIC.map((m) => {
                   const on = selectedMusic === m.id
                   return (
-                    <motion.button
+                    <motion.div
                       key={m.id}
-                      type="button"
-                      onClick={() => setMusic(m.id)}
                       variants={cardItemVar}
                       whileTap={{ scale: 0.98 }}
                       className={[
-                        'group relative flex items-center gap-4 rounded-lg border px-4 py-3.5 text-left transition',
+                        'group relative isolate overflow-hidden rounded-lg border transition',
                         on
                           ? 'border-lilac bg-white/10'
                           : 'border-line-2 bg-white/[0.04] hover:bg-white/[0.08]',
                       ].join(' ')}
                     >
-                      <PlayCircle size={48} />
-                      <div className="flex flex-1 flex-col">
-                        <span className="text-[15px] font-medium text-fg-0">Прослушать</span>
-                        <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3">
-                          {m.title}
-                        </span>
-                      </div>
-                      {on && (
-                        <span
-                          className="flex h-6 w-6 items-center justify-center rounded-full"
-                          style={{
-                            background: 'oklch(0.72 0.13 160 / 0.25)',
+                      <GlassLayers radius="rounded-lg" />
+                      <button
+                        type="button"
+                        onClick={() => setMusic(m.id)}
+                        className="relative z-10 flex w-full items-center gap-4 px-4 py-3.5 text-left"
+                      >
+                        <PlayCircle size={48} />
+                        <div className="flex flex-1 flex-col">
+                          <span className="text-[15px] font-medium text-fg-0">Прослушать</span>
+                          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3">
+                            {m.title}
+                          </span>
+                        </div>
+                        {on && (
+                          <span
+                            className="flex h-6 w-6 items-center justify-center rounded-full"
+                            style={{
+                              background: 'oklch(0.72 0.13 160 / 0.25)',
                             border: '1px solid oklch(0.72 0.13 160 / 0.5)',
                             color: 'oklch(0.85 0.13 160)',
                           }}
                         >
-                          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
-                            <path d="M5 12l4 4L19 7" />
-                          </svg>
-                        </span>
-                      )}
-                    </motion.button>
+                            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
+                              <path d="M5 12l4 4L19 7" />
+                            </svg>
+                          </span>
+                        )}
+                      </button>
+                    </motion.div>
                   )
                 })}
               </motion.div>
@@ -350,29 +361,27 @@ export default function Onboarding() {
             }}
           >
             {step < 2 && (
-              <Button size="lg" fullWidth onClick={() => setStep(step + 1)}>
+              <ShinyButton fullWidth onClick={() => setStep(step + 1)}>
                 Далее
-              </Button>
+              </ShinyButton>
             )}
             {step === 2 && (
-              <Button
-                size="lg"
+              <ShinyButton
                 fullWidth
                 disabled={!selectedVoice}
                 onClick={() => setStep(3)}
               >
                 Далее
-              </Button>
+              </ShinyButton>
             )}
             {step === 3 && (
-              <Button
-                size="lg"
+              <ShinyButton
                 fullWidth
                 disabled={!selectedMusic}
                 onClick={finish}
               >
                 Начать
-              </Button>
+              </ShinyButton>
             )}
           </motion.div>
         </AnimatePresence>

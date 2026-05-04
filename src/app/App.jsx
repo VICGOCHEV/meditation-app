@@ -4,6 +4,7 @@ import Lenis from 'lenis'
 import AppRoutes from './routes'
 import AppBackground from '../components/AppBackground'
 import Preloader from '../components/Preloader'
+import { LiquidGlassFilter } from '../components/ui/LiquidGlass'
 import { useAuthStore } from '../store/useAuthStore'
 
 function AuthGate() {
@@ -80,6 +81,7 @@ export default function App() {
   return (
     <>
       <AppBackground />
+      <LiquidGlassFilter />
       <AuthGate />
       {preloaderDone && <AppRoutes />}
       <Preloader onDone={() => setPreloaderDone(true)} />

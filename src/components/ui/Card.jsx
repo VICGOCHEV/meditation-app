@@ -1,4 +1,5 @@
 import Button from './Button'
+import { LiquidGlass } from './LiquidGlass'
 
 function PlayIcon() {
   return (
@@ -29,7 +30,7 @@ export default function Card({
   lockedLabel,
 }) {
   return (
-    <div className={`card-practice ${locked ? 'opacity-60' : ''}`}>
+    <LiquidGlass radius="rounded-lg" className={`card-practice ${locked ? 'opacity-60' : ''}`}>
       {badge && (
         <span className="absolute right-3 top-3 z-10 rounded-full border border-line-2 bg-white/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-fg-1">
           {badge}
@@ -81,6 +82,6 @@ export default function Card({
           </div>
         </div>
       )}
-    </div>
+    </LiquidGlass>
   )
 }

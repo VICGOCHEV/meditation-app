@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion'
+import ShinyButton from './ShinyButton'
 
 const sizeMap = { sm: 'btn-sm', md: 'btn-md', lg: 'btn-lg' }
 const variantMap = {
-  primary: 'btn-primary',
   secondary: 'btn-secondary',
   ghost: 'btn-ghost',
   destructive: 'btn-destructive',
@@ -26,6 +26,24 @@ export default function Button({
   ...rest
 }) {
   const isDisabled = disabled || loading
+
+  // Primary variant uses ShinyButton across the whole app — single source of
+  // visual truth for our main CTA. Pass loading/disabled/onClick through.
+  if (variant === 'primary') {
+    return (
+      <ShinyButton
+        type={type}
+        disabled={isDisabled}
+        fullWidth={fullWidth}
+        className={className}
+        {...rest}
+      >
+        {loading ? <Spinner /> : null}
+        {children}
+      </ShinyButton>
+    )
+  }
+
   return (
     <motion.button
       type={type}
