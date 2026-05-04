@@ -49,7 +49,7 @@ export default function AppRoutes() {
         initial={direction.initial}
         animate={direction.animate}
         exit={direction.exit}
-        transition={{ duration: 0.7, ease: EASE }}
+        transition={{ duration: 0.95, ease: EASE }}
         className="min-h-dvh w-full"
       >
         <Routes location={location}>

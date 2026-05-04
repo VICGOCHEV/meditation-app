@@ -4,8 +4,9 @@ import { motion } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
-import BottomNav from '../../components/ui/BottomNav'
 import VoiceMusicModal from '../../components/VoiceMusicModal'
+import OnboardingFog from '../../components/OnboardingFog'
+import AnimatedSubscribeButton from '../../components/ui/AnimatedSubscribeButton'
 import { mockPractices } from '../../api/mock'
 import { useCheckinStore } from '../../store/useCheckinStore'
 import { useProgression } from '../../hooks/useProgression'
@@ -36,11 +37,11 @@ function CompanionsCounter() {
     <div className="panel flex items-center justify-between">
       <div>
         <div className="label-mono">Соратники</div>
-        <div className="mt-1 text-[14px] text-fg-2">Сейчас в практике</div>
+        <div className="mt-1 text-[14px] text-lilac/80">Сейчас в практике</div>
       </div>
       <div className="text-right">
         <div className="font-serif text-3xl text-fg-0">{count}</div>
-        <div className="text-[12px] text-fg-3">человек</div>
+        <div className="text-[12px] text-lilac">человек</div>
       </div>
     </div>
   )
@@ -53,7 +54,7 @@ function SectionHead({ num, title, subtitle }) {
         <div className="label-mono">{num}</div>
         <h2 className="font-serif text-[22px] text-fg-0">{title}</h2>
       </div>
-      <div className="text-right text-[12px] text-fg-3">{subtitle}</div>
+      <div className="text-right text-[12px] text-lilac">{subtitle}</div>
     </div>
   )
 }
@@ -63,7 +64,8 @@ function IconButton({ onClick, label, children }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex h-11 w-11 items-center justify-center rounded-full border border-line-2 bg-white/5 text-fg-0 hover:bg-white/10"
+      className="flex h-11 w-11 items-center justify-center rounded-full border-0 bg-bg-1/60 text-lilac transition hover:bg-bg-1/80"
+      style={{ boxShadow: '0 0 22px -4px rgba(97,69,194,.45)' }}
       aria-label={label}
     >
       {children}
@@ -112,6 +114,7 @@ export default function Home() {
 
   return (
     <ScreenShell withBottomNav>
+      <OnboardingFog density={1.2} />
       <header className="mb-6 flex items-center justify-between">
         <IconButton onClick={() => setSettingsOpen(true)} label="Настройки">
           <SettingsIcon />
@@ -133,7 +136,11 @@ export default function Home() {
         >
           {mockPractices.relaxation.map((p) => (
             <motion.div key={p.id} variants={cardItem}>
-              <Card title={p.title} duration={p.duration} onPlay={() => goPlay(p.id)} />
+              <Card
+                title={p.title}
+                duration={p.duration}
+                onPlay={() => goPlay(p.id)}
+              />
             </motion.div>
           ))}
         </motion.div>
@@ -148,10 +155,7 @@ export default function Home() {
               Оформи подписку, чтобы открыть все практики
             </div>
             <div className="mt-3">
-              {/* Excluded from app-wide ShinyButton — kept compact and inline. */}
-              <Button size="sm" variant="secondary" onClick={() => navigate('/subscription')}>
-                Оформить подписку
-              </Button>
+              <AnimatedSubscribeButton onClick={() => navigate('/subscription')} />
             </div>
           </div>
         )}
@@ -208,8 +212,6 @@ export default function Home() {
       </section>
 
       <VoiceMusicModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-
-      <BottomNav />
     </ScreenShell>
   )
 }

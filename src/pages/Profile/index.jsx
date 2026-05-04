@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
-import BottomNav from '../../components/ui/BottomNav'
 import TrackerCalendar from '../../components/TrackerCalendar'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useProgressStore } from '../../store/useProgressStore'
@@ -188,7 +187,6 @@ export default function Profile() {
         </Button>
       </div>
 
-      <BottomNav />
     </ScreenShell>
   )
 }

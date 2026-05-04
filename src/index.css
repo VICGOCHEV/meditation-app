@@ -80,22 +80,74 @@ html.lenis body {
     @apply w-full rounded-sm border border-line-2 bg-black/30 text-fg-0 px-4 py-3.5 text-[15px] outline-none transition;
   }
   .field-input:focus {
-    border-color: oklch(0.78 0.16 300);
-    box-shadow: 0 0 0 4px oklch(0.55 0.18 300 / 0.2);
+    border-color: #6145c2;
+    box-shadow: 0 0 0 4px rgba(97,69,194,.25);
   }
   .label-mono {
-    @apply font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3;
+    @apply font-mono text-[11px] uppercase tracking-[0.18em] text-lilac;
   }
   .card-practice {
-    @apply relative overflow-hidden rounded-lg border border-line-2 p-5 flex flex-col justify-between min-h-[200px];
-    background: linear-gradient(180deg, rgba(45,30,80,.6), rgba(25,17,50,.85));
+    @apply relative overflow-hidden rounded-lg p-5 flex flex-col justify-between min-h-[200px];
+    background: rgba(14,10,28,.85);
+    border: none;
+    box-shadow:
+      inset 0 0 0 1px rgba(180,160,255,.06),
+      0 0 32px -10px rgba(97,69,194,.28);
   }
-  .card-practice::before {
-    content: '';
-    position: absolute;
-    inset: -40%;
-    background: radial-gradient(circle at 70% 30%, oklch(0.55 0.2 300 / 0.4), transparent 50%);
-    pointer-events: none;
-  }
+  .card-practice::before { content: none; }
   .card-practice > * { position: relative; }
+}
+
+/* Floating violet glow that drifts inside liquid-glass cards. */
+@keyframes liquidFloat {
+  0%   { transform: translate3d(-12%, -8%, 0)  scale(1.05); }
+  25%  { transform: translate3d( 18%,  6%, 0)  scale(1.18); }
+  50%  { transform: translate3d(  8%, 22%, 0)  scale(1.10); }
+  75%  { transform: translate3d(-18%, 12%, 0)  scale(1.22); }
+  100% { transform: translate3d(-12%, -8%, 0)  scale(1.05); }
+}
+.liquid-card-glow {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(45% 45% at 50% 50%, #6145c2 0%, rgba(97,69,194,.55) 35%, transparent 70%);
+  filter: blur(22px);
+  opacity: .85;
+  animation: liquidFloat 14s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+/* Conic-gradient border that rotates around the card edge. Same trick as
+   ShinyButton — uses @property so the angle interpolates smoothly. */
+@property --card-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes liquidCardAngle {
+  to { --card-angle: 360deg; }
+}
+.liquid-card-border {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--card-angle),
+    rgba(180,160,255,.10) 0deg,
+    rgba(180,160,255,.10) 200deg,
+    #6145c2 250deg,
+    #d6c8ff 290deg,
+    #6145c2 330deg,
+    rgba(180,160,255,.10) 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: liquidCardAngle 5s linear infinite;
 }

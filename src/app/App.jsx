@@ -4,8 +4,19 @@ import Lenis from 'lenis'
 import AppRoutes from './routes'
 import AppBackground from '../components/AppBackground'
 import Preloader from '../components/Preloader'
+import BottomNav from '../components/ui/BottomNav'
 import { LiquidGlassFilter } from '../components/ui/LiquidGlass'
 import { useAuthStore } from '../store/useAuthStore'
+
+// Routes where the persistent BottomNav should appear. Lifted out of the
+// pages so the bar stays mounted across navigation — this lets Framer
+// Motion `layoutId` animate the active pill from one tab to the other
+// instead of cross-fading the whole nav.
+const NAV_ROUTES = ['/', '/profile']
+function ShouldShowNav() {
+  const { pathname } = useLocation()
+  return NAV_ROUTES.includes(pathname) ? <BottomNav /> : null
+}
 
 function AuthGate() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -84,6 +95,7 @@ export default function App() {
       <LiquidGlassFilter />
       <AuthGate />
       {preloaderDone && <AppRoutes />}
+      {preloaderDone && <ShouldShowNav />}
       <Preloader onDone={() => setPreloaderDone(true)} />
     </>
   )

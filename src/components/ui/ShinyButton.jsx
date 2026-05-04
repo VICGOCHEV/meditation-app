@@ -34,7 +34,7 @@ const SHINY_CSS = `
   --shiny-cta-bg: #14102a;
   --shiny-cta-bg-subtle: #2a1f4d;
   --shiny-cta-fg: #f4f0ff;
-  --shiny-cta-highlight: oklch(0.66 0.18 300);
+  --shiny-cta-highlight: #6145c2;
   --shiny-cta-highlight-subtle: oklch(0.78 0.12 312);
   --animation: gradient-angle linear infinite;
   --duration: 3s;

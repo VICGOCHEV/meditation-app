@@ -21,7 +21,7 @@ export default {
           DEFAULT: 'rgba(180,160,255,0.09)',
           2: 'rgba(180,160,255,0.16)',
         },
-        violet: { DEFAULT: 'oklch(0.66 0.18 300)' },
+        violet: { DEFAULT: '#6145c2' },
         indigo: { DEFAULT: 'oklch(0.60 0.17 278)' },
         lilac: { DEFAULT: 'oklch(0.78 0.12 312)' },
         ember: { DEFAULT: 'oklch(0.78 0.14 60)' },

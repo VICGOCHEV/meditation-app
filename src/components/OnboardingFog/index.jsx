@@ -22,6 +22,7 @@ const fragment = /* glsl */ `
   varying vec2 vUv;
   uniform float uTime;
   uniform vec2  uResolution;
+  uniform float uDensity;
 
   float hash(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
@@ -70,6 +71,13 @@ const fragment = /* glsl */ `
     float smokeGate = smoothstep(0.18, 0.80, smoke);
     float halo = vign * smokeGate * mix(0.85, 1.45, wisps);
     halo += vign * pow(smoke, 4.0) * 0.55;
+    halo *= uDensity;
+    // 60-s breathing cycle: full at t=0/60, 1/5 strength at t=30. Cancels
+    // the natural fbm peak that builds up around the half-minute mark and
+    // gives the loop a perceptible ebb-and-flow without altering motion.
+    // 2π / 60 ≈ 0.10472
+    float modCycle = 0.6 + 0.4 * cos(uTime * 0.10472);
+    halo *= modCycle;
     halo = clamp(halo, 0.0, 1.0);
 
     vec3 cMid    = vec3(0.520, 0.300, 0.950);
@@ -84,7 +92,7 @@ const fragment = /* glsl */ `
   }
 `
 
-function FogMesh() {
+function FogMesh({ density }) {
   const matRef = useRef(null)
   const { size } = useThree()
 
@@ -92,6 +100,7 @@ function FogMesh() {
     () => ({
       uTime: { value: 0 },
       uResolution: { value: new THREE.Vector2(size.width, size.height) },
+      uDensity: { value: density },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []
@@ -101,6 +110,7 @@ function FogMesh() {
     if (!matRef.current) return
     matRef.current.uniforms.uTime.value = state.clock.elapsedTime
     matRef.current.uniforms.uResolution.value.set(state.size.width, state.size.height)
+    matRef.current.uniforms.uDensity.value = density
   })
 
   return (
@@ -119,7 +129,7 @@ function FogMesh() {
   )
 }
 
-export default function OnboardingFog() {
+export default function OnboardingFog({ density = 1 }) {
   return (
     <div
       aria-hidden="true"
@@ -137,7 +147,7 @@ export default function OnboardingFog() {
         dpr={[0.75, 1.5]}
         style={{ width: '100%', height: '100%', display: 'block' }}
       >
-        <FogMesh />
+        <FogMesh density={density} />
       </Canvas>
     </div>
   )

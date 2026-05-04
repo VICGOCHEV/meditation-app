@@ -67,6 +67,11 @@ const haloFragment = /* glsl */ `
     float smokeGate = smoothstep(0.40, 0.85, smoke);
     float halo = vign * smokeGate * mix(0.55, 1.05, wisps);
     halo += vign * pow(smoke, 6.0) * 0.18;
+    // 60-s breathing cycle: full at t=0/60, 1/5 strength at t=30. Same
+    // logic as OnboardingFog — cancels the natural fbm density bulge.
+    // 2π / 60 ≈ 0.10472
+    float modCycle = 0.6 + 0.4 * cos(uTime * 0.10472);
+    halo *= modCycle;
 
     // Base #11101a
     vec3 cBg    = vec3(0.0667, 0.0627, 0.1020);

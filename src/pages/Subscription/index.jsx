@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
+import AnimatedSubscribeButton from '../../components/ui/AnimatedSubscribeButton'
 import { createSubscription } from '../../api/subscription'
 import { useProgressStore } from '../../store/useProgressStore'
 
@@ -83,15 +84,14 @@ export default function Subscription() {
             </p>
           </div>
 
-          <div className="mt-6">
-            <Button
-              size="lg"
-              fullWidth
-              loading={stage === 'loading'}
+          <div className="mt-6 flex justify-center">
+            <AnimatedSubscribeButton
+              labelIdle="Оформить подписку"
+              labelActive="Обрабатываем платёж"
+              generating={stage === 'loading'}
+              disabled={stage === 'loading'}
               onClick={onPay}
-            >
-              {stage === 'loading' ? 'Обрабатываем платёж…' : 'Оформить подписку'}
-            </Button>
+            />
           </div>
 
           <div id="yukassa-widget" className="mt-6 rounded-md border border-dashed border-line-2 p-6 text-center text-[12px] text-fg-3">
