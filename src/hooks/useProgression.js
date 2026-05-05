@@ -6,13 +6,16 @@ export function useProgression() {
   const unlockedPractices = useProgressStore((s) => s.unlockedPractices)
   const completedPractices = useProgressStore((s) => s.completedPractices)
   const lastDeepAnalysisDate = useProgressStore((s) => s.lastDeepAnalysisDate)
+  const lastKT = useProgressStore((s) => s.lastKT)
+  const ktHistory = useProgressStore((s) => s.ktHistory)
   const bonusUnlocked = useProgressStore((s) => s.bonusUnlocked)
-  const checkBonus = useProgressStore((s) => s.checkBonusEligibility)
+  const bonusProgress = useProgressStore((s) => s.bonusProgress)
 
   const canAnalyze = canDoDeepAnalysis(lastDeepAnalysisDate)
   const daysUntilAnalysis = lastDeepAnalysisDate
     ? Math.max(0, 3 - daysSince(lastDeepAnalysisDate))
     : 0
+  const bonus = bonusProgress()
 
   return {
     subscription,
@@ -21,7 +24,10 @@ export function useProgression() {
     bonusUnlocked,
     canDoDeepAnalysis: canAnalyze,
     daysUntilAnalysis,
-    bonusEligible: checkBonus(),
+    lastKT,
+    ktHistory,
+    bonus,
+    bonusEligible: bonus.eligible,
     isPracticeUnlocked: (id) => unlockedPractices.includes(id),
     isPracticeCompleted: (id) => completedPractices.includes(id),
   }

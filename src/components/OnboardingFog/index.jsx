@@ -72,12 +72,18 @@ const fragment = /* glsl */ `
     float halo = vign * smokeGate * mix(0.85, 1.45, wisps);
     halo += vign * pow(smoke, 4.0) * 0.55;
     halo *= uDensity;
-    // 60-s breathing cycle: full at t=0/60, 1/5 strength at t=30. Cancels
-    // the natural fbm peak that builds up around the half-minute mark and
-    // gives the loop a perceptible ebb-and-flow without altering motion.
-    // 2π / 60 ≈ 0.10472
-    float modCycle = 0.6 + 0.4 * cos(uTime * 0.10472);
-    halo *= modCycle;
+    // 60-s gating window — emulates "stop generating new smoke" instead
+    // of just dimming it. First 30 s of every cycle: full strength.
+    // 30→58 s: smooth dissipate from 1 → 0. 58→60 s: short ramp back
+    // up to 1 to avoid a visible snap on loop. The fbm coordinates
+    // continue to advance in real time, so when generation resumes the
+    // pattern is already different — no awkward repeat.
+    float cycle = mod(uTime, 60.0);
+    float gen = max(
+      1.0 - smoothstep(30.0, 58.0, cycle),
+      smoothstep(58.0, 60.0, cycle)
+    );
+    halo *= gen;
     halo = clamp(halo, 0.0, 1.0);
 
     vec3 cMid    = vec3(0.520, 0.300, 0.950);

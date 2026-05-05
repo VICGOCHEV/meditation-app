@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { todayISO } from '../utils/dateHelpers'
+import { todayISO, countWithinLastDays } from '../utils/dateHelpers'
 
 const KEY = 'progress_state'
 
@@ -98,18 +98,50 @@ export const useProgressStore = create((set, get) => ({
     persist({ ...get(), ...next })
   },
 
-  checkBonusEligibility: () => {
-    const { completedPractices, trackerDays } = get()
-    const allAwarenessDone = awarenessOrder.every((id) => completedPractices.includes(id))
-    return allAwarenessDone && trackerDays.length >= 6
+  // Bonus condition (per spec: "Положительная динамика KT в течение месяца
+  // вместе с отметками в трекере открывает доступ к 1-2 практикам в
+  // 'Авторском' блоке бесплатно"):
+  //  · ≥ 2 KT entries in the last 30 days, average KT ≥ 0.5
+  //  · ≥ 6 tracker days within the same window
+  // Returns the underlying numbers so the UI can render progress bars.
+  bonusProgress: () => {
+    const { ktHistory, trackerDays } = get()
+    const window = 30
+    const recentKT = (ktHistory || []).filter((e) => {
+      const ts = new Date(e.date).getTime()
+      return Number.isFinite(ts) && ts >= Date.now() - window * 86400000
+    })
+    const ktSamples = recentKT.length
+    const ktAvg = ktSamples
+      ? recentKT.reduce((s, e) => s + e.kt, 0) / ktSamples
+      : 0
+    const trackerCount = countWithinLastDays(trackerDays || [], window)
+    const ktReq = 2
+    const trackerReq = 6
+    const eligible =
+      ktSamples >= ktReq && ktAvg >= 0.5 && trackerCount >= trackerReq
+    return {
+      eligible,
+      window,
+      ktSamples,
+      ktReq,
+      ktAvg: Number(ktAvg.toFixed(2)),
+      trackerCount,
+      trackerReq,
+    }
   },
 
+  checkBonusEligibility: () => get().bonusProgress().eligible,
+
   unlockBonus: () => {
-    if (!get().checkBonusEligibility()) return []
+    if (!get().bonusProgress().eligible) return []
+    const already = new Set(get().bonusUnlocked)
     const bonusIds = ['au1', 'au2']
-    const next = { bonusUnlocked: Array.from(new Set([...get().bonusUnlocked, ...bonusIds])) }
+    const newly = bonusIds.filter((id) => !already.has(id))
+    if (!newly.length) return []
+    const next = { bonusUnlocked: [...get().bonusUnlocked, ...newly] }
     set(next)
     persist({ ...get(), ...next })
-    return bonusIds
+    return newly
   },
 }))

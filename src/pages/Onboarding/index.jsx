@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import ShinyButton from '../../components/ui/ShinyButton'
 import ScreenShell from '../../components/ui/ScreenShell'
 import OnboardingFog from '../../components/OnboardingFog'
-import { GlassLayers } from '../../components/ui/LiquidGlass'
 import { usePlayerStore } from '../../store/usePlayerStore'
 
 const EASE = [0.22, 0.8, 0.36, 1]
@@ -67,24 +66,6 @@ function Dots({ count, active }) {
   )
 }
 
-function PlayCircle({ size = 56 }) {
-  return (
-    <span
-      className="flex items-center justify-center rounded-full text-white shadow-glow transition group-hover:brightness-110"
-      style={{
-        width: size,
-        height: size,
-        background:
-          'linear-gradient(180deg, oklch(0.66 0.19 300), oklch(0.50 0.22 285))',
-      }}
-    >
-      <svg viewBox="0 0 24 24" className="h-5 w-5 translate-x-[1px]" fill="currentColor">
-        <path d="M8 5v14l11-7z" />
-      </svg>
-    </span>
-  )
-}
-
 function CheckBadge() {
   return (
     <span
@@ -99,6 +80,81 @@ function CheckBadge() {
         <path d="M5 12l4 4L19 7" />
       </svg>
     </span>
+  )
+}
+
+// Onboarding voice/music picker tile — visually identical to Home
+// practice cards (liquid-glass surface + same violet play button) per
+// the redesign brief, but as a horizontal row with title on the right.
+function ChoiceCard({ title, sub, selected, onSelect }) {
+  // Random animation phase per card so neighbours breathe out of sync.
+  const delay = -(Math.random() * 14).toFixed(2) + 's'
+  const duration = (12 + Math.random() * 6).toFixed(2) + 's'
+  const borderDelay = -(Math.random() * 5).toFixed(2) + 's'
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-pressed={selected}
+      className="relative isolate flex w-full items-center gap-4 overflow-hidden rounded-lg p-4 text-left"
+      style={{
+        boxShadow: selected
+          ? '0 0 36px -6px rgba(97,69,194,.85), inset 0 0 0 1px rgba(216,200,255,.45)'
+          : '0 0 24px -8px rgba(97,69,194,.5), inset 0 0 0 1px rgba(180,160,255,.05)',
+      }}
+    >
+      <span
+        className="liquid-card-glow"
+        style={{ animationDelay: delay, animationDuration: duration }}
+      />
+      <span
+        className="liquid-card-border"
+        style={{ animationDelay: borderDelay }}
+      />
+      {/* No backdrop-filter here on purpose — the SVG turbulence ghost
+          reads as visible white wave artefacts on the empty surface
+          around these tiles (unlike practice cards which sit on a
+          denser background). */}
+
+      {/* Same play button as Card.jsx */}
+      <span
+        className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-lilac"
+        style={{
+          border: '1.5px solid #6145c2',
+          boxShadow:
+            '0 0 18px rgba(97,69,194,.95), 0 0 36px rgba(97,69,194,.55), inset 0 0 10px rgba(97,69,194,.35)',
+        }}
+      >
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      </span>
+
+      <div className="relative z-10 flex flex-1 flex-col">
+        <span className="font-sans text-[16px] font-medium leading-tight text-fg-0">
+          {title}
+        </span>
+        <span className="mt-1 font-mono text-[11px] uppercase tracking-[.18em] text-lilac/70">
+          {sub}
+        </span>
+      </div>
+
+      {selected && (
+        <span
+          className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full"
+          style={{
+            background: 'oklch(0.72 0.13 160 / .25)',
+            border: '1px solid oklch(0.72 0.13 160 / .5)',
+            color: 'oklch(0.85 0.13 160)',
+          }}
+        >
+          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
+            <path d="M5 12l4 4L19 7" />
+          </svg>
+        </span>
+      )}
+    </button>
   )
 }
 
@@ -225,45 +281,13 @@ export default function Onboarding() {
                 ].map((v) => {
                   const on = selectedVoice === v.id
                   return (
-                    <motion.div
-                      key={v.id}
-                      variants={cardItemVar}
-                      whileTap={{ scale: 0.98 }}
-                      className={[
-                        'group relative isolate overflow-hidden rounded-lg border transition',
-                        on
-                          ? 'border-lilac bg-white/10'
-                          : 'border-line-2 bg-white/[0.04] hover:bg-white/[0.08]',
-                      ].join(' ')}
-                    >
-                      <GlassLayers radius="rounded-lg" />
-                      <button
-                        type="button"
-                        onClick={() => setVoice(v.id)}
-                        className="relative z-10 flex w-full items-center gap-4 px-4 py-3.5 text-left"
-                      >
-                        <PlayCircle size={48} />
-                        <div className="flex flex-1 flex-col">
-                          <span className="text-[15px] font-medium text-fg-0">Прослушать</span>
-                          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3">
-                            {v.label}
-                          </span>
-                        </div>
-                        {on && (
-                          <span
-                            className="flex h-6 w-6 items-center justify-center rounded-full"
-                            style={{
-                              background: 'oklch(0.72 0.13 160 / 0.25)',
-                              border: '1px solid oklch(0.72 0.13 160 / 0.5)',
-                              color: 'oklch(0.85 0.13 160)',
-                            }}
-                          >
-                            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
-                              <path d="M5 12l4 4L19 7" />
-                            </svg>
-                          </span>
-                        )}
-                      </button>
+                    <motion.div key={v.id} variants={cardItemVar} whileTap={{ scale: 0.985 }}>
+                      <ChoiceCard
+                        title={v.label}
+                        sub="Прослушать"
+                        selected={on}
+                        onSelect={() => setVoice(v.id)}
+                      />
                     </motion.div>
                   )
                 })}
@@ -296,45 +320,13 @@ export default function Onboarding() {
                 {MUSIC.map((m) => {
                   const on = selectedMusic === m.id
                   return (
-                    <motion.div
-                      key={m.id}
-                      variants={cardItemVar}
-                      whileTap={{ scale: 0.98 }}
-                      className={[
-                        'group relative isolate overflow-hidden rounded-lg border transition',
-                        on
-                          ? 'border-lilac bg-white/10'
-                          : 'border-line-2 bg-white/[0.04] hover:bg-white/[0.08]',
-                      ].join(' ')}
-                    >
-                      <GlassLayers radius="rounded-lg" />
-                      <button
-                        type="button"
-                        onClick={() => setMusic(m.id)}
-                        className="relative z-10 flex w-full items-center gap-4 px-4 py-3.5 text-left"
-                      >
-                        <PlayCircle size={48} />
-                        <div className="flex flex-1 flex-col">
-                          <span className="text-[15px] font-medium text-fg-0">Прослушать</span>
-                          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3">
-                            {m.title}
-                          </span>
-                        </div>
-                        {on && (
-                          <span
-                            className="flex h-6 w-6 items-center justify-center rounded-full"
-                            style={{
-                              background: 'oklch(0.72 0.13 160 / 0.25)',
-                            border: '1px solid oklch(0.72 0.13 160 / 0.5)',
-                            color: 'oklch(0.85 0.13 160)',
-                          }}
-                        >
-                            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
-                              <path d="M5 12l4 4L19 7" />
-                            </svg>
-                          </span>
-                        )}
-                      </button>
+                    <motion.div key={m.id} variants={cardItemVar} whileTap={{ scale: 0.985 }}>
+                      <ChoiceCard
+                        title={m.title}
+                        sub="Прослушать"
+                        selected={on}
+                        onSelect={() => setMusic(m.id)}
+                      />
                     </motion.div>
                   )
                 })}

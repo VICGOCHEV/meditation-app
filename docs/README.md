@@ -1,0 +1,39 @@
+# Meditation App — Documentation
+
+Snapshot of the project as of this Claude Code session
+(Apr 27, 2026, commit `bb98a33` + uncommitted shiny-cta + LiquidGlass work).
+
+## Reading order
+
+Start at the top and stop when you have what you need.
+
+| File | What's in it |
+|---|---|
+| [01-architecture.md](01-architecture.md) | Stack, repo layout, what each file is responsible for. |
+| [02-routes-and-flow.md](02-routes-and-flow.md) | Routing, `AuthGate`, `Preloader` gate, route transitions. |
+| [03-state-management.md](03-state-management.md) | All four Zustand stores with fields, actions, persistence. |
+| [04-components-catalog.md](04-components-catalog.md) | UI + domain components with props and where they're used. |
+| [05-shaders.md](05-shaders.md) | The five GLSL shader components and how they cooperate. |
+| [06-design-tokens.md](06-design-tokens.md) | Palette, typography, spacing, radii, shadows, fonts. |
+| [07-animations.md](07-animations.md) | framer-motion patterns, route + slide transitions, Lenis. |
+| [08-api-and-data.md](08-api-and-data.md) | Mock API contracts, switching to real backend. |
+| [09-formulas.md](09-formulas.md) | ИС / ИТ / ИО / КТ formulas and copy. |
+| [10-deploy.md](10-deploy.md) | Production server, Caddy, GitHub Actions-less flow. |
+| [99-session-changelog.md](99-session-changelog.md) | Chronological log of every iteration in this session. |
+
+## Quick links
+
+- **Live (production):** http://89.105.213.173/
+- **Local dev:** http://localhost:5173/
+- **Repo:** https://github.com/VICGOCHEV/meditation-app
+- **Brief:** `/Users/eblan/Desktop/MED/BRIEF.md`
+- **Original Claude Design output (HTML/CSS prototype):** `/tmp/design-bundle/meditation-app/project/Design System.html`
+
+## TL;DR
+
+Vite + React 18 SPA, Tailwind for the layout/utility layer, Zustand for state,
+Framer Motion + Lenis for motion, Howler for audio, Three.js + R3F for the
+five GLSL shaders that drive the visual identity. Mobile-first, 480 px
+content column, BottomNav with safe-area padding. Mock-mode API
+(`VITE_USE_MOCK=true`) so the app runs without a backend. Deployed on a
+Hetzner-class VPS (Ubuntu 22.04) behind Caddy 2 on port 80; no domain yet.

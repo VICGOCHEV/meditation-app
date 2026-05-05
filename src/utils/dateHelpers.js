@@ -25,6 +25,16 @@ export function canDoDeepAnalysis(lastDate) {
   return !lastDate || daysSince(lastDate) >= 3
 }
 
+// Count entries (ISO date strings or { date }) that fall within the last `n` days.
+export function countWithinLastDays(items, n, getter = (x) => x) {
+  if (!items?.length) return 0
+  const cutoff = Date.now() - n * DAY
+  return items.reduce((acc, x) => {
+    const ts = new Date(getter(x)).getTime()
+    return Number.isFinite(ts) && ts >= cutoff ? acc + 1 : acc
+  }, 0)
+}
+
 export function formatRuDate(dateString) {
   if (!dateString) return ''
   const months = [

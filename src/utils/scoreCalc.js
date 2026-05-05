@@ -45,9 +45,34 @@ export function interpretKT(kt) {
     return {
       text: 'Твоя осознанность растёт. Мысли о будущем стали тише',
       emoji: '🌱',
+      tone: 'progress',
     }
   return {
     text: 'Сейчас время заземления. Практика поможет стабилизировать состояние',
     emoji: '🌿',
+    tone: 'grounding',
   }
+}
+
+// Soft narrative bands for the standalone IT / IO indices.
+// Used on the result screen under each big number.
+export function interpretIT(it) {
+  if (it >= 7.5) return 'Высокая тревожность — нужен расслабляющий контент'
+  if (it >= 5)   return 'Заметный фон — практики дыхания дадут опору'
+  if (it >= 2.5) return 'Низкий фон тревоги'
+  return 'Тревога почти отсутствует'
+}
+export function interpretIO(io) {
+  if (io >= 7.5) return 'Глубокая осознанность — практики работают'
+  if (io >= 5)   return 'Уверенный контакт с настоящим'
+  if (io >= 2.5) return 'Внимание ещё рассеяно — продолжай'
+  return 'Осознанность только просыпается'
+}
+
+// KT-vs-previous delta. Positive = improvement, null when no history.
+export function ktDelta(currentKT, history) {
+  if (!history?.length) return null
+  const prev = history[history.length - 1]?.kt
+  if (prev == null) return null
+  return Number((currentKT - prev).toFixed(2))
 }

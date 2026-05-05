@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
@@ -29,10 +29,43 @@ const COMP_MIN = Number(import.meta.env.VITE_COMPANIONS_MIN || 47)
 const COMP_MAX = Number(import.meta.env.VITE_COMPANIONS_MAX || 312)
 
 function CompanionsCounter() {
-  const count = useMemo(
+  const initial = useMemo(
     () => Math.floor(COMP_MIN + Math.random() * (COMP_MAX - COMP_MIN + 1)),
     []
   )
+  const [count, setCount] = useState(initial)
+  const [bumpKey, setBumpKey] = useState(0)
+  const prevRef = useRef(initial)
+
+  // Live drift: every 4-7 s the counter shifts by a small random delta,
+  // skewed slightly upward so the average inches up over a session.
+  // On increase the digit pops (scale 1 → 1.18 → 1) for a beat.
+  useEffect(() => {
+    let cancelled = false
+    function schedule() {
+      const wait = 4000 + Math.random() * 3000
+      setTimeout(() => {
+        if (cancelled) return
+        // Skew: ±[2..3] down, +[1..4] up — slight positive bias.
+        const r = Math.random()
+        const delta = r < 0.45
+          ? -(2 + Math.floor(Math.random() * 2)) // −2..−3
+          : 1 + Math.floor(Math.random() * 4)     // +1..+4
+        setCount((c) => {
+          const next = Math.max(COMP_MIN, Math.min(COMP_MAX, c + delta))
+          if (next > prevRef.current) setBumpKey((k) => k + 1)
+          prevRef.current = next
+          return next
+        })
+        schedule()
+      }, wait)
+    }
+    schedule()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="panel flex items-center justify-between">
       <div>
@@ -40,7 +73,16 @@ function CompanionsCounter() {
         <div className="mt-1 text-[14px] text-lilac/80">Сейчас в практике</div>
       </div>
       <div className="text-right">
-        <div className="font-serif text-3xl text-fg-0">{count}</div>
+        <motion.div
+          key={bumpKey}
+          initial={{ scale: 1 }}
+          animate={{ scale: [1, 1.18, 1] }}
+          transition={{ duration: 0.55, ease: [0.22, 0.8, 0.36, 1], times: [0, 0.45, 1] }}
+          className="font-serif text-3xl text-fg-0 inline-block"
+          style={{ transformOrigin: 'right center' }}
+        >
+          {count}
+        </motion.div>
         <div className="text-[12px] text-lilac">человек</div>
       </div>
     </div>

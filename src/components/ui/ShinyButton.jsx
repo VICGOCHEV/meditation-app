@@ -79,8 +79,7 @@ const SHINY_CSS = `
 }
 
 .shiny-cta::before,
-.shiny-cta::after,
-.shiny-cta span::before {
+.shiny-cta::after {
   content: "";
   pointer-events: none;
   position: absolute;
@@ -137,16 +136,6 @@ const SHINY_CSS = `
   position: relative;
 }
 
-.shiny-cta span::before {
-  --size: calc(100% + 1rem);
-  width: var(--size);
-  height: var(--size);
-  box-shadow: inset 0 -1ex 2rem 4px var(--shiny-cta-highlight);
-  opacity: 0;
-  transition: opacity var(--transition);
-  animation: calc(var(--duration) * 1.5) breathe linear infinite;
-}
-
 .shiny-cta,
 .shiny-cta::before,
 .shiny-cta::after {
@@ -166,10 +155,6 @@ const SHINY_CSS = `
 .shiny-cta:not(:disabled):is(:hover, :focus-visible)::before,
 .shiny-cta:not(:disabled):is(:hover, :focus-visible)::after {
   animation-play-state: running;
-}
-
-.shiny-cta:not(:disabled):is(:hover, :focus-visible) span::before {
-  opacity: 1;
 }
 
 @keyframes gradient-angle {

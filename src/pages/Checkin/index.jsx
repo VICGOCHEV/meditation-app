@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import Button from '../../components/ui/Button'
-import Slider from '../../components/ui/Slider'
+import DialSlider from '../../components/ui/DialSlider'
 import ScreenShell from '../../components/ui/ScreenShell'
 import { useCheckinStore } from '../../store/useCheckinStore'
 import { interpretIS } from '../../utils/scoreCalc'
@@ -20,6 +20,54 @@ const stepVariants = {
     animate: { opacity: 1, x: 0 },
     exit: { opacity: 0, x: 48 },
   },
+}
+
+// Pictogram per IS state — rendered as a glowing inline SVG so we
+// reuse the violet halo treatment from the rest of the app instead of
+// emoji.
+function StateIcon({ state, size = 96 }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: '0 0 64 64',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.4,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+  }
+  if (state === 'Шторм') {
+    return (
+      <svg {...common}>
+        <path d="M14 30c-3 0-6-2-6-6s2-7 7-7c1-5 6-9 12-9 7 0 12 5 12 11 4 0 8 4 8 8s-3 7-8 7H14z" fill="rgba(216,200,255,.10)" />
+        <path d="M22 42l-5 12M32 42l-3 8M42 42l-5 12" stroke="#d8c8ff" strokeWidth={1.7} />
+      </svg>
+    )
+  }
+  if (state === 'Ясность') {
+    return (
+      <svg {...common}>
+        <circle cx="32" cy="32" r="10" fill="rgba(216,200,255,.18)" />
+        <path d="M32 8v8M32 48v8M8 32h8M48 32h8M14 14l6 6M44 44l6 6M14 50l6-6M44 20l6-6" stroke="#d8c8ff" />
+      </svg>
+    )
+  }
+  if (state === 'Поток') {
+    return (
+      <svg {...common}>
+        <path d="M8 34c8-8 16-8 24 0s16 8 24 0M8 22c8-8 16-8 24 0s16 8 24 0M8 46c8-8 16-8 24 0s16 8 24 0" />
+      </svg>
+    )
+  }
+  // Туман — default
+  return (
+    <svg {...common}>
+      <path
+        d="M18 38c-5 0-9-3-9-8s4-8 9-8c0-5 5-10 11-10 7 0 11 5 12 11 5 0 9 3 9 8s-4 7-9 7H18z"
+        fill="rgba(216,200,255,.18)"
+      />
+    </svg>
+  )
 }
 
 const STATE_NAMES = ['Шторм', 'Туман', 'Ясность', 'Поток']
@@ -49,20 +97,37 @@ function ResultScreen({ result, onContinue }) {
   return (
     <ScreenShell>
       <div className="flex min-h-[80dvh] flex-col items-center justify-center text-center">
+        {/* Top pill chip — «ИНДЕКС СОСТОЯНИЯ · 20/40» */}
         <motion.div
-          className="label-mono mb-3 text-lilac"
           initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: phase === 'settled' ? 1 : 0.4, y: 0 }}
-          transition={{ duration: 0.9, ease: EASE, delay: phase === 'settled' ? 0.1 : 0 }}
+          animate={{
+            opacity: phase === 'settled' ? 1 : 0.55,
+            y: 0,
+          }}
+          transition={{ duration: 0.7, ease: EASE, delay: phase === 'settled' ? 0.1 : 0 }}
+          className="inline-flex items-center gap-2 rounded-full px-4 py-2"
+          style={{
+            background: 'rgba(97,69,194,.15)',
+            border: '1px solid rgba(180,160,255,.28)',
+            boxShadow:
+              '0 0 18px -4px rgba(97,69,194,.55), inset 0 0 14px rgba(97,69,194,.18)',
+          }}
         >
-          Индекс состояния · {result.IS}/40
+          <span
+            className="inline-block h-1.5 w-1.5 rounded-full"
+            style={{ background: '#d8c8ff', boxShadow: '0 0 8px #6145c2' }}
+          />
+          <span className="font-mono text-[11px] uppercase tracking-[.18em] text-lilac">
+            Индекс состояния · {result.IS}/40
+          </span>
         </motion.div>
 
-        <div className="relative h-[72px] w-full overflow-hidden">
+        {/* Giant title (cycles through state names, then settles) */}
+        <div className="relative mt-8 h-[80px] w-full overflow-hidden">
           <AnimatePresence>
             <motion.h1
               key={displayed + (phase === 'cycling' ? `-${tickIdx}` : '-final')}
-              className="absolute inset-0 flex items-center justify-center font-serif text-[52px] font-light leading-none text-fg-0"
+              className="absolute inset-0 flex items-center justify-center font-serif text-[64px] font-light leading-none text-fg-0"
               initial={{ opacity: 0, y: 18, filter: 'blur(10px)' }}
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               exit={{ opacity: 0, y: -18, filter: 'blur(10px)' }}
@@ -77,11 +142,30 @@ function ResultScreen({ result, onContinue }) {
           </AnimatePresence>
         </div>
 
+        {/* Glowing icon below the title — initial highlight pulse, then
+            steady breathing glow forever (CSS keyframe chain). */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: phase === 'settled' ? 1 : 0 }}
+          transition={{ duration: 0.4, ease: EASE, delay: phase === 'settled' ? 0.25 : 0 }}
+          className="mt-8 text-lilac"
+        >
+          <div
+            key={phase === 'settled' ? 'live' : 'pre'}
+            className={phase === 'settled' ? 'state-icon-reveal' : ''}
+          >
+            <StateIcon state={result.state} />
+          </div>
+        </motion.div>
+
         <motion.p
-          className="mt-8 max-w-sm text-[15px] leading-relaxed text-fg-1"
+          className="mt-10 max-w-sm text-[15px] leading-relaxed text-fg-1"
           initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: phase === 'settled' ? 1 : 0, y: phase === 'settled' ? 0 : 12 }}
-          transition={{ duration: 0.9, ease: EASE, delay: phase === 'settled' ? 0.4 : 0 }}
+          animate={{
+            opacity: phase === 'settled' ? 1 : 0,
+            y: phase === 'settled' ? 0 : 12,
+          }}
+          transition={{ duration: 0.9, ease: EASE, delay: phase === 'settled' ? 0.55 : 0 }}
         >
           {result.text}
         </motion.p>
@@ -89,8 +173,11 @@ function ResultScreen({ result, onContinue }) {
         <motion.div
           className="mt-10 w-full"
           initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: phase === 'settled' ? 1 : 0, y: phase === 'settled' ? 0 : 16 }}
-          transition={{ duration: 0.8, ease: EASE, delay: phase === 'settled' ? 0.7 : 0 }}
+          animate={{
+            opacity: phase === 'settled' ? 1 : 0,
+            y: phase === 'settled' ? 0 : 16,
+          }}
+          transition={{ duration: 0.8, ease: EASE, delay: phase === 'settled' ? 0.85 : 0 }}
         >
           <Button size="lg" fullWidth onClick={onContinue}>
             Начать практику
@@ -105,26 +192,18 @@ const QUESTIONS = [
   {
     title: 'Прошлое',
     question: 'Насколько сильно мысли о прошлом отвлекают тебя сейчас?',
-    left: '0 — совсем нет',
-    right: '10 — постоянно там',
   },
   {
     title: 'Будущее',
     question: 'Как часто ты ловишь себя на тревожном планировании?',
-    left: '0 — живу моментом',
-    right: '10 — живу в «завтра»',
   },
   {
     title: 'Беспокойство',
     question: 'Оцени свой текущий уровень фонового беспокойства',
-    left: '0 — абсолютное спокойствие',
-    right: '10 — сильная тревога',
   },
   {
     title: 'Тело',
     question: 'Чувствуешь ли ты физическое напряжение в плечах, лице или животе?',
-    left: '0 — тело расслаблено',
-    right: '10 — всё сковано',
   },
 ]
 
@@ -146,7 +225,6 @@ function Progress({ step, total }) {
 
 export default function Checkin() {
   const navigate = useNavigate()
-  const todayDone = useCheckinStore((s) => s.todayCheckinDone)
   const completeCheckin = useCheckinStore((s) => s.completeCheckin)
 
   const [step, setStep] = useState(0)
@@ -157,8 +235,6 @@ export default function Checkin() {
   prevStepRef.current = step
 
   useEffect(() => {
-    // Only redirect if checkin was already done BEFORE entering this screen.
-    // After completing it on this screen we keep the result visible.
     if (useCheckinStore.getState().todayCheckinDone) {
       navigate('/', { replace: true })
     }
@@ -184,8 +260,6 @@ export default function Checkin() {
 
   if (result) return <ResultScreen result={result} onContinue={() => navigate('/')} />
 
-
-
   const q = QUESTIONS[step]
 
   return (
@@ -201,25 +275,21 @@ export default function Checkin() {
               animate={stepVariants[direction].animate}
               exit={stepVariants[direction].exit}
               transition={{ duration: 0.65, ease: EASE }}
+              className="absolute inset-0 flex flex-col"
             >
-              <div className="label-mono">{q.title}</div>
-              <h1 className="mt-2 font-serif text-[26px] leading-tight text-fg-0">
-                {step === 0 ? 'Как ты сейчас?' : q.question}
+              <div className="font-mono text-[11px] uppercase tracking-[.22em] text-lilac">
+                {q.title}
+              </div>
+              <h1 className="mt-3 font-serif text-[26px] leading-tight text-fg-0">
+                {q.question}
               </h1>
-              {step > 0 && (
-                <p className="mt-3 text-[14px] text-fg-2">Займёт меньше минуты</p>
-              )}
+              <p className="mt-2 text-[14px] text-fg-2">Займёт меньше минуты</p>
 
-              <div className="mt-10">
-                {step === 0 && (
-                  <p className="mb-6 text-[15px] text-fg-1">{q.question}</p>
-                )}
-                <Slider
-                  value={answers[step]}
-                  onChange={setAnswer}
-                  leftLabel={q.left}
-                  rightLabel={q.right}
-                />
+              {/* Dial fills the remaining vertical space and is locked
+                  to the centre regardless of how the question text
+                  wraps above it. */}
+              <div className="flex flex-1 items-center justify-center">
+                <DialSlider value={answers[step]} onChange={setAnswer} />
               </div>
             </motion.div>
           </AnimatePresence>

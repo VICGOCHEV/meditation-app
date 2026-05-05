@@ -118,6 +118,34 @@ html.lenis body {
   mix-blend-mode: screen;
 }
 
+/* Checkin-result state-icon reveal: brief brighter highlight on first
+   appearance (1.4 s ease-out), then a slow steady breathing glow that
+   loops forever. Used by the «Шторм / Туман / Ясность / Поток» SVG
+   pictograms on the daily-checkin result screen. */
+@keyframes stateIconHighlight {
+  0% {
+    filter: drop-shadow(0 0 4px rgba(97,69,194,.6)) drop-shadow(0 0 12px rgba(216,200,255,.4));
+    transform: scale(0.92);
+  }
+  35% {
+    filter: drop-shadow(0 0 30px rgba(97,69,194,1)) drop-shadow(0 0 60px rgba(216,200,255,.8));
+    transform: scale(1.08);
+  }
+  100% {
+    filter: drop-shadow(0 0 14px rgba(97,69,194,.7)) drop-shadow(0 0 28px rgba(216,200,255,.4));
+    transform: scale(1);
+  }
+}
+@keyframes stateIconBreathe {
+  0%, 100% { filter: drop-shadow(0 0 14px rgba(97,69,194,.55)) drop-shadow(0 0 28px rgba(216,200,255,.30)); }
+  50%      { filter: drop-shadow(0 0 22px rgba(97,69,194,.85)) drop-shadow(0 0 44px rgba(216,200,255,.50)); }
+}
+.state-icon-reveal {
+  animation:
+    stateIconHighlight 1.4s ease-out forwards,
+    stateIconBreathe 4s ease-in-out infinite 1.4s;
+}
+
 /* Conic-gradient border that rotates around the card edge. Same trick as
    ShinyButton — uses @property so the angle interpolates smoothly. */
 @property --card-angle {

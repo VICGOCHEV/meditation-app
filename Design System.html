@@ -1,0 +1,1887 @@
+<!DOCTYPE html><html lang="ru"><head>
+
+
+
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=1280">
+<title>Meditation · Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ——— TOKENS ——— */
+  :root{
+    /* Background — deep indigo-violet, never pure black */
+    --bg-0:   #0a0714;   /* base canvas */
+    --bg-1:   #110c20;   /* card */
+    --bg-2:   #1a1330;   /* raised */
+    --bg-3:   #231a42;   /* overlay */
+    --line:   rgba(180,160,255,0.09);
+    --line-2: rgba(180,160,255,0.16);
+
+    /* Foreground — warm off-white, never pure white */
+    --fg-0:   #f4f0ff;
+    --fg-1:   #d9d2f0;
+    --fg-2:   #a99ecb;
+    --fg-3:   #6e6290;
+    --fg-4:   #463e62;
+
+    /* Accents — single hue family, chroma ≈ 0.14 */
+    --acc-violet: oklch(0.66 0.18 300);   /* primary */
+    --acc-indigo: oklch(0.60 0.17 278);
+    --acc-lilac:  oklch(0.78 0.12 312);
+    --acc-ember:  oklch(0.78 0.14 60);    /* stray warm — used for streak only */
+
+    /* Semantic */
+    --focus:  oklch(0.78 0.16 300);
+    --ok:     oklch(0.72 0.13 160);
+    --warn:   oklch(0.78 0.14 60);
+    --err:    oklch(0.66 0.18 20);
+
+    /* Radii */
+    --r-xs: 6px;
+    --r-sm: 10px;
+    --r-md: 16px;
+    --r-lg: 22px;
+    --r-xl: 32px;
+    --r-full: 999px;
+    --font-display: 'Manrope', system-ui, sans-serif;
+    --acc-violet-hex: #6145c2; /* current literal brand violet (sync with tailwind.config.js) */
+
+    /* Shadow — deep violet glow, not grey */
+    --shadow-1: 0 1px 2px rgba(0,0,0,.5);
+    --shadow-2: 0 10px 40px -12px rgba(70,40,150,.55);
+    --shadow-glow: 0 0 60px -10px oklch(0.66 0.18 300 / 0.55);
+
+    --fs-body: 15px;
+  }
+
+  *{ box-sizing: border-box; }
+  html,body{
+    margin:0; padding:0;
+    background: var(--bg-0);
+    color: var(--fg-1);
+    font: 400 var(--fs-body)/1.55 'Manrope', system-ui, sans-serif;
+    font-feature-settings: "ss01","cv11";
+    -webkit-font-smoothing: antialiased;
+  }
+  body{
+    background:
+      radial-gradient(900px 600px at 85% -200px, oklch(0.35 0.18 290 / 0.45), transparent 60%),
+      radial-gradient(700px 500px at -200px 40%, oklch(0.30 0.16 270 / 0.35), transparent 60%),
+      var(--bg-0);
+    min-height: 100vh;
+  }
+  h1,h2,h3,h4{ font-family: var(--font-display); font-weight: 300; color: var(--fg-0); letter-spacing: -0.02em; margin: 0; }
+  code, .mono { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--fg-2); }
+
+  /* ——— LAYOUT ——— */
+  .page{ max-width: 1280px; margin: 0 auto; padding: 80px 56px 160px; }
+  .hero{ padding: 60px 0 80px; border-bottom: 1px solid var(--line); margin-bottom: 80px; }
+  .eyebrow{ font: 500 11px/1 'JetBrains Mono', monospace; letter-spacing: 0.22em; color: var(--acc-lilac); text-transform: uppercase; }
+  .hero h1{ font-size: 80px; line-height: 0.95; letter-spacing: -0.03em; margin: 20px 0 24px; max-width: 14ch; }
+  .hero h1 em{ font-style: italic; color: var(--acc-lilac); font-weight: 300; }
+  .hero p{ max-width: 56ch; color: var(--fg-2); font-size: 17px; line-height: 1.6; }
+  .hero .meta{ display:flex; gap: 32px; margin-top: 36px; flex-wrap: wrap; }
+  .hero .meta span{ color: var(--fg-3); font: 500 11px/1 'JetBrains Mono', monospace; letter-spacing: .18em; text-transform: uppercase; }
+  .hero .meta b{ color: var(--fg-1); font-weight: 500; margin-left: 8px; letter-spacing: 0; text-transform: none; font-family: 'Manrope'; font-size: 13px; }
+
+  section{ margin-bottom: 96px; }
+  .section-head{ display:flex; align-items:baseline; gap: 24px; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .section-head h2{ font-size: 40px; letter-spacing: -0.02em; }
+  .section-head .num{ font: 500 12px/1 'JetBrains Mono', monospace; color: var(--fg-3); letter-spacing: .2em; }
+  .section-head .tail{ margin-left: auto; color: var(--fg-3); font-size: 13px; max-width: 42ch; text-align: right; }
+
+  .grid{ display:grid; gap: 24px; }
+  .g-2{ grid-template-columns: repeat(2, 1fr); }
+  .g-3{ grid-template-columns: repeat(3, 1fr); }
+  .g-4{ grid-template-columns: repeat(4, 1fr); }
+  .g-6{ grid-template-columns: repeat(6, 1fr); }
+
+  /* ——— Card / Panel ——— */
+  .panel{
+    background: linear-gradient(180deg, var(--bg-1), var(--bg-1));
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    padding: 24px;
+  }
+  .panel.tight{ padding: 16px; }
+  .panel-label{ font: 500 10px/1 'JetBrains Mono', monospace; letter-spacing: .22em; color: var(--fg-3); text-transform: uppercase; margin-bottom: 16px; display:block; }
+
+  /* ——— COLOR SWATCH ——— */
+  .swatch{
+    border-radius: var(--r-md);
+    border: 1px solid var(--line);
+    overflow: hidden;
+    display:flex; flex-direction: column;
+  }
+  .swatch .chip{ aspect-ratio: 3/2; display:flex; align-items:flex-end; padding: 14px; }
+  .swatch .meta{ padding: 12px 14px; background: var(--bg-1); }
+  .swatch .name{ color: var(--fg-0); font-weight: 500; font-size: 13px; }
+  .swatch .val{ font: 500 11px/1.4 'JetBrains Mono', monospace; color: var(--fg-3); margin-top: 2px; }
+  .swatch .tag{ font: 500 10px/1 'JetBrains Mono', monospace; letter-spacing: .15em; color: rgba(255,255,255,.6); text-transform: uppercase; }
+
+  /* ——— TYPOGRAPHY SPEC ——— */
+  .type-row{ display:grid; grid-template-columns: 180px 1fr 200px; gap: 32px; align-items:baseline; padding: 24px 0; border-bottom: 1px solid var(--line); }
+  .type-row:last-child{ border-bottom: 0; }
+  .type-row .label{ color: var(--fg-3); font: 500 11px/1 'JetBrains Mono', monospace; letter-spacing: .18em; text-transform: uppercase; }
+  .type-row .sample{ color: var(--fg-0); }
+  .type-row .spec{ font: 500 11px/1.6 'JetBrains Mono', monospace; color: var(--fg-3); text-align: right; }
+
+  /* ——— BUTTONS ——— */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    padding: 14px 24px;
+    border-radius: var(--r-full);
+    font: 500 14px/1 'Manrope', sans-serif;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform .15s ease, background .2s ease, border .2s ease;
+    user-select: none;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn-primary{
+    background: linear-gradient(180deg, oklch(0.62 0.19 300), oklch(0.52 0.20 288));
+    color: #fff;
+    box-shadow: 0 10px 30px -10px oklch(0.55 0.22 295 / 0.6), inset 0 1px 0 rgba(255,255,255,.2);
+  }
+  .btn-primary:hover{ filter: brightness(1.1); }
+  .btn-secondary{
+    background: rgba(180,160,255,0.08);
+    color: var(--fg-0);
+    border-color: var(--line-2);
+  }
+  .btn-secondary:hover{ background: rgba(180,160,255,0.14); }
+  .btn-ghost{ background: transparent; color: var(--fg-1); }
+  .btn-ghost:hover{ color: var(--fg-0); }
+  .btn-sm{ padding: 10px 16px; font-size: 13px; }
+  .btn-lg{ padding: 18px 32px; font-size: 15px; }
+  .btn-icon{
+    width:44px; height:44px; padding:0; border-radius: var(--r-full);
+    background: rgba(180,160,255,0.08);
+    border: 1px solid var(--line-2);
+    color: var(--fg-0);
+  }
+  .btn-play{
+    width: 56px; height: 56px; border-radius: 999px;
+    background: radial-gradient(circle at 30% 25%, oklch(0.78 0.14 310), oklch(0.55 0.2 290));
+    box-shadow: var(--shadow-glow), inset 0 1px 0 rgba(255,255,255,.3);
+    color: #fff;
+  }
+  .btn-row{ display:flex; flex-wrap:wrap; gap: 12px; align-items:center; }
+
+  /* ——— PRACTICE CARD ——— */
+  .practice{
+    position: relative;
+    background: linear-gradient(180deg, rgba(45,30,80,.6), rgba(25,17,50,.85));
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-lg);
+    padding: 20px;
+    overflow: hidden;
+    min-height: 200px;
+    display:flex; flex-direction:column; justify-content: space-between;
+  }
+  .practice::before{
+    content:""; position:absolute; inset:-40%;
+    background: radial-gradient(circle at 70% 30%, oklch(0.55 0.2 300 / 0.4), transparent 50%);
+    pointer-events:none;
+  }
+  .practice > *{ position: relative; }
+  .practice .ico{
+    width: 40px; height: 40px; border-radius: 999px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid var(--line-2);
+    display:flex; align-items:center; justify-content:center;
+    color: var(--fg-0);
+  }
+  .practice h4{ font-family: 'Manrope'; font-weight: 500; font-size: 17px; color: var(--fg-0); margin-top: 16px; line-height: 1.25; }
+  .practice .foot{ display:flex; align-items:center; justify-content:space-between; margin-top: 16px; }
+  .practice .dur{ color: var(--fg-2); font-size: 13px; }
+  .practice .play{
+    width: 36px; height: 36px; border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid var(--line-2);
+    display:flex; align-items:center; justify-content:center; color: var(--fg-0);
+  }
+  .practice.locked{ opacity: .55; }
+  .practice.locked::after{
+    content:""; position:absolute; inset:0; background: rgba(10,7,20,.45); backdrop-filter: blur(1px);
+  }
+  .practice .badge{
+    position:absolute; top:14px; right:14px; z-index:2;
+    font: 500 10px/1 'JetBrains Mono', monospace; letter-spacing: .15em; text-transform: uppercase;
+    padding: 5px 9px; border-radius: 999px;
+    background: rgba(255,255,255,.08); border:1px solid var(--line-2); color: var(--fg-1);
+  }
+  .practice .badge.bonus{ background: oklch(0.55 0.2 300 / .4); color: #fff; border-color: transparent; }
+
+  /* ——— WIDE PRACTICE (list row) ——— */
+  .practice-row{
+    display:flex; align-items:center; gap: 16px;
+    padding: 14px 18px;
+    background: rgba(255,255,255,.03);
+    border:1px solid var(--line);
+    border-radius: var(--r-md);
+  }
+  .practice-row .wave{
+    width: 52px; height: 52px; border-radius: 999px;
+    background: rgba(180,160,255,.1);
+    display:flex; align-items:center; justify-content:center; color: var(--acc-lilac);
+    flex: 0 0 auto;
+  }
+  .practice-row .t1{ color: var(--fg-0); font-weight: 500; font-size: 15px; }
+  .practice-row .t2{ color: var(--fg-3); font-size: 12px; margin-top: 2px; }
+
+  /* ——— SLIDER ——— */
+  .slider{
+    --v: 6;
+    position: relative; padding: 56px 0 8px;
+  }
+  .slider .track{
+    height: 6px; border-radius: 999px;
+    background: rgba(180,160,255,.12);
+    position: relative;
+  }
+  .slider .fill{
+    position:absolute; left:0; top:0; bottom:0;
+    width: calc(var(--v) * 10%);
+    background: linear-gradient(90deg, oklch(0.55 0.18 270), oklch(0.68 0.18 310));
+    border-radius: 999px;
+  }
+  .slider .thumb{
+    position:absolute; top:50%; left: calc(var(--v) * 10%);
+    transform: translate(-50%, -50%);
+    width: 24px; height: 24px; border-radius: 999px;
+    background: #fff;
+    box-shadow: 0 0 0 6px oklch(0.55 0.18 300 / 0.25), 0 4px 12px rgba(0,0,0,.4);
+  }
+  .slider .ticks{ display:flex; justify-content:space-between; margin-top: 14px; }
+  .slider .ticks span{ font: 500 10px/1 'JetBrains Mono', monospace; color: var(--fg-4); }
+  .slider .ticks span.active{ color: var(--fg-0); }
+  .slider .value{
+    position:absolute; left: calc(var(--v) * 10%); top: 0;
+    transform: translateX(-50%);
+    font-family: var(--font-display); font-size: 32px; line-height: 1; color: var(--fg-0);
+  }
+  .slider .labels{ display:flex; justify-content:space-between; color: var(--fg-3); font-size: 12px; margin-top: 12px; }
+
+  /* ——— AUDIO PLAYER ——— */
+  .player-sheet{
+    background:
+      radial-gradient(120% 80% at 50% -10%, oklch(0.40 0.22 290 / 0.65), transparent 50%),
+      linear-gradient(180deg, #1a1134, #0e0820);
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-xl);
+    padding: 28px;
+    position: relative;
+    overflow: hidden;
+  }
+  .orb{
+    width: 220px; height: 220px; border-radius: 999px;
+    margin: 10px auto 32px;
+    background:
+      radial-gradient(circle at 35% 30%, oklch(0.85 0.12 310), transparent 55%),
+      radial-gradient(circle at 70% 70%, oklch(0.50 0.22 290), transparent 55%),
+      radial-gradient(circle at 50% 50%, oklch(0.30 0.18 280), oklch(0.15 0.10 280));
+    box-shadow:
+      0 0 80px -10px oklch(0.55 0.22 295 / 0.65),
+      inset 0 0 60px oklch(0.30 0.18 290 / 0.5);
+    position: relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .orb::after{
+    content:""; position:absolute; inset:-8%; border-radius: 999px;
+    background: conic-gradient(from 180deg, transparent, oklch(0.78 0.14 310 / .4), transparent 60%);
+    filter: blur(30px);
+    z-index:-1;
+  }
+  .orb .play-big{
+    width: 88px; height: 88px; border-radius: 999px;
+    background: rgba(255,255,255,.95);
+    color: oklch(0.40 0.2 290);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 10px 40px -10px rgba(0,0,0,.6);
+  }
+  .player-sheet h3{ font-family: var(--font-display); font-size: 28px; text-align:center; color: var(--fg-0); letter-spacing: -0.01em; }
+  .player-sheet .sub{ text-align:center; color: var(--fg-2); font-size: 13px; margin-top: 6px; }
+  .player-sheet .progress{ margin: 28px 0 10px; height: 3px; background: rgba(255,255,255,.1); border-radius: 999px; position:relative; }
+  .player-sheet .progress .p-fill{ position:absolute; inset:0 62% 0 0; background: linear-gradient(90deg, oklch(0.55 0.2 290), oklch(0.78 0.14 310)); border-radius: 999px; }
+  .player-sheet .progress .dot{ position:absolute; left:38%; top:50%; transform:translate(-50%,-50%); width:12px; height:12px; border-radius:999px; background:#fff; box-shadow: 0 0 0 4px oklch(0.55 0.2 290 / .35); }
+  .player-sheet .times{ display:flex; justify-content:space-between; font: 500 11px/1 'JetBrains Mono', monospace; color: var(--fg-3); }
+  .player-sheet .ctrl{ display:flex; align-items:center; justify-content:center; gap: 18px; margin-top: 22px; }
+  .ctrl{ display:flex; align-items:center; justify-content:center; gap: 18px; margin-top: 22px; }
+  .ctrl-btn{
+    width: 48px; height: 48px; border-radius: 999px;
+    background: rgba(255,255,255,.05); border:1px solid var(--line-2);
+    color: var(--fg-0); display:flex; align-items:center; justify-content:center;
+  }
+  .ctrl-btn.lg{ width: 72px; height:72px; background: linear-gradient(180deg, oklch(0.66 0.19 300), oklch(0.54 0.2 288)); border-color: transparent; box-shadow: var(--shadow-glow); }
+  .segmented{
+    display:flex; background: rgba(0,0,0,.25); border:1px solid var(--line); border-radius: 999px; padding: 4px; margin-top: 22px;
+  }
+  .segmented button{
+    flex:1; padding: 10px 16px; border-radius: 999px; background: transparent; border: 0; color: var(--fg-2); font: 500 13px/1 'Manrope'; cursor:pointer;
+  }
+  .segmented button.on{ background: rgba(180,160,255,.12); color: var(--fg-0); }
+
+  /* ——— CALENDAR / TRACKER ——— */
+  .cal{ padding: 24px; }
+  .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom: 18px; }
+  .cal-head h3{ font-family: var(--font-display); font-size: 22px; }
+  .cal-streak{ display:flex; align-items:center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: oklch(0.78 0.14 60 / .12); border:1px solid oklch(0.78 0.14 60 / .3); color: var(--acc-ember); font: 500 12px 'Manrope'; }
+  .cal-grid{ display:grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal-dow{ font: 500 10px/1 'JetBrains Mono', monospace; color: var(--fg-4); letter-spacing: .15em; text-align:center; padding: 4px 0 8px; }
+  .cal-day{
+    aspect-ratio: 1/1; display:flex; align-items:center; justify-content:center;
+    font: 500 13px 'Manrope'; color: var(--fg-2);
+    border-radius: 10px;
+    position: relative;
+  }
+  .cal-day.other{ color: var(--fg-4); }
+  .cal-day.done{
+    background: linear-gradient(135deg, oklch(0.50 0.2 290), oklch(0.65 0.17 310));
+    color: #fff;
+  }
+  .cal-day.today{ border: 1px solid var(--acc-lilac); color: var(--fg-0); }
+  .cal-day.missed{ color: var(--fg-3); opacity: .6; }
+  .cal-day.done::after{
+    content:""; position:absolute; inset: 0; border-radius: 10px;
+    box-shadow: 0 4px 20px -4px oklch(0.55 0.2 290 / 0.55);
+  }
+  .cal-foot{ display:flex; gap: 18px; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 12px; color: var(--fg-3); }
+  .cal-foot span{ display:flex; align-items:center; gap:6px; }
+  .cal-foot .dot{ width:8px; height:8px; border-radius:999px; display:inline-block; }
+
+  /* ——— TAB PILLS ——— */
+  .tabs{ display:inline-flex; gap: 6px; padding: 4px; background: rgba(0,0,0,.25); border:1px solid var(--line); border-radius: 999px; }
+  .tabs button{ padding: 10px 18px; border-radius: 999px; background: transparent; border:0; color: var(--fg-2); font: 500 13px 'Manrope'; cursor:pointer; }
+  .tabs button.on{ background: linear-gradient(180deg, oklch(0.62 0.19 300), oklch(0.52 0.2 288)); color:#fff; }
+
+  /* ——— INPUTS ——— */
+  .field{ display:flex; flex-direction:column; gap: 8px; }
+  .field label{ font: 500 11px/1 'JetBrains Mono', monospace; letter-spacing:.18em; color: var(--fg-3); text-transform: uppercase; }
+  .field input, .field textarea{
+    background: rgba(0,0,0,.3); border: 1px solid var(--line-2); color: var(--fg-0);
+    padding: 14px 16px; border-radius: var(--r-sm); font: 400 15px 'Manrope'; outline: none;
+  }
+  .field input:focus{ border-color: var(--focus); box-shadow: 0 0 0 4px oklch(0.55 0.18 300 / 0.2); }
+  .field .hint{ font-size: 12px; color: var(--fg-3); }
+
+  /* ——— BADGES ——— */
+  .badge{
+    display:inline-flex; align-items:center; gap:6px; padding: 5px 10px;
+    border-radius: 999px; font: 500 11px/1 'JetBrains Mono', monospace;
+    letter-spacing: .12em; text-transform: uppercase;
+    background: rgba(180,160,255,.08); color: var(--fg-1); border:1px solid var(--line-2);
+  }
+  .badge.ok{ background: oklch(0.72 0.13 160 / .12); color: oklch(0.82 0.13 160); border-color: oklch(0.72 0.13 160 / .3); }
+  .badge.lock{ color: var(--fg-3); }
+  .badge.bonus{ background: oklch(0.55 0.2 300 / .3); color: #fff; border-color: transparent; }
+
+  /* ——— SPACING SCALE VISUAL ——— */
+  .spacing-row{ display:flex; align-items:center; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .spacing-row:last-child{ border: 0; }
+  .spacing-row .name{ width: 80px; font: 500 11px/1 'JetBrains Mono', monospace; color: var(--fg-2); }
+  .spacing-row .val{ width: 56px; font: 500 11px/1 'JetBrains Mono', monospace; color: var(--fg-3); }
+  .spacing-row .bar{ height: 14px; background: linear-gradient(90deg, oklch(0.55 0.18 290), oklch(0.70 0.16 310)); border-radius: 4px; }
+
+  /* ——— PHONE FRAME ——— */
+  .phone{
+    width: 380px; height: 780px; border-radius: 48px;
+    background: #000; padding: 10px;
+    box-shadow: 0 40px 100px -20px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.08);
+    position: relative;
+  }
+  .phone .screen{
+    width: 100%; height: 100%; border-radius: 40px; overflow: hidden; position: relative;
+    background:
+      radial-gradient(600px 400px at 80% -100px, oklch(0.35 0.22 290 / .75), transparent 60%),
+      radial-gradient(400px 300px at -50px 40%, oklch(0.30 0.18 260 / .55), transparent 60%),
+      #0a0714;
+  }
+  .phone .notch{ position:absolute; top:18px; left:50%; transform:translateX(-50%); width: 110px; height: 30px; background:#000; border-radius: 999px; z-index: 10; }
+  .phone .statusbar{ display:flex; justify-content:space-between; padding: 18px 28px 0; color: var(--fg-0); font: 600 15px 'Manrope'; z-index:5; position: relative; }
+  .phone .statusbar .r{ display:flex; gap:6px; align-items:center; }
+  .phone-scroll{ position:absolute; inset: 60px 0 0 0; padding: 16px 20px 32px; overflow-y: auto; overflow-x: hidden; }
+  .phone-scroll::-webkit-scrollbar{ display: none; }
+
+  /* Desktop mockup frame */
+  .desktop{
+    background: #000;
+    border-radius: 16px;
+    padding: 10px;
+    box-shadow: 0 40px 100px -20px rgba(0,0,0,.8);
+  }
+  .desktop .chrome{ display:flex; gap:6px; padding: 6px 10px; }
+  .desktop .chrome span{ width:10px; height:10px; border-radius:999px; background:#333; }
+  .desktop .window{
+    border-radius: 10px;
+    background:
+      radial-gradient(800px 500px at 85% -100px, oklch(0.32 0.2 290 / .5), transparent 60%),
+      #0a0714;
+    min-height: 700px; padding: 28px 36px; overflow: hidden; position: relative;
+  }
+
+  /* Small utils */
+  .stack{ display:flex; flex-direction: column; gap: 12px; }
+  .row{ display:flex; gap: 12px; align-items:center; flex-wrap: wrap; }
+  .mt-xs{ margin-top: 8px; } .mt-s{ margin-top: 16px; } .mt-m{ margin-top: 24px; } .mt-l{ margin-top: 40px; }
+  .muted{ color: var(--fg-3); }
+
+  /* icon sizes */
+  .ico-24{ width: 24px; height: 24px; } .ico-20{ width: 20px; height: 20px; }
+  .ico-16{ width: 16px; height: 16px; }
+
+  /* ════════════════════════════════════════════════════════════════
+     PRODUCTION v2 — actual look-and-feel currently shipped
+     The original Tailwind/React app uses these styles 1:1.
+     ════════════════════════════════════════════════════════════════ */
+
+  /* ——— LIQUID-GLASS PRACTICE CARD ———
+     Mirrors src/components/ui/Card.jsx + .liquid-card-* keyframes in src/index.css. */
+  .practice-v2{
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: var(--r-lg);
+    padding: 20px;
+    min-height: 200px;
+    display:flex; flex-direction:column; justify-content: space-between;
+    box-shadow:
+      0 0 24px -8px rgba(97,69,194,.5),
+      inset 0 0 0 1px rgba(180,160,255,.05);
+  }
+  .practice-v2 .ico-sun{
+    color: var(--acc-lilac);
+    filter: drop-shadow(0 0 6px var(--acc-violet-hex)) drop-shadow(0 0 14px rgba(97,69,194,.6));
+  }
+  .practice-v2 h4{
+    font-family: 'Manrope'; font-weight: 500; font-size: 17px;
+    color: var(--fg-0); line-height: 1.25; margin-top: 16px; letter-spacing: 0;
+  }
+  .practice-v2 .foot{ display:flex; align-items:center; justify-content:space-between; margin-top: 16px; }
+  .practice-v2 .dur{ color: var(--acc-lilac); font-size: 13px; }
+  .practice-v2 .play-v2{
+    width: 36px; height: 36px; border-radius: 999px;
+    background: transparent;
+    color: var(--acc-lilac);
+    border: 1.5px solid var(--acc-violet-hex);
+    box-shadow:
+      0 0 18px rgba(97,69,194,.95),
+      0 0 36px rgba(97,69,194,.55),
+      inset 0 0 10px rgba(97,69,194,.35);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .practice-v2 .inner{
+    position: relative; z-index: 10; display: flex; flex-direction: column;
+    height: 100%; min-height: 160px; justify-content: space-between;
+  }
+
+  /* Floating violet glow drifting inside the card. */
+  @keyframes liquidFloat {
+    0%   { transform: translate3d(-12%, -8%, 0)  scale(1.05); }
+    25%  { transform: translate3d( 18%,  6%, 0)  scale(1.18); }
+    50%  { transform: translate3d(  8%, 22%, 0)  scale(1.10); }
+    75%  { transform: translate3d(-18%, 12%, 0)  scale(1.22); }
+    100% { transform: translate3d(-12%, -8%, 0)  scale(1.05); }
+  }
+  .liquid-card-glow{
+    position: absolute; inset: -20%; pointer-events: none; z-index: 0;
+    background: radial-gradient(45% 45% at 50% 50%, var(--acc-violet-hex) 0%, rgba(97,69,194,.55) 35%, transparent 70%);
+    filter: blur(22px);
+    opacity: .85;
+    animation: liquidFloat 14s ease-in-out infinite;
+    mix-blend-mode: screen;
+  }
+
+  /* Rotating conic-gradient border (1 px). */
+  @property --card-angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
+  }
+  @keyframes liquidCardAngle { to { --card-angle: 360deg; } }
+  .liquid-card-border{
+    position: absolute; inset: 0; z-index: 5;
+    pointer-events: none;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(
+      from var(--card-angle),
+      rgba(180,160,255,.10) 0deg,
+      rgba(180,160,255,.10) 200deg,
+      var(--acc-violet-hex) 250deg,
+      #d6c8ff 290deg,
+      var(--acc-violet-hex) 330deg,
+      rgba(180,160,255,.10) 360deg
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+            mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask-composite: exclude;
+    animation: liquidCardAngle 5s linear infinite;
+  }
+
+  /* Backdrop-filter glass distortion underlay (uses #container-glass SVG filter). */
+  .liquid-card-distort{
+    position: absolute; top: 0; left: 0; z-index: -10;
+    height: 100%; width: 100%; overflow: hidden; border-radius: inherit;
+    backdrop-filter: url("#container-glass");
+  }
+
+  /* ——— BOTTOM NAV (production look) ——— */
+  .bnav-v2{
+    display:flex; align-items:center; justify-content:space-around;
+    width: 100%; max-width: 480px; margin: 0 auto;
+    border-radius: 999px; padding: 8px;
+    background: rgba(17,12,32,0.8);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(180,160,255,.22);
+    box-shadow: 0 0 28px -6px rgba(97,69,194,.45), inset 0 0 18px rgba(97,69,194,.08);
+  }
+  .bnav-v2 .item{
+    position: relative; flex: 1;
+    display:flex; align-items:center; justify-content:center; gap: 8px;
+    padding: 10px 16px;
+    border-radius: 999px;
+    color: rgba(216,200,255,.7);
+    font: 500 13px/1.2 'Manrope', sans-serif;
+    text-decoration: none;
+    transition: color .2s ease;
+  }
+  .bnav-v2 .item.active{ color: var(--acc-lilac); }
+  .bnav-v2 .item .pill{
+    position: absolute; inset: 0; border-radius: 999px;
+    background: linear-gradient(90deg, var(--acc-violet-hex) 0%, rgba(97,69,194,.55) 60%, rgba(97,69,194,0) 100%);
+    box-shadow: 0 0 22px -2px rgba(97,69,194,.7), inset 0 0 14px rgba(97,69,194,.4);
+    pointer-events: none;
+  }
+  .bnav-v2 .item .glow{
+    position: absolute; inset: -8px; border-radius: 999px;
+    background: radial-gradient(60% 80% at 30% 50%, rgba(97,69,194,.55), transparent 70%);
+    filter: blur(10px); pointer-events: none; z-index: -1;
+  }
+  .bnav-v2 .item .label-row{ position: relative; z-index: 10; display: inline-flex; align-items: center; gap: 8px; }
+
+  /* ——— SHINY-CTA (primary button) ——— */
+  @property --gradient-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+  @property --gradient-angle-offset { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+  @property --gradient-percent { syntax: "<percentage>"; initial-value: 5%; inherits: false; }
+  @property --gradient-shine { syntax: "<color>"; initial-value: white; inherits: false; }
+
+  .shiny-cta{
+    --shiny-cta-bg: #14102a;
+    --shiny-cta-bg-subtle: #2a1f4d;
+    --shiny-cta-fg: #f4f0ff;
+    --shiny-cta-highlight: var(--acc-violet-hex);
+    --shiny-cta-highlight-subtle: oklch(0.78 0.12 312);
+    --animation: gradient-angle linear infinite;
+    --duration: 3s;
+    --shadow-size: 2px;
+
+    mix-blend-mode: screen;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    outline-offset: 4px;
+    padding: 1.1rem 2.5rem;
+    font: 500 16px/1.2 'Manrope', sans-serif;
+    letter-spacing: 0.01em;
+    border: 1px solid transparent;
+    border-radius: 360px;
+    color: var(--shiny-cta-fg);
+    background:
+      linear-gradient(var(--shiny-cta-bg), var(--shiny-cta-bg)) padding-box,
+      conic-gradient(
+        from calc(var(--gradient-angle) - var(--gradient-angle-offset)),
+        transparent,
+        var(--shiny-cta-highlight) var(--gradient-percent),
+        var(--gradient-shine) calc(var(--gradient-percent) * 2),
+        var(--shiny-cta-highlight) calc(var(--gradient-percent) * 3),
+        transparent calc(var(--gradient-percent) * 4)
+      ) border-box;
+    box-shadow: inset 0 0 0 1px var(--shiny-cta-bg-subtle);
+  }
+  .shiny-cta::before, .shiny-cta::after{ content:""; pointer-events:none; position:absolute; inset-inline-start:50%; inset-block-start:50%; translate:-50% -50%; z-index:-1; }
+  .shiny-cta::after{
+    --animation: shimmer linear infinite;
+    width: 100%; aspect-ratio: 1;
+    background: linear-gradient(-50deg, transparent, var(--shiny-cta-highlight), transparent);
+    -webkit-mask-image: radial-gradient(circle at bottom, transparent 40%, black);
+            mask-image: radial-gradient(circle at bottom, transparent 40%, black);
+    opacity: 0.6;
+  }
+  .shiny-cta, .shiny-cta::before, .shiny-cta::after{
+    animation: var(--animation) var(--duration), var(--animation) calc(var(--duration) / 0.4) reverse paused;
+    animation-composition: add;
+  }
+  @keyframes gradient-angle { to { --gradient-angle: 360deg; } }
+  @keyframes shimmer       { to { rotate: 360deg; } }
+
+  /* ——— ANIMATED SUBSCRIBE BUTTON (text shimmer + icon flicker only) ——— */
+  .ui-anim-btn{
+    --transition: 0.4s;
+    --ui-anim-svg-fill: #d8c8ff;
+    position: relative;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; user-select: none;
+    background: linear-gradient(90deg, var(--acc-violet-hex) 0%, rgba(97,69,194,.55) 60%, rgba(97,69,194,0) 100%);
+    border: 0; border-radius: 9999px;
+    padding: 0.625rem 1.25rem;
+    color: #d8c8ff;
+    font: 500 13px/1.2 'Manrope', sans-serif;
+    outline: none;
+    box-shadow: 0 0 22px -2px rgba(97,69,194,.7), inset 0 0 14px rgba(97,69,194,.4);
+  }
+  .ui-anim-btn::before{
+    content: ''; position: absolute; inset: -8px; border-radius: inherit;
+    pointer-events: none; z-index: -1;
+    background: radial-gradient(60% 80% at 30% 50%, rgba(97,69,194,.55), transparent 70%);
+    filter: blur(10px);
+  }
+  .ui-anim-letter{ color: #ffffff88; display: inline-block; animation: ui-letter-anim 2s ease-in-out infinite; }
+  @keyframes ui-letter-anim { 50% { text-shadow: 0 0 3px #fff8; color: #fff; } }
+  .ui-anim-btn-svg{
+    margin-right: 0.5rem; height: 1.5rem; width: 1.5rem; flex-grow: 0;
+    fill: var(--ui-anim-svg-fill);
+    animation: ui-flicker 2s linear infinite; animation-delay: 0.5s;
+  }
+  @keyframes ui-flicker { 50% { opacity: 0.3; } }
+  .ui-anim-txt{ display: inline-flex; align-items: center; white-space: nowrap; }
+  /* per-letter stagger (24-letter, 0.08s step) */
+  .ui-anim-txt .ui-anim-letter:nth-child(1){ animation-delay: 0.00s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(2){ animation-delay: 0.08s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(3){ animation-delay: 0.16s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(4){ animation-delay: 0.24s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(5){ animation-delay: 0.32s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(6){ animation-delay: 0.40s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(7){ animation-delay: 0.48s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(8){ animation-delay: 0.56s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(9){ animation-delay: 0.64s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(10){ animation-delay: 0.72s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(11){ animation-delay: 0.80s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(12){ animation-delay: 0.88s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(13){ animation-delay: 0.96s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(14){ animation-delay: 1.04s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(15){ animation-delay: 1.12s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(16){ animation-delay: 1.20s; }
+  .ui-anim-txt .ui-anim-letter:nth-child(17){ animation-delay: 1.28s; }
+
+</style>
+</head>
+<body data-cc-id="cc-1" style="cursor: crosshair;">
+
+<!-- Global SVG filter referenced by liquid-glass cards via backdrop-filter: url(#container-glass).
+     Source: src/components/ui/LiquidGlass.jsx → <LiquidGlassFilter />. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <filter id="container-glass" x="0%" y="0%" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.05 0.05" numOctaves="1" seed="1" result="turbulence"/>
+      <feGaussianBlur in="turbulence" stdDeviation="2" result="blurredNoise"/>
+      <feDisplacementMap in="SourceGraphic" in2="blurredNoise" scale="70" xChannelSelector="R" yChannelSelector="B" result="displaced"/>
+      <feGaussianBlur in="displaced" stdDeviation="4" result="finalBlur"/>
+      <feComposite in="finalBlur" in2="finalBlur" operator="over"/>
+    </filter>
+  </defs>
+</svg>
+
+<div class="page" data-cc-id="cc-1">
+
+  <!-- HERO -->
+  <header class="hero">
+    <div class="eyebrow">Design System · v0.1 · 20.04.2026</div>
+    <h1>Практика <em>тишины</em>. Интерфейс покоя.</h1>
+    <p data-cc-id="cc-2">Дизайн-система для мобильного приложения медитаций. Глубокий индиго-фиолетовый фон как ночное небо, мягкие градиенты-туманности, тёплый off-white текст. Никаких резких акцентов — визуальный ритм задаётся свечением, а не границами.</p>
+    <div class="meta">
+      <span>Contract<b>VC-26-013</b></span>
+      <span>Stack<b>React 18 · Tailwind · Howler.js</b></span>
+      <span>Platforms<b>Web · Telegram · VK · MAX</b></span>
+      <span>Type<b>Manrope + JetBrains Mono</b></span>
+    </div>
+  </header>
+
+  <!-- ══════════ COLORS ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">01 / Colors</span>
+      <h2>Палитра</h2>
+      <div class="tail">Ночное небо — восемь оттенков индиго-фиолетового. Один акцент (лиловый), один тёплый (янтарь, только для streak).</div>
+    </div>
+
+    <div style="margin-bottom: 32px;">
+      <div class="panel-label">Background · canvas</div>
+      <div class="grid g-4">
+        <div class="swatch">
+          <div class="chip" style="background: #0a0714"><span class="tag">bg-0</span></div>
+          <div class="meta"><div class="name">Night</div><div class="val">#0A0714</div></div>
+        </div>
+        <div class="swatch">
+          <div class="chip" style="background: #110c20"><span class="tag">bg-1</span></div>
+          <div class="meta"><div class="name">Deep Indigo</div><div class="val">#110C20</div></div>
+        </div>
+        <div class="swatch">
+          <div class="chip" style="background: #1a1330"><span class="tag">bg-2</span></div>
+          <div class="meta"><div class="name">Raised</div><div class="val">#1A1330</div></div>
+        </div>
+        <div class="swatch">
+          <div class="chip" style="background: #231a42"><span class="tag">bg-3</span></div>
+          <div class="meta"><div class="name">Overlay</div><div class="val">#231A42</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 32px;">
+      <div class="panel-label">Foreground · text</div>
+      <div class="grid g-4">
+        <div class="swatch">
+          <div class="chip" style="background: #f4f0ff; color:#0a0714"><span class="tag" style="color:rgba(0,0,0,.5)">fg-0</span></div>
+          <div class="meta"><div class="name">Moonlight</div><div class="val">#F4F0FF</div></div>
+        </div>
+        <div class="swatch">
+          <div class="chip" style="background: #d9d2f0; color:#0a0714"><span class="tag" style="color:rgba(0,0,0,.5)">fg-1</span></div>
+          <div class="meta"><div class="name">Body</div><div class="val">#D9D2F0</div></div>
+        </div>
+        <div class="swatch">
+          <div class="chip" style="background: #a99ecb"><span class="tag">fg-2</span></div>
+          <div class="meta"><div class="name">Muted</div><div class="val">#A99ECB</div></div>
+        </div>
+        <div class="swatch">
+          <div class="chip" style="background: #6e6290"><span class="tag">fg-3</span></div>
+          <div class="meta"><div class="name">Subtle</div><div class="val">#6E6290</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel-label">Accents — single hue family (chroma ≈ 0.15)</div>
+      <div class="grid g-4">
+        <div class="swatch">
+          <div class="chip" style="background: oklch(0.66 0.18 300)"><span class="tag">primary</span></div>
+          <div class="meta"><div class="name">Violet</div><div class="val">oklch(.66 .18 300)</div></div>
+        </div>
+        <div class="swatch">
+          <div class="chip" style="background: oklch(0.60 0.17 278)"><span class="tag">secondary</span></div>
+          <div class="meta"><div class="name">Indigo</div><div class="val">oklch(.60 .17 278)</div></div>
+        </div>
+        <div class="swatch">
+          <div class="chip" style="background: oklch(0.78 0.12 312); color:#1a1330"><span class="tag" style="color:rgba(0,0,0,.5)">soft</span></div>
+          <div class="meta"><div class="name">Lilac</div><div class="val">oklch(.78 .12 312)</div></div>
+        </div>
+        <div class="swatch">
+          <div class="chip" style="background: oklch(0.78 0.14 60); color:#1a1330"><span class="tag" style="color:rgba(0,0,0,.5)">warm</span></div>
+          <div class="meta"><div class="name">Ember</div><div class="val">oklch(.78 .14 60)</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ TYPOGRAPHY ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">02 / Type</span>
+      <h2>Типографика</h2>
+      <div class="tail">Manrope везде — заголовки, body, UI. Один geometric-sans с мягкими контрформами, светлые начертания (200–300) для крупных H1, 500 для UI. JetBrains Mono — только для цифр, eyebrows и спек-меток. Display-шрифт зафиксирован на Manrope (раньше тут жил тогглер с Unbounded/Cormorant и т. п. — удалён, теперь источник правды один).</div>
+    </div>
+
+    <div class="panel">
+      <div class="type-row">
+        <div class="label">Display</div>
+        <div class="sample" style="font-family:var(--font-display); font-weight:300; font-style:italic; font-size:64px; line-height:1; letter-spacing:-0.02em;">Возвращайся к себе</div>
+        <div class="spec">Display font · 300<br>64 / 64 / -0.02</div>
+      </div>
+      <div class="type-row">
+        <div class="label">H1</div>
+        <div class="sample" style="font-family:var(--font-display); font-size:40px; line-height:1.05; letter-spacing:-0.02em;">Твой путь к внутреннему покою</div>
+        <div class="spec">Display font · 400<br>40 / 42 / -0.02</div>
+      </div>
+      <div class="type-row">
+        <div class="label">H2</div>
+        <div class="sample" style="font-family:var(--font-display); font-size:28px; line-height:1.15;">Расслабление и осознанность</div>
+        <div class="spec">Display font · 400<br>28 / 32 / -0.01</div>
+      </div>
+      <div class="type-row">
+        <div class="label">H3 · section</div>
+        <div class="sample" style="font-family:'Manrope'; font-weight:500; font-size:20px;">Быстрый доступ</div>
+        <div class="spec">Manrope 500<br>20 / 28 / 0</div>
+      </div>
+      <div class="type-row">
+        <div class="label">Body L</div>
+        <div class="sample" style="font-family:'Manrope'; font-size:17px; line-height:1.6; color:var(--fg-1);">Каждые три дня открывается новая практика. Осознанность нельзя поторопить — можно только прожить.</div>
+        <div class="spec">Manrope 400<br>17 / 27 / 0</div>
+      </div>
+      <div class="type-row">
+        <div class="label">Body</div>
+        <div class="sample" style="font-family:'Manrope'; font-size:15px; line-height:1.55;">Оцени свой текущий уровень фонового беспокойства. 0 — спокойствие, 10 — тревога.</div>
+        <div class="spec">Manrope 400<br>15 / 23 / 0</div>
+      </div>
+      <div class="type-row">
+        <div class="label">Caption</div>
+        <div class="sample" style="font-family:'Manrope'; font-size:13px; color:var(--fg-2);">7 мин · Начальный уровень</div>
+        <div class="spec">Manrope 400<br>13 / 18 / 0</div>
+      </div>
+      <div class="type-row">
+        <div class="label">Label · mono</div>
+        <div class="sample mono" style="font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--fg-3);">PRACTICE · 00:07:15</div>
+        <div class="spec">JetBrains Mono 500<br>11 / 11 / 0.22</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ SPACING / RADII ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">03 / Spacing</span>
+      <h2>Ритм и форма</h2>
+      <div class="tail">4-point база. Радиусы мягкие — круг (кнопки), 16px (карточки), 22–32px (модули). Тени — не серые, а фиолетовые glow.</div>
+    </div>
+    <div class="grid g-2" style="gap: 40px;">
+      <div class="panel">
+        <div class="panel-label">Spacing · 4pt scale</div>
+        <div class="spacing-row"><span class="name">xxs</span><span class="val">4px</span><div class="bar" style="width: 4px;"></div></div>
+        <div class="spacing-row"><span class="name">xs</span><span class="val">8px</span><div class="bar" style="width: 8px;"></div></div>
+        <div class="spacing-row"><span class="name">sm</span><span class="val">12px</span><div class="bar" style="width: 12px;"></div></div>
+        <div class="spacing-row"><span class="name">md</span><span class="val">16px</span><div class="bar" style="width: 16px;"></div></div>
+        <div class="spacing-row"><span class="name">lg</span><span class="val">24px</span><div class="bar" style="width: 24px;"></div></div>
+        <div class="spacing-row"><span class="name">xl</span><span class="val">32px</span><div class="bar" style="width: 32px;"></div></div>
+        <div class="spacing-row"><span class="name">2xl</span><span class="val">48px</span><div class="bar" style="width: 48px;"></div></div>
+        <div class="spacing-row"><span class="name">3xl</span><span class="val">64px</span><div class="bar" style="width: 64px;"></div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-label">Radii &amp; elevation</div>
+        <div class="grid g-3" style="gap: 16px; margin-bottom: 24px;">
+          <div style="aspect-ratio: 1; border-radius: 6px; background: rgba(180,160,255,.08); border: 1px solid var(--line-2); display:flex; align-items:center; justify-content:center; color:var(--fg-2); font-size:12px;">6 · xs</div>
+          <div style="aspect-ratio: 1; border-radius: 10px; background: rgba(180,160,255,.08); border: 1px solid var(--line-2); display:flex; align-items:center; justify-content:center; color:var(--fg-2); font-size:12px;">10 · sm</div>
+          <div style="aspect-ratio: 1; border-radius: 16px; background: rgba(180,160,255,.08); border: 1px solid var(--line-2); display:flex; align-items:center; justify-content:center; color:var(--fg-2); font-size:12px;">16 · md</div>
+          <div style="aspect-ratio: 1; border-radius: 22px; background: rgba(180,160,255,.08); border: 1px solid var(--line-2); display:flex; align-items:center; justify-content:center; color:var(--fg-2); font-size:12px;">22 · lg</div>
+          <div style="aspect-ratio: 1; border-radius: 32px; background: rgba(180,160,255,.08); border: 1px solid var(--line-2); display:flex; align-items:center; justify-content:center; color:var(--fg-2); font-size:12px;">32 · xl</div>
+          <div style="aspect-ratio: 1; border-radius: 999px; background: rgba(180,160,255,.08); border: 1px solid var(--line-2); display:flex; align-items:center; justify-content:center; color:var(--fg-2); font-size:12px;">full</div>
+        </div>
+        <div class="panel-label" style="margin-bottom: 12px;">Shadows</div>
+        <div class="stack">
+          <div style="padding: 16px; border-radius: 16px; background: var(--bg-2); box-shadow: var(--shadow-1); color:var(--fg-2); font-size:12px;" class="mono">shadow-1 · subtle</div>
+          <div style="padding: 16px; border-radius: 16px; background: var(--bg-2); box-shadow: var(--shadow-2); color:var(--fg-2); font-size:12px;" class="mono">shadow-2 · elevated</div>
+          <div style="padding: 16px; border-radius: 16px; background: var(--bg-2); box-shadow: var(--shadow-glow); color:var(--fg-2); font-size:12px;" class="mono">shadow-glow · primary CTA</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ BUTTONS ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">04 / Components — Buttons</span>
+      <h2>Кнопки</h2>
+      <div class="tail">Pill-форма. Primary — фиолетовый градиент с мягким glow. Secondary — полупрозрачный. Ghost — только текст.</div>
+    </div>
+    <div class="grid g-3" style="gap: 20px;">
+      <div class="panel">
+        <span class="panel-label">Primary</span>
+        <div class="btn-row">
+          <button class="btn btn-primary btn-lg">Начать практику</button>
+          <button class="btn btn-primary">Оплатить</button>
+          <button class="btn btn-primary btn-sm">Далее</button>
+        </div>
+      </div>
+      <div class="panel">
+        <span class="panel-label">Secondary</span>
+        <div class="btn-row">
+          <button class="btn btn-secondary btn-lg">Продолжить позже</button>
+          <button class="btn btn-secondary">Все практики</button>
+          <button class="btn btn-secondary btn-sm">Отмена</button>
+        </div>
+      </div>
+      <div class="panel">
+        <span class="panel-label">Ghost / icon</span>
+        <div class="btn-row">
+          <button class="btn btn-ghost">Забыл пароль?</button>
+          <button class="btn-icon">
+            <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+          </button>
+          <button class="btn-play">
+            <svg class="ico-20" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="grid g-2" style="gap: 20px; margin-top: 20px;">
+      <div class="panel">
+        <span class="panel-label">States</span>
+        <div class="btn-row">
+          <button class="btn btn-primary">Default</button>
+          <button class="btn btn-primary" style="filter: brightness(1.1);">Hover</button>
+          <button class="btn btn-primary" style="transform: translateY(1px);">Pressed</button>
+          <button class="btn btn-primary" disabled="" style="opacity:.4; cursor:not-allowed;">Disabled</button>
+          <button class="btn btn-primary" style="outline: 2px solid var(--focus); outline-offset: 3px;">Focus</button>
+        </div>
+      </div>
+      <div class="panel">
+        <span class="panel-label">Status badges</span>
+        <div class="btn-row">
+          <span class="badge">7 мин</span>
+          <span class="badge ok">✓ Активна</span>
+          <span class="badge lock">
+            <svg class="ico-16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+            Заблокировано
+          </span>
+          <span class="badge bonus">🎁 Бонус</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ PRACTICE CARDS ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">05 / Components — Practice Cards</span>
+      <h2>Карточки практик</h2>
+      <div class="tail">Три варианта: иконография + название + длительность, блок с обложкой-орбом, и ряд-список для подборок.</div>
+    </div>
+
+    <div class="grid g-3" style="gap: 16px;">
+      <div class="practice">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="ico-24"><circle cx="12" cy="13" r="4"></circle><path d="M12 3v2M12 21v-2M3 13h2M21 13h-2M5 6l1.5 1.5M19 6l-1.5 1.5M5 20l1.5-1.5M19 20l-1.5-1.5"></path></svg>
+        </div>
+        <h4>Утреннее<br>погружение</h4>
+        <div class="foot">
+          <div class="dur">7 мин · мягкое</div>
+          <div class="play"><svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div>
+        </div>
+      </div>
+
+      <div class="practice">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="ico-24"><path d="M3 9c3-3 6-3 9 0s6 3 9 0M3 15c3-3 6-3 9 0s6 3 9 0"></path></svg>
+        </div>
+        <h4>Обращение<br>к себе</h4>
+        <div class="foot">
+          <div class="dur">3 мин · дыхание</div>
+          <div class="play"><svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div>
+        </div>
+      </div>
+
+      <div class="practice">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" class="ico-24"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5.5"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+        </div>
+        <h4 data-cc-id="cc-53" style="">Практика<br>релакса</h4>
+        <div class="foot">
+          <div class="dur">64 мин · глубокое</div>
+          <div class="play"><svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div>
+        </div>
+      </div>
+
+      <div class="practice">
+        <span class="badge bonus" style="position:absolute; top:14px; right:14px;">Бонус</span>
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="ico-24"><path d="M12 3l2.5 5.5L20 9.5l-4 4 1 6L12 16.5 7 19.5l1-6-4-4 5.5-1z"></path></svg>
+        </div>
+        <h4>Пароль<br>от жизни</h4>
+        <div class="foot">
+          <div class="dur">18 мин · авторская</div>
+          <div class="play"><svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div>
+        </div>
+      </div>
+
+      <div class="practice locked">
+        <span class="badge lock" style="position:absolute; top:14px; right:14px; z-index:3;">
+          <svg class="ico-16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg>
+          Через 2 дня
+        </span>
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="ico-24"><path d="M4 12c4-4 12-4 16 0M6 16c3-3 9-3 12 0M8 20c2-2 4-2 6 0"></path></svg>
+        </div>
+        <h4>Осознанное<br>дыхание</h4>
+        <div class="foot">
+          <div class="dur">12 мин · ступень 2</div>
+        </div>
+      </div>
+
+      <div class="practice">
+        <div class="ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="ico-24"><path d="M12 21s-7-4.5-7-11a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6.5-7 11-7 11z" opacity=".3"></path><circle cx="12" cy="10" r="3"></circle></svg>
+        </div>
+        <h4>Вечерняя<br>благодарность</h4>
+        <div class="foot">
+          <div class="dur">9 мин · перед сном</div>
+          <div class="play"><svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stack" style="margin-top: 24px;">
+      <div class="practice-row">
+        <div class="wave">
+          <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12h2l2-7 3 14 3-11 2 8 3-6 3 4h2"></path></svg>
+        </div>
+        <div style="flex:1">
+          <div class="t1">Пароль от жизни</div>
+          <div class="t2">Начальные практики · 6 ступеней</div>
+        </div>
+        <button class="btn-icon" aria-label="open">
+          <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"></path></svg>
+        </button>
+      </div>
+      <div class="practice-row" data-cc-id="cc-7">
+        <div class="wave">
+          <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="8"></circle><path d="M12 4v8l5 3"></path></svg>
+        </div>
+        <div style="flex:1">
+          <div class="t1">Длинная дорога внутрь</div>
+          <div class="t2">Глубокая серия · 45 мин</div>
+        </div>
+        <button class="btn-icon">
+          <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l6 6-6 6"></path></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ SLIDER ══════════ -->
+  <section data-cc-id="cc-4">
+    <div class="section-head" data-cc-id="cc-8">
+      <span class="num">06 / Components — Slider 0–10</span>
+      <h2>Слайдер чекина</h2>
+      <div class="tail">Используется в ежедневном чекине (ИС) и глубоком анализе (ИТ, ИО). Диапазон 0–10, тактильный thumb, подсвеченная шкала.</div>
+    </div>
+
+    <div class="grid g-2" style="gap: 24px;">
+      <div class="panel" style="padding: 32px;" data-cc-id="cc-3">
+        <span class="panel-label">Вопрос 3 · Беспокойство</span>
+        <div style="font-family: var(--font-display); font-size: 24px; color: var(--fg-0); margin-bottom: 8px; line-height: 1.25;">Оцени свой текущий уровень фонового беспокойства</div>
+        <div class="muted" style="font-size: 13px; margin-bottom: 32px;">Потяни ползунок или нажми на шкалу</div>
+        <div class="slider" style="--v: 4;" data-cc-id="cc-6">
+          <div class="value" data-cc-id="cc-2" style="margin: 0px; border-width: 0px; border-style: solid;">4</div>
+          <div class="track">
+            <div class="fill"></div>
+            <div class="thumb"></div>
+          </div>
+          <div class="ticks">
+            <span>0</span><span>1</span><span>2</span><span>3</span><span class="active">4</span>
+            <span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+          </div>
+          <div class="labels">
+            <span>абсолютное спокойствие</span>
+            <span>сильная тревога</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="padding: 32px;" data-cc-id="cc-9">
+        <span class="panel-label">Состояния</span>
+        <div class="stack" style="gap: 28px; margin-top: 16px;">
+          <div>
+            <div class="mono" style="margin-bottom: 8px;">VALUE = 0 · empty</div>
+            <div class="slider" style="--v: 0;">
+              <div class="track"><div class="fill"></div><div class="thumb"></div></div>
+            </div>
+          </div>
+          <div data-cc-id="cc-10">
+            <div class="mono" style="margin-bottom: 8px;">VALUE = 7 · filled</div>
+            <div class="slider" style="--v: 7;">
+              <div class="track"><div class="fill"></div><div class="thumb"></div></div>
+            </div>
+          </div>
+          <div>
+            <div class="mono" style="margin-bottom: 8px;" data-cc-id="cc-12">VALUE = 10 · max</div>
+            <div class="slider" style="--v: 10;" data-cc-id="cc-11">
+              <div class="track"><div class="fill"></div><div class="thumb"></div></div>
+            </div>
+          </div>
+          <div>
+            <div class="mono" style="margin-bottom: 8px;">DISABLED</div>
+            <div class="slider" style="--v: 3; opacity: .4;">
+              <div class="track"><div class="fill"></div><div class="thumb"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ИС result card -->
+    <div class="panel" style="margin-top: 24px; padding: 32px; display:grid; grid-template-columns: 200px 1fr; gap: 40px; align-items:center;">
+      <div style="text-align:center;">
+        <div class="mono" data-cc-id="cc-5">Индекс Состояния</div>
+        <div style="font-family:var(--font-display); font-size: 96px; line-height:1; color: var(--fg-0); margin: 8px 0;">24</div>
+        <div class="badge" style="background: oklch(0.55 0.2 300 / .25); color: var(--fg-0); border: 0;">Ясность</div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-display); font-size: 22px; color: var(--fg-0); line-height: 1.4; margin-bottom: 16px;">
+          Хороший контакт с телом и умеренный уровень мыслей. Отличная база, чтобы углубить состояние.
+        </div>
+        <button class="btn btn-primary btn-lg">Начать практику</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ AUDIO PLAYER ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">07 / Components — Audio Player</span>
+      <h2>Аудиоплеер</h2>
+      <div class="tail">Центральный элемент продукта. Орб заменяет обложку — дышит в такт прогрессу. Настройки голоса и музыки — в сегмент-контроле.</div>
+    </div>
+
+    <div class="grid g-2" style="gap: 24px;" data-cc-id="cc-17">
+      <div class="player-sheet" data-cc-id="cc-15">
+        <div style="display:flex; justify-content:space-between; align-items:center; position:relative; z-index:2;">
+          <button class="ctrl-btn" style="width:40px; height:40px;">
+            <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"></path></svg>
+          </button>
+          <div class="mono">PRACTICE · 03 / 06</div>
+          <button class="ctrl-btn" style="width:40px; height:40px;">
+            <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="5" r="1.3"></circle><circle cx="12" cy="12" r="1.3"></circle><circle cx="12" cy="19" r="1.3"></circle></svg>
+          </button>
+        </div>
+        <div class="orb" data-cc-id="cc-16">
+          <button class="play-big">
+            <svg style="width:30px; height:30px;" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+          </button>
+        </div>
+        <h3>Внутренняя тишина</h3>
+        <div class="sub">Осознанность · голос: женский · вода</div>
+        <div class="progress"><div class="p-fill"></div><div class="dot"></div></div>
+        <div class="times"><span>05:42</span><span>—15:30</span></div>
+        <div class="ctrl">
+          <button class="ctrl-btn">
+            <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M11 5l-7 7 7 7M20 5l-7 7 7 7"></path></svg>
+          </button>
+          <button class="ctrl-btn">
+            <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12l7-7 7 7"></path><text x="12" y="16" text-anchor="middle" font-size="8" fill="currentColor" stroke="none" font-family="JetBrains Mono" font-weight="500">15</text></svg>
+          </button>
+          <button class="ctrl-btn lg">
+            <svg style="width:28px; height:28px;" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>
+          </button>
+          <button class="ctrl-btn">
+            <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 19V5M19 12l-7 7-7-7"></path></svg>
+          </button>
+          <button class="ctrl-btn">
+            <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M13 5l7 7-7 7M4 5l7 7-7 7"></path></svg>
+          </button>
+        </div>
+        <div class="segmented">
+          <button class="on">Женский</button>
+          <button>Мужской</button>
+        </div>
+        <div class="segmented" style="margin-top: 10px;">
+          <button>Лес</button>
+          <button class="on">Вода</button>
+          <button>Огонь</button>
+        </div>
+      </div>
+
+      <div class="stack" data-cc-id="cc-20">
+        <div class="panel" style="padding: 24px;">
+          <span class="panel-label">Mini-player · bottom dock</span>
+          <div style="display:flex; align-items:center; gap: 14px; padding: 12px 16px; background: rgba(20,12,40,.9); border:1px solid var(--line-2); border-radius: 999px; backdrop-filter: blur(20px); margin-top: 8px;">
+            <div style="width:40px; height:40px; border-radius:999px; background: radial-gradient(circle at 35% 30%, oklch(0.78 0.14 310), oklch(0.45 0.2 290));"></div>
+            <div style="flex:1; min-width:0;">
+              <div style="color: var(--fg-0); font-weight: 500; font-size: 14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Внутренняя тишина</div>
+              <div class="mono" style="font-size:11px;" data-cc-id="cc-13">05:42 / 15:30</div>
+            </div>
+            <button class="btn-icon" style="width:36px; height:36px;">
+              <svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="panel" style="padding: 24px;">
+          <span class="panel-label">Voice picker · Onboarding 3</span>
+          <div class="grid g-2" style="gap: 12px; margin-top: 12px;">
+            <div style="padding: 20px; border:1px solid var(--acc-lilac); border-radius: var(--r-md); background: oklch(0.55 0.2 300 / .12);">
+              <div style="font-family:var(--font-display); font-size: 20px; color: var(--fg-0);">Женский</div>
+              <div class="muted" style="font-size: 12px; margin-top: 2px;">мягкий, медленный</div>
+              <button class="btn btn-secondary btn-sm" style="margin-top: 14px;" data-cc-id="cc-18">
+                <svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+                Прослушать
+              </button>
+            </div>
+            <div style="padding: 20px; border:1px solid var(--line-2); border-radius: var(--r-md); background: rgba(255,255,255,.02);" data-cc-id="cc-14">
+              <div style="font-family:var(--font-display); font-size: 20px; color: var(--fg-0);">Мужской</div>
+              <div class="muted" style="font-size: 12px; margin-top: 2px;">спокойный, глубокий</div>
+              <button class="btn btn-secondary btn-sm" style="margin-top: 14px;">
+                <svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+                Прослушать
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel" style="padding: 24px;" data-cc-id="cc-19">
+          <span class="panel-label">Continue prompt</span>
+          <div style="padding: 20px; border-radius: var(--r-md); background: linear-gradient(135deg, rgba(80,50,150,.3), rgba(30,20,60,.6)); border: 1px solid var(--line-2); margin-top: 8px;">
+            <div style="font-family:var(--font-display); font-size: 20px; color: var(--fg-0); margin-bottom: 4px;">Продолжить с 12:34?</div>
+            <div class="muted" style="font-size:13px;">«Внутренняя тишина», 15 мин</div>
+            <div class="btn-row" style="margin-top: 16px;">
+              <button class="btn btn-primary btn-sm">Продолжить</button>
+              <button class="btn btn-ghost btn-sm">Сначала</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ CALENDAR ══════════ -->
+  <section data-cc-id="cc-21">
+    <div class="section-head">
+      <span class="num">08 / Components — Tracker</span>
+      <h2>Трекер-календарь</h2>
+      <div class="tail">Каждый день с прослушанной практикой — заполненная клетка. Стрик — маленький янтарный badge. Пустые дни остаются просто днями, без укора.</div>
+    </div>
+
+    <div class="grid" style="grid-template-columns: 1.2fr 1fr; gap: 24px;">
+      <div class="panel cal">
+        <div class="cal-head">
+          <div>
+            <h3>Апрель 2026</h3>
+            <div class="muted" style="font-size:13px; margin-top:2px;">12 практик · 3.5 часа</div>
+          </div>
+          <div class="cal-streak">
+            <svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2c-1 4 3 5 3 10a4 4 0 0 1-8 0c0-2 1-3 1-5-2 1-4 3-4 7a7 7 0 0 0 14 0c0-8-6-8-6-12z"></path></svg>
+            12 дней подряд
+          </div>
+        </div>
+        <div class="cal-grid">
+          <div class="cal-dow">ПН</div><div class="cal-dow">ВТ</div><div class="cal-dow">СР</div>
+          <div class="cal-dow">ЧТ</div><div class="cal-dow">ПТ</div><div class="cal-dow">СБ</div><div class="cal-dow">ВС</div>
+          <!-- week 1 -->
+          <div class="cal-day other">30</div><div class="cal-day other">31</div>
+          <div class="cal-day done">1</div><div class="cal-day done">2</div><div class="cal-day done">3</div>
+          <div class="cal-day missed">4</div><div class="cal-day done">5</div>
+          <!-- week 2 -->
+          <div class="cal-day done">6</div><div class="cal-day done">7</div><div class="cal-day missed">8</div>
+          <div class="cal-day done">9</div><div class="cal-day done">10</div><div class="cal-day done">11</div><div class="cal-day done">12</div>
+          <!-- week 3 -->
+          <div class="cal-day done">13</div><div class="cal-day done">14</div><div class="cal-day done">15</div>
+          <div class="cal-day done">16</div><div class="cal-day done">17</div><div class="cal-day done">18</div><div class="cal-day done">19</div>
+          <!-- week 4 -->
+          <div class="cal-day done">20</div><div class="cal-day today">21</div><div class="cal-day">22</div>
+          <div class="cal-day">23</div><div class="cal-day">24</div><div class="cal-day">25</div><div class="cal-day">26</div>
+          <!-- week 5 -->
+          <div class="cal-day">27</div><div class="cal-day">28</div><div class="cal-day">29</div>
+          <div class="cal-day">30</div>
+          <div class="cal-day other">1</div><div class="cal-day other">2</div><div class="cal-day other">3</div>
+        </div>
+        <div class="cal-foot">
+          <span><span class="dot" style="background: linear-gradient(135deg, oklch(0.50 0.2 290), oklch(0.65 0.17 310));"></span>практика пройдена</span>
+          <span><span class="dot" style="background: rgba(180,160,255,.2); border:1px solid var(--acc-lilac);"></span>сегодня</span>
+          <span><span class="dot" style="background: transparent; border: 1px dashed var(--fg-3);"></span>пропуск</span>
+        </div>
+      </div>
+
+      <div class="stack">
+        <div class="panel" data-cc-id="cc-22">
+          <span class="panel-label">Progress · Осознанность</span>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:8px;">
+            <div style="font-family:var(--font-display); font-size: 36px; color: var(--fg-0);">3 <span class="muted" style="font-size: 18px;">/ 6</span></div>
+            <div class="mono">ступень 3 · открывается через 2 дня</div>
+          </div>
+          <div style="height: 8px; background: rgba(180,160,255,.1); border-radius: 999px; margin-top: 14px; position:relative; overflow:hidden;">
+            <div style="position:absolute; inset:0 50% 0 0; background: linear-gradient(90deg, oklch(0.55 0.2 290), oklch(0.68 0.18 310)); border-radius:999px;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-top: 8px; font: 500 10px 'JetBrains Mono', monospace; color: var(--fg-4); letter-spacing:.15em;">
+            <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <span class="panel-label">Коэффициент Трансформации · по неделям</span>
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:6px; margin-bottom: 14px;">
+            <div style="font-family:var(--font-display); font-size: 36px; color: var(--fg-0);">+2.3</div>
+            <div class="badge ok">🌱 рост</div>
+          </div>
+          <!-- Chart -->
+          <svg viewBox="0 0 300 110" style="width:100%; height:110px;">
+            <defs>
+              <linearGradient id="area" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="oklch(0.65 0.18 300)" stop-opacity=".4"></stop>
+                <stop offset="100%" stop-color="oklch(0.65 0.18 300)" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+            <line x1="0" y1="55" x2="300" y2="55" stroke="var(--line)" stroke-dasharray="2 4"></line>
+            <path d="M 0 80 L 50 70 L 100 75 L 150 60 L 200 50 L 250 35 L 300 30 L 300 110 L 0 110 Z" fill="url(#area)"></path>
+            <path d="M 0 80 L 50 70 L 100 75 L 150 60 L 200 50 L 250 35 L 300 30" fill="none" stroke="oklch(0.75 0.16 310)" stroke-width="2"></path>
+            <circle cx="300" cy="30" r="5" fill="#fff"></circle>
+            <circle cx="300" cy="30" r="10" fill="oklch(0.65 0.18 300 / .35)"></circle>
+          </svg>
+          <div style="display:flex; justify-content:space-between; font: 500 10px 'JetBrains Mono', monospace; color: var(--fg-4);">
+            <span>W1</span><span>W2</span><span>W3</span><span>W4</span><span>W5</span><span>W6</span><span>W7</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ INPUTS ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">09 / Forms &amp; Tabs</span>
+      <h2>Поля и табы</h2>
+    </div>
+    <div class="grid g-2" style="gap: 24px;">
+      <div class="panel">
+        <span class="panel-label">Auth form</span>
+        <div class="stack" style="gap: 16px; margin-top: 12px;">
+          <div class="field">
+            <label>Email или телефон</label>
+            <input value="anna@example.ru">
+          </div>
+          <div class="field">
+            <label>Пароль</label>
+            <input type="password" value="passwordvalue">
+            <div class="hint">Минимум 8 символов</div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" style="flex:1;">Войти</button>
+            <button class="btn btn-ghost">Забыл пароль?</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <span class="panel-label">Tabs &amp; segmented</span>
+        <div class="stack" style="gap: 20px; margin-top: 12px;">
+          <div class="tabs">
+            <button class="on">Расслабление</button>
+            <button>Осознанность</button>
+            <button>Авторские</button>
+          </div>
+          <div class="tabs">
+            <button>Всё</button>
+            <button class="on">5 мин</button>
+            <button>10 мин</button>
+            <button>30+ мин</button>
+          </div>
+          <div class="segmented" style="margin:0;">
+            <button class="on">Мужской</button>
+            <button>Женский</button>
+          </div>
+          <div class="segmented" style="margin:0;">
+            <button>Лес</button>
+            <button class="on">Вода</button>
+            <button>Огонь</button>
+            <button>Тишина</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ MOBILE MOCKUP ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">10 / Screens · mobile</span>
+      <h2>Мобильные экраны</h2>
+      <div class="tail">Базовая ширина — 390px. Всё внутри 16–20px safe area, нижняя навигация плавающая.</div>
+    </div>
+
+    <div style="display:flex; gap: 32px; flex-wrap: wrap; justify-content:center;" data-cc-id="cc-52">
+
+      <!-- Screen 1: Home -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <div class="statusbar"><span>20:58</span><span class="r"><svg viewBox="0 0 20 12" style="width:18px; height:11px; fill: currentColor;"><rect x="0" y="4" width="3" height="8" rx="1"></rect><rect x="5" y="2" width="3" height="10" rx="1"></rect><rect x="10" y="0" width="3" height="12" rx="1"></rect></svg><svg viewBox="0 0 22 14" style="width:16px; height:12px; fill:currentColor;"><path d="M11 1C6 1 2 5 1 7l10 6 10-6c-1-2-5-6-10-6z" opacity=".8"></path></svg><span style="font-size:11px; opacity:.7;">82%</span></span></div>
+          <div class="phone-scroll">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 16px;">
+              <button class="btn-icon" style="width:40px; height:40px;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 7h12M4 12h8M4 17h14"></path><circle cx="19" cy="7" r="2" fill="currentColor"></circle><circle cx="15" cy="12" r="2" fill="currentColor"></circle><circle cx="20" cy="17" r="2" fill="currentColor"></circle></svg>
+              </button>
+              <button class="btn-icon" style="width:40px; height:40px;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+              </button>
+            </div>
+
+            <div style="text-align:center; margin-top: 24px;">
+              <div class="mono">СЕЙЧАС МЕДИТИРУЮТ · 1 247</div>
+              <h2 style="font-family:var(--font-display); font-size: 34px; line-height:1.1; margin-top: 14px; color: var(--fg-0);">Расслабление<br>и осознанность</h2>
+            </div>
+
+            <div style="margin: 20px 0 10px; position: relative; display:flex; justify-content:center;">
+              <div class="orb" style="width: 220px; height: 220px; margin: 0;">
+                <button class="play-big" style="width: 76px; height:76px;">
+                  <svg style="width:28px; height:28px;" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+                </button>
+              </div>
+            </div>
+            <div style="text-align:center; margin-bottom: 24px;">
+              <div class="muted" style="font-size:12px;">Продолжить практику</div>
+              <div class="mono" style="margin-top: 4px;">7 МИН</div>
+            </div>
+
+            <div class="tabs" style="width:100%; display:flex; margin-bottom: 20px;">
+              <button class="on" style="flex:1;">Расслабление</button>
+              <button style="flex:1;">Осознанность</button>
+              <button style="flex:1;">Авторские</button>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <div style="font-family:'Manrope'; font-weight:500; font-size:16px; color: var(--fg-0);">Быстрый доступ</div>
+              <div class="muted" style="font-size: 12px; display:flex; align-items:center; gap:4px;">Все <svg class="ico-16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+              <div class="practice" style="min-height: 150px; padding: 14px;">
+                <div class="ico" style="width:32px; height:32px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" style="width:18px; height:18px;"><circle cx="12" cy="14" r="3"></circle><path d="M12 5v2M5 14h2M19 14h-2M6.5 8.5l1.5 1.5M17.5 8.5l-1.5 1.5"></path></svg></div>
+                <h4 style="font-size:14px; margin-top:10px;">Утреннее погружение</h4>
+                <div class="foot"><div class="dur" style="font-size:11px;">7 мин</div><div class="play" style="width:28px; height:28px;"><svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M8 5v14l11-7z"></path></svg></div></div>
+              </div>
+              <div class="practice" style="min-height: 150px; padding: 14px;">
+                <div class="ico" style="width:32px; height:32px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" style="width:18px; height:18px;"><path d="M3 9c3-3 6-3 9 0s6 3 9 0M3 15c3-3 6-3 9 0s6 3 9 0"></path></svg></div>
+                <h4 style="font-size:14px; margin-top:10px;">Обращение к себе</h4>
+                <div class="foot"><div class="dur" style="font-size:11px;">3 мин</div><div class="play" style="width:28px; height:28px;"><svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M8 5v14l11-7z"></path></svg></div></div>
+              </div>
+              <div class="practice" style="min-height: 150px; padding: 14px;">
+                <div class="ico" style="width:32px; height:32px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" style="width:18px; height:18px;"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5.5"></circle><circle cx="12" cy="12" r="2"></circle></svg></div>
+                <h4 style="font-size: 14px; margin-top: 10px;" data-cc-id="cc-51">Практика<div>релакса</div></h4>
+                <div class="foot"><div class="dur" style="font-size:11px;">64 мин</div><div class="play" style="width:28px; height:28px;"><svg viewBox="0 0 24 24" fill="currentColor" style="width:12px; height:12px;"><path d="M8 5v14l11-7z"></path></svg></div></div>
+              </div>
+            </div>
+
+            <div class="practice-row" style="margin-top: 14px;">
+              <div class="wave" style="width:44px; height:44px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:18px; height:18px;"><path d="M2 12h2l2-7 3 14 3-11 2 8 3-6 3 4h2"></path></svg></div>
+              <div style="flex:1"><div class="t1" style="font-size:14px;">Пароль от жизни</div><div class="t2">Начальные практики</div></div>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="ico-20" style="color: var(--fg-2);"><path d="M9 6l6 6-6 6"></path></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screen 2: Checkin -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <div class="statusbar"><span>21:04</span><span class="r"><svg viewBox="0 0 20 12" style="width:18px; height:11px; fill: currentColor;"><rect x="0" y="4" width="3" height="8" rx="1"></rect><rect x="5" y="2" width="3" height="10" rx="1"></rect><rect x="10" y="0" width="3" height="12" rx="1"></rect></svg><span style="font-size:11px; opacity:.7;">82%</span></span></div>
+          <div class="phone-scroll">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 32px;">
+              <button class="btn-icon" style="width:40px; height:40px;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 6l-6 6 6 6"></path></svg>
+              </button>
+              <div class="mono">ЧЕКИН · 3 / 4</div>
+              <button class="btn-icon" style="width:40px; height:40px; opacity:.4;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 6l12 12M6 18L18 6"></path></svg>
+              </button>
+            </div>
+
+            <div class="mono" style="margin-top: 20px;">КАК ТЫ СЕЙЧАС?</div>
+            <div style="font-family:var(--font-display); font-size: 32px; line-height: 1.2; color: var(--fg-0); margin-top: 10px;">Оцени свой текущий уровень фонового беспокойства</div>
+
+            <div style="margin-top: 48px; padding: 0 4px;">
+              <div class="slider" style="--v: 4;">
+                <div class="value">4</div>
+                <div class="track"><div class="fill"></div><div class="thumb"></div></div>
+                <div class="ticks">
+                  <span>0</span><span>1</span><span>2</span><span>3</span><span class="active">4</span>
+                  <span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+                </div>
+                <div class="labels" style="margin-top:20px;">
+                  <span>спокойствие</span>
+                  <span>тревога</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="position:absolute; bottom: 30px; left: 20px; right: 20px; display:flex; gap: 10px;">
+              <button class="btn btn-secondary" style="flex:1;">Назад</button>
+              <button class="btn btn-primary" style="flex:2;">Далее</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Screen 3: Player -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="screen">
+          <div class="statusbar"><span>21:12</span><span class="r"><svg viewBox="0 0 20 12" style="width:18px; height:11px; fill: currentColor;"><rect x="0" y="4" width="3" height="8" rx="1"></rect><rect x="5" y="2" width="3" height="10" rx="1"></rect><rect x="10" y="0" width="3" height="12" rx="1"></rect></svg><span style="font-size:11px; opacity:.7;">81%</span></span></div>
+          <div class="phone-scroll">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+              <button class="btn-icon" style="width:40px; height:40px;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 15l6-6 6 6"></path></svg>
+              </button>
+              <div class="mono">ОСОЗНАННОСТЬ · 03</div>
+              <button class="btn-icon" style="width:40px; height:40px;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="5" r="1.3"></circle><circle cx="12" cy="12" r="1.3"></circle><circle cx="12" cy="19" r="1.3"></circle></svg>
+              </button>
+            </div>
+
+            <div style="display:flex; justify-content:center; margin: 20px 0;">
+              <div class="orb" style="width: 240px; height: 240px; margin:0;">
+                <button class="play-big" style="width:80px; height:80px;">
+                  <svg style="width:30px; height:30px;" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>
+                </button>
+              </div>
+            </div>
+
+            <h3 style="text-align:center; font-family:var(--font-display); font-size: 26px; color: var(--fg-0); line-height:1.15;">Внутренняя тишина</h3>
+            <div class="muted" style="text-align:center; font-size: 13px; margin-top: 4px;">женский · вода</div>
+
+            <div class="progress" style="margin-top: 28px; height: 3px; background: rgba(255,255,255,.12); border-radius:999px; position: relative;">
+              <div style="position:absolute; inset:0 62% 0 0; background: linear-gradient(90deg, oklch(0.55 0.2 290), oklch(0.78 0.14 310)); border-radius:999px;"></div>
+              <div style="position:absolute; left:38%; top:50%; transform:translate(-50%,-50%); width:12px; height:12px; border-radius:999px; background:#fff; box-shadow: 0 0 0 4px oklch(0.55 0.2 290 / .3);"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font: 500 11px 'JetBrains Mono'; color: var(--fg-3); margin-top: 8px;">
+              <span>05:42</span><span>—15:30</span>
+            </div>
+
+            <div class="ctrl" style="justify-content:space-between; margin-top: 24px;">
+              <button class="ctrl-btn" style="width: 42px; height:42px;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 5l-7 7 7 7M20 5l-7 7 7 7"></path></svg>
+              </button>
+              <button class="ctrl-btn" style="width: 42px; height:42px;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M19 12H5M12 5l-7 7 7 7"></path></svg>
+              </button>
+              <button class="ctrl-btn lg">
+                <svg style="width:26px; height:26px;" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"></rect><rect x="14" y="5" width="4" height="14"></rect></svg>
+              </button>
+              <button class="ctrl-btn" style="width: 42px; height:42px;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5 12h14M12 5l7 7-7 7"></path></svg>
+              </button>
+              <button class="ctrl-btn" style="width: 42px; height:42px;">
+                <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 5l7 7-7 7M4 5l7 7-7 7"></path></svg>
+              </button>
+            </div>
+
+            <div class="segmented" style="margin-top: 20px;">
+              <button class="on">Ж</button><button>М</button>
+              <div style="width:1px; background:var(--line); margin: 4px 6px;"></div>
+              <button>Лес</button><button class="on">Вода</button><button>Огонь</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════ DESKTOP MOCKUP ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">11 / Screens · desktop</span>
+      <h2>Десктоп</h2>
+      <div class="tail">Макс. ширина контента — 1200px. Плеер в правой колонке как «компаньон». Никаких сайдбаров — только плавающая навигация.</div>
+    </div>
+
+    <div class="desktop" data-cc-id="cc-33">
+      <div class="chrome"><span></span><span></span><span></span></div>
+      <div class="window" data-cc-id="cc-23">
+        <!-- header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 40px;">
+          <div style="display:flex; align-items:center; gap: 12px;">
+            <div style="width:36px; height:36px; border-radius:999px; background: radial-gradient(circle at 30% 30%, oklch(0.78 0.14 310), oklch(0.40 0.2 290)); box-shadow: 0 0 20px oklch(0.5 0.2 290 / .5);"></div>
+            <div style="font-family: var(--font-display); font-size: 20px; color: var(--fg-0);">Тишина</div>
+          </div>
+          <div class="tabs">
+            <button class="on">Главная</button>
+            <button>Практики</button>
+            <button>Прогресс</button>
+            <button>Профиль</button>
+          </div>
+          <div style="display:flex; gap: 10px;">
+            <div class="cal-streak">🔥 12 дней</div>
+            <button class="btn-icon">
+              <svg class="ico-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- main 2col -->
+        <div style="display:grid; grid-template-columns: 1fr 380px; gap: 40px;" data-cc-id="cc-46">
+          <div data-cc-id="cc-40">
+            <div class="mono">СЕЙЧАС МЕДИТИРУЮТ · 1 247</div>
+            <h2 style="font-family:var(--font-display); font-size: 56px; line-height: 1; letter-spacing: -0.02em; margin-top: 12px; color: var(--fg-0);" data-cc-id="cc-41">Расслабление<br>и <em style="font-style:italic; color: var(--acc-lilac); font-weight: 300;" data-cc-id="cc-42">осознанность</em></h2>
+            <p style="max-width: 48ch; color: var(--fg-2); font-size: 16px; margin-top: 16px;">Сегодня для тебя открылась третья практика. Сначала — три минуты дыхания, затем — 15 минут внутренней тишины.</p>
+
+            <div style="display:flex; gap: 12px; margin-top: 24px;">
+              <button class="btn btn-primary btn-lg" data-cc-id="cc-43">Продолжить · 7 мин</button>
+              <button class="btn btn-secondary btn-lg" data-cc-id="cc-39">Ежедневный чекин</button>
+            </div>
+
+            <div style="margin-top: 40px;">
+              <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 16px;">
+                <h3 style="font-family: 'Manrope'; font-weight: 500; font-size: 20px;">Быстрый доступ</h3>
+                <div class="tabs">
+                  <button class="on">Расслабление</button>
+                  <button>Осознанность</button>
+                  <button>Авторские</button>
+                </div>
+              </div>
+              <div class="grid g-3" data-cc-id="cc-36">
+                <div class="practice">
+                  <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="ico-24"><circle cx="12" cy="13" r="4"></circle><path d="M12 3v2M12 21v-2M3 13h2M21 13h-2M5 6l1.5 1.5M19 6l-1.5 1.5M5 20l1.5-1.5M19 20l-1.5-1.5"></path></svg></div>
+                  <h4>Утреннее погружение</h4>
+                  <div class="foot"><div class="dur">7 мин · мягкое</div><div class="play"><svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div></div>
+                </div>
+                <div class="practice" data-cc-id="cc-38">
+                  <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" class="ico-24"><path d="M3 9c3-3 6-3 9 0s6 3 9 0M3 15c3-3 6-3 9 0s6 3 9 0"></path></svg></div>
+                  <h4 data-cc-id="cc-37">Обращение к себе</h4>
+                  <div class="foot"><div class="dur">3 мин · дыхание</div><div class="play"><svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div></div>
+                </div>
+                <div class="practice" data-cc-id="cc-35">
+                  <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" class="ico-24"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5.5"></circle><circle cx="12" cy="12" r="2"></circle></svg></div>
+                  <h4 data-cc-id="cc-48" style="">Расслабление</h4>
+                  <div class="foot" data-cc-id="cc-47"><div class="dur">64 мин · глубокое</div><div class="play"><svg class="ico-16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column: mini-player + tracker -->
+          <div class="stack" style="gap: 16px;" data-cc-id="cc-24">
+            <div class="player-sheet" style="padding: 20px;" data-cc-id="cc-49">
+              <div class="orb" style="width: 180px; height:180px; margin: 10px auto 20px;" data-cc-id="cc-50">
+                <button class="play-big" style="width: 64px; height:64px;">
+                  <svg style="width:24px; height:24px;" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg>
+                </button>
+              </div>
+              <h3 style="font-size: 20px;">Внутренняя тишина</h3>
+              <div class="sub" style="font-size:12px;">Осознанность · 05:42 / 15:30</div>
+              <div class="progress" style="margin-top:16px;"><div class="p-fill"></div><div class="dot"></div></div>
+            </div>
+
+            <div class="panel cal" style="padding: 20px;" data-cc-id="cc-25">
+              <div class="cal-head" style="margin-bottom: 12px;" data-cc-id="cc-28">
+                <h3 style="font-size: 16px;" data-cc-id="cc-27">Апрель · стрик 12</h3>
+                <div class="cal-streak" style="padding: 4px 8px; font-size: 10px;" data-cc-id="cc-34">🔥</div>
+              </div>
+              <div class="cal-grid" style="gap: 4px;" data-cc-id="cc-29">
+                <div class="cal-day done" style="font-size:11px;">1</div><div class="cal-day done" style="font-size:11px;" data-cc-id="cc-26">2</div><div class="cal-day done" style="font-size:11px;">3</div>
+                <div class="cal-day missed" style="font-size:11px;">4</div><div class="cal-day done" style="font-size:11px;">5</div><div class="cal-day done" style="font-size:11px;">6</div><div class="cal-day done" style="font-size:11px;">7</div>
+                <div class="cal-day missed" style="font-size:11px;">8</div><div class="cal-day done" style="font-size:11px;">9</div><div class="cal-day done" style="font-size:11px;">10</div>
+                <div class="cal-day done" style="font-size:11px;">11</div><div class="cal-day done" style="font-size:11px;">12</div><div class="cal-day done" style="font-size:11px;">13</div><div class="cal-day done" style="font-size:11px;">14</div>
+                <div class="cal-day done" style="font-size:11px;" data-cc-id="cc-30">15</div><div class="cal-day done" style="font-size:11px;" data-cc-id="cc-31">16</div><div class="cal-day done" style="font-size:11px;" data-cc-id="cc-32">17</div>
+                <div class="cal-day done" style="font-size:11px;">18</div><div class="cal-day done" style="font-size:11px;">19</div><div class="cal-day done" style="font-size:11px;">20</div><div class="cal-day today" style="font-size:11px;">21</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ PRINCIPLES ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">12 / Principles</span>
+      <h2 data-cc-id="cc-45">Принципы</h2>
+    </div>
+    <div class="grid g-3" style="gap: 20px;">
+      <div class="panel" style="padding: 28px;">
+        <div class="mono">01</div>
+        <h3 style="font-family:var(--font-display); font-size: 22px; margin: 10px 0; color: var(--fg-0);">Пустота — это форма</h3>
+        <div class="muted">Интерфейс не спешит заполниться информацией. 40% пространства любого экрана — дыхание.</div>
+      </div>
+      <div class="panel" style="padding: 28px;">
+        <div class="mono">02</div>
+        <h3 style="font-family:var(--font-display); font-size: 22px; margin: 10px 0; color: var(--fg-0);">Свечение вместо границ</h3>
+        <div class="muted">Элементы разделяются не линиями, а светом. Свет — от активного объекта.</div>
+      </div>
+      <div class="panel" style="padding: 28px;">
+        <div class="mono">03</div>
+        <h3 style="font-family:var(--font-display); font-size: 22px; margin: 10px 0; color: var(--fg-0);">Пропуск — не ошибка</h3>
+        <div class="muted">Пропущенный день не подсвечен красным. Практика — не дисциплина, а возвращение.</div>
+      </div>
+      <div class="panel" style="padding: 28px;">
+        <div class="mono">04</div>
+        <h3 style="font-family:var(--font-display); font-size: 22px; margin: 10px 0; color: var(--fg-0);">Один акцент</h3>
+        <div class="muted">Фиолетовый — единственный активный цвет. Янтарный появляется раз в экране, у streak.</div>
+      </div>
+      <div class="panel" style="padding: 28px;">
+        <div class="mono">05</div>
+        <h3 style="font-family:var(--font-display); font-size: 22px; margin: 10px 0; color: var(--fg-0);">Движение как дыхание</h3>
+        <div class="muted">Анимации — 400–800ms, ease-out. Никаких быстрых bounce-эффектов.</div>
+      </div>
+      <div class="panel" style="padding: 28px;">
+        <div class="mono">06</div>
+        <h3 style="font-family:var(--font-display); font-size: 22px; margin: 10px 0; color: var(--fg-0);">Слова имеют вес</h3>
+        <div class="muted">«Ты» — не «Вы». «Возвращайся» — не «Продолжить». Мягкий, личный тон, не инструктивный.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ PRODUCTION v2 — actual shipped components ══════════ -->
+  <section>
+    <div class="section-head">
+      <span class="num">v2 / Live components — Cards & Buttons</span>
+      <h2>Боевые плашки и кнопки</h2>
+      <div class="tail">
+        То, что реально живёт в приложении сейчас. Liquid-glass плашки практик с
+        дрейфующим фиолетовым свечением и бегущей контурной обводкой;
+        ShinyButton как primary CTA; AnimatedSubscribeButton для подписки;
+        BottomNav с активной фиолетовой пилюлей.
+      </div>
+    </div>
+
+    <!-- Liquid-glass practice cards -->
+    <div class="grid g-3" style="gap: 16px;">
+
+      <div class="practice-v2">
+        <span class="liquid-card-glow" style="animation-delay: -2s; animation-duration: 13s;"></span>
+        <span class="liquid-card-border" style="animation-delay: -1.2s;"></span>
+        <div class="liquid-card-distort"></div>
+        <div class="inner">
+          <div class="ico-sun">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.4">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2 2M17.1 17.1l2 2M4.9 19.1l2-2M17.1 6.9l2-2"/>
+            </svg>
+          </div>
+          <h4>Дыхание<br>4-7-8</h4>
+          <div class="foot">
+            <div class="dur">10 мин</div>
+            <button class="play-v2" aria-label="Слушать">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="practice-v2">
+        <span class="liquid-card-glow" style="animation-delay: -7s; animation-duration: 16s;"></span>
+        <span class="liquid-card-border" style="animation-delay: -3.4s;"></span>
+        <div class="liquid-card-distort"></div>
+        <div class="inner">
+          <div class="ico-sun">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.4">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2 2M17.1 17.1l2 2M4.9 19.1l2-2M17.1 6.9l2-2"/>
+            </svg>
+          </div>
+          <h4>Сканирование<br>тела</h4>
+          <div class="foot">
+            <div class="dur">15 мин</div>
+            <button class="play-v2" aria-label="Слушать">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="practice-v2">
+        <span class="liquid-card-glow" style="animation-delay: -11s; animation-duration: 14.5s;"></span>
+        <span class="liquid-card-border" style="animation-delay: -2.8s;"></span>
+        <div class="liquid-card-distort"></div>
+        <div class="inner">
+          <div class="ico-sun">
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.4">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2 2M17.1 17.1l2 2M4.9 19.1l2-2M17.1 6.9l2-2"/>
+            </svg>
+          </div>
+          <h4>Пауза<br>посреди дня</h4>
+          <div class="foot">
+            <div class="dur">7 мин</div>
+            <button class="play-v2" aria-label="Слушать">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons row -->
+    <div class="grid g-2" style="gap: 20px; margin-top: 28px;">
+      <div class="panel">
+        <span class="panel-label">ShinyButton — primary CTA</span>
+        <div class="btn-row" style="gap: 18px;">
+          <button class="shiny-cta">
+            <span>Начать практику</span>
+          </button>
+          <button class="shiny-cta">
+            <span>Открыть результат</span>
+          </button>
+        </div>
+        <div class="muted" style="margin-top: 14px; font-size: 12px;">
+          Conic-gradient бордер с CSS @property —gradient-angle, mix-blend-mode: screen,
+          лёгкий shimmer внутри. Источник: <code class="mono">src/components/ui/ShinyButton.jsx</code>.
+        </div>
+      </div>
+
+      <div class="panel">
+        <span class="panel-label">AnimatedSubscribeButton</span>
+        <div class="btn-row" style="gap: 18px;">
+          <button class="ui-anim-btn" type="button">
+            <svg class="ui-anim-btn-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/>
+            </svg>
+            <span class="ui-anim-txt">
+              <span class="ui-anim-letter">О</span><span class="ui-anim-letter">ф</span><span class="ui-anim-letter">о</span><span class="ui-anim-letter">р</span><span class="ui-anim-letter">м</span><span class="ui-anim-letter">и</span><span class="ui-anim-letter">т</span><span class="ui-anim-letter">ь</span><span class="ui-anim-letter">&nbsp;</span><span class="ui-anim-letter">п</span><span class="ui-anim-letter">о</span><span class="ui-anim-letter">д</span><span class="ui-anim-letter">п</span><span class="ui-anim-letter">и</span><span class="ui-anim-letter">с</span><span class="ui-anim-letter">к</span><span class="ui-anim-letter">у</span>
+            </span>
+          </button>
+        </div>
+        <div class="muted" style="margin-top: 14px; font-size: 12px;">
+          Та же фиолетовая пилюля, что у активной «Главной» в нижнем меню. Только
+          переливание букв (ui-letter-anim, стэггер по 0.08с) и мерцание иконки
+          (ui-flicker). Источник: <code class="mono">src/components/ui/AnimatedSubscribeButton.jsx</code>.
+        </div>
+      </div>
+    </div>
+
+    <!-- BottomNav (production look) -->
+    <div class="panel" style="margin-top: 20px;">
+      <span class="panel-label">BottomNav — active gradient pill</span>
+      <div style="padding: 28px 24px; display:flex; flex-direction: column; gap: 18px; background: rgba(10,7,20,0.4); border-radius: var(--r-md);">
+        <!-- Active = Главная -->
+        <nav class="bnav-v2">
+          <a class="item active" href="#" aria-current="page">
+            <span class="glow"></span>
+            <span class="pill"></span>
+            <span class="label-row">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/></svg>
+              <span>Главная</span>
+            </span>
+          </a>
+          <a class="item" href="#">
+            <span class="label-row">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+              <span>Профиль</span>
+            </span>
+          </a>
+        </nav>
+
+        <!-- Active = Профиль -->
+        <nav class="bnav-v2">
+          <a class="item" href="#">
+            <span class="label-row">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 10v10h14V10"/></svg>
+              <span>Главная</span>
+            </span>
+          </a>
+          <a class="item active" href="#" aria-current="page">
+            <span class="glow"></span>
+            <span class="pill"></span>
+            <span class="label-row">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>
+              <span>Профиль</span>
+            </span>
+          </a>
+        </nav>
+      </div>
+      <div class="muted" style="margin-top: 14px; font-size: 12px;">
+        В живом приложении пилюля и её glow — это два <code class="mono">motion.span</code>
+        с одинаковыми <code class="mono">layoutId</code>, и Framer Motion интерполирует
+        их позицию пружиной при смене активного таба. BottomNav смонтирован один раз
+        на уровне App, не размонтируется между «/» и «/profile» — поэтому пилюля и
+        бежит из одной кнопки в другую, а не исчезает с экраном.
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer style="padding-top: 60px; border-top: 1px solid var(--line); color: var(--fg-3); font-size: 12px; display:flex; justify-content:space-between;" data-cc-id="cc-44">
+    <span class="mono">MEDITATION · DESIGN SYSTEM v0.1 · 20 APR 2026</span>
+    <span class="mono">VC-26-013 · ETAP 1</span>
+  </footer>
+
+</div>
+
+
+
+</body></html>

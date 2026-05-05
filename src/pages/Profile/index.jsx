@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
+import Sparkline from '../../components/ui/Sparkline'
 import TrackerCalendar from '../../components/TrackerCalendar'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useProgressStore } from '../../store/useProgressStore'
@@ -35,7 +37,7 @@ export default function Profile() {
   const setVoice = usePlayerStore((s) => s.setVoice)
   const setMusic = usePlayerStore((s) => s.setMusic)
 
-  const { canDoDeepAnalysis, daysUntilAnalysis } = useProgression()
+  const { canDoDeepAnalysis, daysUntilAnalysis, ktHistory, bonus } = useProgression()
 
   const awarenessDone = completedPractices.filter((id) => id.startsWith('a')).length
   const streak = consecutiveStreak(trackerDays)
@@ -162,22 +164,116 @@ export default function Profile() {
 
       <Section title="Глубокий анализ">
         <div className="panel">
-          {canDoDeepAnalysis ? (
-            <>
-              <p className="text-[14px] text-fg-1">
-                Готов(а) зафиксировать прогресс за последние 3 дня?
-              </p>
-              <div className="mt-4">
-                <Button fullWidth onClick={() => navigate('/deep-analysis')}>
-                  Пройти анализ
-                </Button>
+          <div className="flex items-start gap-4">
+            {/* Countdown ring on the left */}
+            <div className="relative h-20 w-20 shrink-0">
+              <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
+                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(180,160,255,.16)" strokeWidth="6" />
+                <motion.circle
+                  cx="50" cy="50" r="44" fill="none"
+                  stroke="#6145c2" strokeWidth="6" strokeLinecap="round"
+                  pathLength="1"
+                  initial={{ pathLength: 0 }}
+                  animate={{
+                    pathLength: canDoDeepAnalysis
+                      ? 1
+                      : Math.max(0, Math.min(1, (3 - daysUntilAnalysis) / 3)),
+                  }}
+                  transition={{ duration: 0.9, ease: [0.22, 0.8, 0.36, 1] }}
+                  style={{ filter: 'drop-shadow(0 0 6px rgba(97,69,194,.55))' }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                {canDoDeepAnalysis ? (
+                  <span className="text-lilac">✓</span>
+                ) : (
+                  <>
+                    <div className="font-serif text-xl text-fg-0 leading-none">{daysUntilAnalysis}</div>
+                    <div className="font-mono text-[9px] uppercase tracking-[.16em] text-fg-3">
+                      {daysUntilAnalysis === 1 ? 'день' : 'дн.'}
+                    </div>
+                  </>
+                )}
               </div>
-            </>
-          ) : (
-            <p className="text-[14px] text-fg-3">
-              Следующий анализ через {daysUntilAnalysis} {daysUntilAnalysis === 1 ? 'день' : 'дней'}
-            </p>
+            </div>
+
+            <div className="flex-1">
+              <div className="label-mono">{canDoDeepAnalysis ? 'Доступен сейчас' : 'Следующий замер'}</div>
+              <p className="mt-1 text-[14px] text-fg-1">
+                {canDoDeepAnalysis
+                  ? 'Готов(а) зафиксировать прогресс за последние 3 дня?'
+                  : `До следующего анализа ${daysUntilAnalysis} ${daysUntilAnalysis === 1 ? 'день' : 'дн.'}`}
+              </p>
+              {(ktHistory?.length ?? 0) > 0 && (
+                <div className="mt-3">
+                  <Sparkline data={ktHistory} height={48} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {canDoDeepAnalysis && (
+            <div className="mt-4">
+              <Button fullWidth onClick={() => navigate('/deep-analysis')}>
+                Пройти анализ
+              </Button>
+            </div>
           )}
+
+          {/* Bonus progress */}
+          <div className="mt-5 rounded-md p-3" style={{ background: 'rgba(180,160,255,.04)', border: '1px dashed rgba(180,160,255,.18)' }}>
+            <div className="flex items-center justify-between">
+              <div className="label-mono">{bonus.eligible ? '🎁 Бонус доступен' : 'Бонусы за месяц'}</div>
+              <div className="font-mono text-[10px] uppercase tracking-[.16em] text-fg-3">
+                окно {bonus.window} дн.
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[.15em] text-fg-3">
+                  Замеры с КТ ≥ 0
+                </div>
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className="font-serif text-lg text-fg-0">{bonus.ktSamples}</span>
+                  <span className="text-[12px] text-fg-3">/ {bonus.ktReq}</span>
+                </div>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(1, bonus.ktSamples / bonus.ktReq) * 100}%` }}
+                    transition={{ duration: 0.7, ease: [0.22, 0.8, 0.36, 1] }}
+                    className="h-full"
+                    style={{ background: 'linear-gradient(90deg, #6145c2, #9eb5ff)' }}
+                  />
+                </div>
+              </div>
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[.15em] text-fg-3">
+                  Дни в трекере
+                </div>
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className="font-serif text-lg text-fg-0">{bonus.trackerCount}</span>
+                  <span className="text-[12px] text-fg-3">/ {bonus.trackerReq}</span>
+                </div>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${Math.min(1, bonus.trackerCount / bonus.trackerReq) * 100}%` }}
+                    transition={{ duration: 0.7, ease: [0.22, 0.8, 0.36, 1], delay: 0.05 }}
+                    className="h-full"
+                    style={{ background: 'linear-gradient(90deg, #9eb5ff, #7be1a3)' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <p className="mt-3 text-[12px] leading-snug text-fg-3">
+              {bonus.eligible
+                ? 'Условия выполнены — бонусные «авторские» практики открыты.'
+                : 'Положительная динамика КТ + 6 дней в трекере за 30 дней — и откроются 1–2 «авторских» практики бесплатно.'}
+            </p>
+          </div>
         </div>
       </Section>
 
