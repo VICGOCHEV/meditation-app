@@ -60,8 +60,8 @@ export default function Player() {
   }
 
   return (
-    <ScreenShell>
-      <header className="mb-4">
+    <ScreenShell fixed>
+      <header className="mb-4 shrink-0">
         <button
           onClick={() => navigate(-1)}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-line-2 bg-white/5 text-fg-0 hover:bg-white/10"

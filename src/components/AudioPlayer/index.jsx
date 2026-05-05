@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import AmorphSphere from '../AmorphSphere'
 import { useAudio, formatTime } from '../../hooks/useAudio'
 import { usePlayerStore } from '../../store/usePlayerStore'
 
 function PlayIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-8 w-8" fill="currentColor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-9 w-9" fill="currentColor" aria-hidden="true">
       <path d="M8 5v14l11-7z" />
     </svg>
   )
 }
 function PauseIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-8 w-8" fill="currentColor" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-9 w-9" fill="currentColor" aria-hidden="true">
       <rect x="6" y="5" width="4" height="14" rx="1" />
       <rect x="14" y="5" width="4" height="14" rx="1" />
     </svg>
@@ -81,15 +82,25 @@ export default function AudioPlayer({
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div
-        className="relative flex min-h-[520px] flex-1 cursor-pointer flex-col items-center justify-between overflow-hidden py-12"
+        className="relative flex min-h-0 flex-1 cursor-pointer flex-col items-center justify-between overflow-hidden py-8"
         onClick={toggle}
         role="button"
         aria-label={isPlaying ? 'Пауза' : 'Играть'}
       >
+        {/* Fade the shader in once it's actually drawing — the canvas's
+            first frame can briefly show as a black contour because the
+            mesh is still uploading; the fade hides that. */}
         {shaderReady && (
-          <AmorphSphere blendMode="screen" className="pointer-events-none absolute inset-0" />
+          <motion.div
+            className="pointer-events-none absolute inset-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.55, ease: [0.22, 0.8, 0.36, 1] }}
+          >
+            <AmorphSphere blendMode="screen" className="absolute inset-0" />
+          </motion.div>
         )}
 
         <h1 className="relative z-10 px-6 text-center font-serif text-[32px] leading-tight text-fg-0">
@@ -107,14 +118,18 @@ export default function AudioPlayer({
             <span className="font-mono text-[13px]">-15</span>
           </button>
 
+          {/* Big play button — same look as the practice-card play
+              (transparent, 2 px violet border, layered violet glow,
+              lilac icon), just scaled up to 88×88. */}
           <button
             type="button"
             onClick={stopAnd(toggle)}
             disabled={!loaded}
-            className="flex h-[88px] w-[88px] items-center justify-center rounded-full text-white shadow-glow transition hover:brightness-110 disabled:opacity-60"
+            className="flex h-[88px] w-[88px] items-center justify-center rounded-full bg-transparent text-lilac transition hover:bg-violet/10 disabled:opacity-60"
             style={{
-              background:
-                'linear-gradient(180deg, oklch(0.62 0.19 300), oklch(0.50 0.22 285))',
+              border: '2px solid #6145c2',
+              boxShadow:
+                '0 0 28px rgba(97,69,194,.95), 0 0 56px rgba(97,69,194,.55), inset 0 0 18px rgba(97,69,194,.35)',
             }}
             aria-label={isPlaying ? 'Пауза' : 'Играть'}
           >
@@ -138,7 +153,7 @@ export default function AudioPlayer({
         </div>
       </div>
 
-      <div className="mt-6">
+      <div className="mt-4 shrink-0">
         <button
           type="button"
           onClick={onBarClick}
