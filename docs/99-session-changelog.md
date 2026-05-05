@@ -748,3 +748,30 @@ main, +0.3 KB delta; mostly the new icon keyframes).
     final state on first mount in some cases (no perceptible enter),
     which matched the user report «не имеет сейчас анимации
     появления». Explicit per-element `initial` always plays.
+
+---
+
+## Phase 18 — New shared deploy target (this session)
+
+90. **Bootstrapped a new VPS** at `212.43.148.208` (Ubuntu 22.04,
+    Node 22 preinstalled). The box is **shared** with another
+    agent's project — its Next.js process already occupies port 80
+    (`next-server (v1...)` per `ss -tlnp`).
+
+91. **Modular Caddy layout.** Installed Caddy 2.11.2; main
+    `/etc/caddy/Caddyfile` is just `import /etc/caddy/sites/*.caddy`,
+    and our site lives in `/etc/caddy/sites/meditation.caddy`
+    listening on `:8081`. Each project owns one fragment, no one
+    overwrites the other's config, both can `systemctl reload caddy`
+    independently.
+
+92. **Cloned + built + served.** `git clone --depth 1` of `main`
+    @ `d631649` to `/opt/meditation-app`, `npm ci` + `npm run build`
+    (1.27 MB main, 369 KB gzip). Caddy validate passed, `systemctl
+    enable && restart caddy` brought it up. External `curl -I` from
+    the dev mac returned `HTTP/1.1 200 OK Server: Caddy` for
+    `http://212.43.148.208:8081/`.
+
+93. **Docs updated**: `docs/10-deploy.md` rewritten around the new
+    box (modular Caddy, port 8081, shared-host story, updated deploy
+    procedure). `docs/README.md` quick-link points to the new URL.

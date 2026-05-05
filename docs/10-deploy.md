@@ -11,16 +11,21 @@ Author identity is passed inline per commit (`-c user.name=…
 
 | | |
 |---|---|
-| Provider | Hostkey (Blitz Intel NL-3) |
-| Host | `89.105.213.173` (IPv4) |
-| OS | Ubuntu 22.04.5 LTS |
-| Resources | 1 vCPU · 3.5 GB RAM · 20 GB SSD · 250 Mbps |
-| Auth | SSH key (Mac's `~/.ssh/id_ed25519` already in `authorized_keys`) |
+| Host | `212.43.148.208` (current) |
+| OS | Ubuntu 22.04 |
+| Node | 22.x (preinstalled) |
+| Auth | password during bootstrap; rotate or `ssh-copy-id` after |
+| Port | **8081** (port 80 is taken by another agent's Next.js project on this shared box) |
 
-A previous server `188.137.239.182` was IPv6-only and got replaced with
-this IPv4 box. Password auth still works but the SSH key path is
-preferred. The user has been advised to rotate the password (it was
-posted in chat).
+Earlier hosts (legacy, may be torn down):
+- `89.105.213.173` — Hostkey IPv4, Caddy on port 80, full stack we built
+  out across the original session.
+- `188.137.239.182` — IPv6-only, replaced by `89.105.213.173`.
+
+The current box is **shared**: another agent runs a Next.js app on
+`:80`. We coexist by giving each project its own port + its own
+Caddy site file (see Caddy section below). Nobody touches the other's
+config; both can deploy independently.
 
 ## Stack on the box
 
@@ -33,12 +38,22 @@ git 2.34
 App lives at `/opt/meditation-app/`. `dist/` is the build output served
 by Caddy.
 
-## Caddy configuration
+## Caddy configuration (modular)
+
+Because the box is shared, we run Caddy in **modular** mode: the main
+`/etc/caddy/Caddyfile` only imports per-site fragments, and each
+project owns one fragment. Nobody overwrites anyone else's config.
 
 `/etc/caddy/Caddyfile`:
 
 ```
-:80 {
+import /etc/caddy/sites/*.caddy
+```
+
+`/etc/caddy/sites/meditation.caddy`:
+
+```
+:8081 {
     root * /opt/meditation-app/dist
     encode gzip zstd
     try_files {path} /index.html
@@ -50,36 +65,43 @@ by Caddy.
 }
 ```
 
+- Listens on `:8081`. Public URL: `http://212.43.148.208:8081/`.
 - `try_files {path} /index.html` — SPA fallback.
 - gzip + zstd encoding.
 - Hashed `/assets/*` get a 1-year immutable cache.
 - `/index.html` is no-cache so deploys flip immediately.
 
-No HTTPS yet — the box has no domain. `https://...` requests get
-`ERR_CONNECTION_REFUSED` because port 443 is closed; users must explicitly
-type `http://`. Once a domain is bought, change `:80` to
-`example.com` and Caddy will provision Let's Encrypt automatically.
+Other projects on this box drop their own file in
+`/etc/caddy/sites/` and pick a different port. `caddy validate
+--config /etc/caddy/Caddyfile` checks that the merged config is sane;
+`systemctl reload caddy` applies it without dropping connections.
+
+No HTTPS — the box has no domain. Browsers must type `http://` and
+the explicit port. Once a domain is bought, change the site file's
+listen address to `example.com` and Caddy will provision Let's
+Encrypt automatically (port 443 needs to be open in the firewall).
 
 ## Deploy procedure
 
-From the developer's Mac, all in one shell run:
+From the developer's Mac:
 
 ```bash
 git -C ~/Desktop/MED/APP add .
-git -C ~/Desktop/MED/APP -c user.name=… -c user.email=… commit -m "..."
+git -C ~/Desktop/MED/APP commit -m "..."
 git -C ~/Desktop/MED/APP push
 
-ssh root@89.105.213.173 "
+ssh root@212.43.148.208 'bash -s' <<'EOF'
+  set -euo pipefail
   cd /opt/meditation-app
   git pull --ff-only
-  npm ci --no-audit --no-fund --silent   # only when package.json changed
+  npm ci --no-audit --no-fund --silent   # skip if package.json unchanged
   npm run build
   systemctl reload caddy
-"
+EOF
 ```
 
-`npm ci` is skipped on most deploys; `git pull && npm run build` is
-typically enough.
+Most deploys — `git pull && npm run build && systemctl reload caddy`
+is enough; `npm ci` only when dependencies change.
 
 ## URLs
 
@@ -87,7 +109,7 @@ typically enough.
 |---|---|
 | Local dev | `http://localhost:5173/` (Vite) |
 | Local network | `http://192.168.0.220:5173/` (varies) |
-| Production | `http://89.105.213.173/` |
+| Production | `http://212.43.148.208:8081/` |
 
 ## Bundle stats (current)
 

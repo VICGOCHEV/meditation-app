@@ -263,11 +263,11 @@ export default function Checkin() {
   const q = QUESTIONS[step]
 
   return (
-    <ScreenShell>
-      <div className="flex min-h-[90dvh] flex-col">
+    <ScreenShell fixed>
+      <div className="flex h-full flex-col">
         <Progress step={step + 1} total={4} />
 
-        <div className="relative mt-6 flex-1 overflow-hidden">
+        <div className="relative mt-6 min-h-0 flex-1 overflow-hidden">
           <AnimatePresence mode="wait" initial={false} custom={direction}>
             <motion.div
               key={step}

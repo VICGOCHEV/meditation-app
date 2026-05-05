@@ -23,7 +23,7 @@ Start at the top and stop when you have what you need.
 
 ## Quick links
 
-- **Live (production):** http://89.105.213.173/
+- **Live (production):** http://212.43.148.208:8081/ — current; older 89.105.213.173 may still be up
 - **Local dev:** http://localhost:5173/
 - **Repo:** https://github.com/VICGOCHEV/meditation-app
 - **Brief:** `/Users/eblan/Desktop/MED/BRIEF.md`

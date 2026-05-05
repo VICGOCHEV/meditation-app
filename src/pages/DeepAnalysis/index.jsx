@@ -411,8 +411,8 @@ export default function DeepAnalysis() {
   const blockCount = step < 5 ? `${step + 1} / 5` : `${step - 4} / 5`
 
   return (
-    <ScreenShell>
-      <div className="flex min-h-[90dvh] flex-col">
+    <ScreenShell fixed>
+      <div className="flex h-full flex-col">
         <div className="flex items-center justify-between">
           <button
             onClick={() => (step === 0 ? navigate(-1) : setStep(step - 1))}
@@ -455,7 +455,7 @@ export default function DeepAnalysis() {
           </span>
         </div>
 
-        <div className="relative mt-6 flex-1 overflow-hidden">
+        <div className="relative mt-6 min-h-0 flex-1 overflow-hidden">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={step}
