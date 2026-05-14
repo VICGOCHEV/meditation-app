@@ -323,7 +323,12 @@ export default function DeepAnalysis() {
   // "vs прошлый раз" and a sparkline of where this run sits.
   const historyAtMount = useMemo(() => ktHistory || [], [])
 
-  if (!canDoDeepAnalysis) {
+  // The "слишком рано" guard must run AFTER the in-memory `result`
+  // check below. Otherwise: as soon as `recordAnalysis(KT)` lands in
+  // the store, `lastDeepAnalysisDate` flips to "now", `canDoDeepAnalysis`
+  // becomes false on the next render, and the user sees "Ещё рано · 3 дн."
+  // instead of their freshly computed result.
+  if (!canDoDeepAnalysis && !result) {
     const pct = Math.max(0, Math.min(1, (3 - daysUntilAnalysis) / 3))
     return (
       <ScreenShell>
