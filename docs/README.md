@@ -19,6 +19,9 @@ Start at the top and stop when you have what you need.
 | [08-api-and-data.md](08-api-and-data.md) | Mock API contracts, switching to real backend. |
 | [09-formulas.md](09-formulas.md) | ИС / ИТ / ИО / КТ formulas and copy. |
 | [10-deploy.md](10-deploy.md) | Production server, Caddy, GitHub Actions-less flow. |
+| [11-spec-status.md](11-spec-status.md) | Spec compliance vs. contract VC-26-013 — what's done, partial, or still left. |
+| [12-client-questions.md](12-client-questions.md) | Internal: questions and asset requests to send the client before starting the remaining work. |
+| [13-client-brief.md](13-client-brief.md) | Clean Russian brief for the client — locked decisions + what to send back + step-by-step TG/VK/MAX setup. |
 | [99-session-changelog.md](99-session-changelog.md) | Chronological log of every iteration in this session. |
 
 ## Quick links

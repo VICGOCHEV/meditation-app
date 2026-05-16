@@ -1,0 +1,46 @@
+{
+  "kind": "collectionType",
+  "collectionName": "voices",
+  "info": {
+    "singularName": "voice",
+    "pluralName": "voices",
+    "displayName": "Voice",
+    "description": "Голос проводника: код (male/female), полная дорожка + 5–10 сек превью."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "name": {
+      "type": "string",
+      "required": true
+    },
+    "code": {
+      "type": "string",
+      "required": true,
+      "unique": true,
+      "regex": "^[a-z0-9-]+$"
+    },
+    "audio_full": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": ["audios"]
+    },
+    "audio_preview": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": ["audios"]
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    }
+  }
+}

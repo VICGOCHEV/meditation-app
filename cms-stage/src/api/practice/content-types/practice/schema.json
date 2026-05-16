@@ -1,0 +1,50 @@
+{
+  "kind": "collectionType",
+  "collectionName": "practices",
+  "info": {
+    "singularName": "practice",
+    "pluralName": "practices",
+    "displayName": "Practice",
+    "description": "Аудио-практика одного из трёх блоков (Расслабление / Осознанность / Авторский)."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "block": {
+      "type": "enumeration",
+      "enum": ["relaxation", "awareness", "author"],
+      "required": true
+    },
+    "audio": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": ["audios"]
+    },
+    "duration_sec": {
+      "type": "integer",
+      "min": 0,
+      "default": 0
+    },
+    "description": {
+      "type": "text"
+    },
+    "price": {
+      "type": "integer",
+      "min": 0
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    },
+    "month_slot": {
+      "type": "integer"
+    }
+  }
+}

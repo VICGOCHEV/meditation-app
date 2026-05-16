@@ -1,0 +1,40 @@
+{
+  "kind": "collectionType",
+  "collectionName": "music_tracks",
+  "info": {
+    "singularName": "music-track",
+    "pluralName": "music-tracks",
+    "displayName": "Music track",
+    "description": "Фоновая мелодия: полная дорожка + 5–10 сек превью. Explicit singular/plural to avoid Strapi pluralising 'music' to 'musics'."
+  },
+  "options": {
+    "draftAndPublish": true
+  },
+  "pluginOptions": {},
+  "attributes": {
+    "title": {
+      "type": "string",
+      "required": true
+    },
+    "audio_full": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": ["audios"]
+    },
+    "audio_preview": {
+      "type": "media",
+      "multiple": false,
+      "required": true,
+      "allowedTypes": ["audios"]
+    },
+    "active": {
+      "type": "boolean",
+      "default": true
+    },
+    "order": {
+      "type": "integer",
+      "default": 0
+    }
+  }
+}
