@@ -194,12 +194,11 @@ const amorphFragment = /* glsl */ `
     // Grain only inside blob — keep outside clean.
     col += (hash(gl_FragCoord.xy + t) - 0.5) * 0.015 * body;
 
-    // Smoky look: alpha is the shape mask MULTIPLIED by `cut`. cut
-    // goes 1.0 at single-shell areas → 0.15 at the dense centre
-    // where 4-7 shells overlap. So the centre fades to ~50% alpha
-    // instead of being a solid bright patch — same "lowered
-    // opacity at the intersection of all shells" feel that the
-    // original screen-blend version had.
+    // Smoky look: alpha is shape mask multiplied by cut. cut goes
+    // 1.0 at single-shell areas down to 0.15 at the dense centre
+    // (4-7 shells overlap). So the centre fades to ~50% alpha
+    // instead of being a solid bright patch — same lowered-opacity
+    // at the intersection feel the screen-blend version had.
     float alphaMix = mix(0.55, 1.00, cut);
     float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
     // Edge cleanup: very near-black pixels (anti-alias artefacts
