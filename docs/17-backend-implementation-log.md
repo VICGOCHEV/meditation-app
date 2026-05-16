@@ -263,6 +263,58 @@ auth-middleware, JWT в `Authorization: Bearer ...`.
 
 ---
 
+## Статус: ✅ Phase A-D задеплоены и smoke-проверены
+
+- Все 4 фазы прокатаны последовательно, каждая со smoke-тестом.
+- Backend код в репо: `backend/` (синхронизируется в `/opt/meditation-api`
+  через `rsync --exclude=node_modules --exclude=.env`).
+- Фронт переключен на боевой backend (`VITE_USE_MOCK=false`,
+  `VITE_API_URL=/api`).
+- Stores (`useAuthStore`, `useProgressStore`, `useCheckinStore`)
+  переписаны на server-sync. Все мутирующие экшены теперь async,
+  с optimistic local update + server-call + re-hydrate.
+
+Осталось:
+- E2E smoke в браузере (регистрация → чекин → плеер → DA).
+- Опционально: Phase polish — bcrypt rounds, login throttling,
+  refresh tokens, password reset через настоящий SMTP.
+
 ## Сноски / решения по ходу
 
-(Дописывается во время работы.)
+### 1. `prisma migrate dev` хочет shadow DB, у роли `api` нет CREATEDB
+
+Первая попытка `npx prisma migrate dev --name init` упала с P3014:
+«permission denied to create database». Решение — использовать
+`prisma db push` для первого наката (без shadow DB, без файлов
+миграций). Файлы миграций добавим, когда схема начнёт эволюционировать
+в проде.
+
+### 2. Caddy `handle_path /api/*` режет префикс — Fastify 404
+
+Изначально настроил `handle_path /api/* { reverse_proxy 127.0.0.1:3001 }`
+со strip. Fastify зарегистрирован с `prefix: '/api'`, поэтому
+снятие префикса в Caddy → Fastify видит `/health` → 404 (надо `/api/health`).
+Поменял на `handle /api*` без strip — заработало.
+
+### 3. Двойной POST `/api/subscription` в onPay
+
+Subscription-страница вызывала и `createSubscription()` (mock-only
+сейчас, реальный POST в non-mock), и `activate(30)` из стора. В
+non-mock режиме оба бы POST'или /api/subscription, и подписка
+продлевалась бы на 60 дней вместо 30. Убрал `createSubscription()` из
+страницы — теперь только `activate()`, которое единственное знает
+про backend.
+
+### 4. mockPractices direct imports — снова
+
+При выкатке CMS пришлось рефакторить Home/Player с прямого импорта
+mockPractices на `fetchPractices`-обёртку. Сейчас при выкатке
+backend перекрыли те же сторы — useProgressStore, useCheckinStore.
+Все mutating actions стали async. Пришлось обновить callsites:
+- Checkin onNext — `await completeCheckin(...)`, убрал `postCheckin`
+- DA onNext — `await recordAnalysis({answers, IT, IO, KT})`,
+  читаем `newlyUnlockedId / newlyUnlockedBonus` из ответа
+- Player onEnd — `await markPracticeComplete(id)`, убрал addTrackerDay
+  (сервер делает это в той же ручке)
+- Subscription onPay — `await activate(30)`, убрал legacy
+  createSubscription

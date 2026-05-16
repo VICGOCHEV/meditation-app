@@ -61,11 +61,15 @@ import /etc/caddy/sites/*.caddy
 :80 {
     encode gzip zstd
 
+    # Our custom backend (Fastify): auth, progression, subscription.
+    # No strip — Fastify routes register under /api prefix.
+    handle /api* {
+        reverse_proxy 127.0.0.1:3001
+    }
+
     # Strapi-managed paths. The admin SPA (/admin) loads plugin
     # APIs at their own top-level paths (/content-manager,
     # /upload, /users-permissions, /content-type-builder, etc).
-    # If we don't proxy these to Strapi, the React SPA fallback
-    # returns HTML and the admin's loaders spin forever.
     @strapi path \
         /admin* \
         /content-manager* \
@@ -82,9 +86,7 @@ import /etc/caddy/sites/*.caddy
         reverse_proxy 127.0.0.1:1337
     }
 
-    # Public REST + uploads — frontend talks to them at /cms/api and
-    # /cms/uploads (see VITE_CMS_URL=/cms). Caddy strips the /cms
-    # prefix; Strapi serves /api/* and /uploads/*.
+    # CMS public REST + uploads — frontend reads via VITE_CMS_URL=/cms.
     handle_path /cms/* {
         reverse_proxy 127.0.0.1:1337
     }
@@ -135,12 +137,15 @@ Encrypt automatically (port 443 needs to be open in the firewall).
 |---|---|---|---|
 | Frontend (React, dist) | `/opt/meditation-app/dist/` | 80 (via Caddy) | static — `npm run build` |
 | Strapi CMS v5.46 | `/opt/meditation-cms/` | 1337 (loopback) | systemd: `meditation-cms.service`, logs `/var/log/meditation-cms.log` |
+| Meditation API (Fastify + Prisma) | `/opt/meditation-api/` | 3001 (loopback) | systemd: `meditation-api.service`, logs `/var/log/meditation-api.log` |
 | Caddy 2.11.3 | `/etc/caddy/` | 80 | systemd: `caddy.service` |
-| PostgreSQL 14.22 | DB `meditation_cms`, role `strapi` | 5432 (loopback) | systemd: `postgresql.service` |
+| PostgreSQL 14.22 | DBs `meditation_cms` (role `strapi`), `meditation_app` (role `api`) | 5432 (loopback) | systemd: `postgresql.service` |
 
 ## Deploy procedure
 
 С макбука:
+
+**Frontend** (типичный деплой):
 
 ```bash
 git -C ~/Desktop/MED/APP add .
@@ -153,18 +158,32 @@ ssh root@188.137.177.136 'bash -s' <<'EOF'
   git pull --ff-only
   npm ci --no-audit --no-fund --silent   # skip if package.json unchanged
   npm run build                          # пишет в dist/, Caddy сразу видит
-  # Caddy не нужно перезагружать — статика отдается с диска.
-  # systemctl reload caddy — только если меняли /etc/caddy/sites/*.caddy.
 EOF
 ```
 
-CMS обновляется отдельно (когда меняем content-types / lifecycles):
+**Custom API** (когда меняем код в `backend/`):
+
+```bash
+ssh root@188.137.177.136 'bash -s' <<'EOF'
+  set -euo pipefail
+  # Sync backend/ из git-репо на актуальный путь сервиса
+  rsync -a --delete --exclude=node_modules --exclude=.env --exclude=prisma/migrations \
+    /opt/meditation-app/backend/ /opt/meditation-api/
+  cd /opt/meditation-api
+  npm ci --no-audit --no-fund --silent   # skip if package.json unchanged
+  npx prisma db push --skip-generate     # only if prisma/schema.prisma changed
+  npx prisma generate                    # regenerate client on schema change
+  systemctl restart meditation-api
+EOF
+```
+
+**CMS** обновляется отдельно (когда меняем content-types / lifecycles):
 
 ```bash
 ssh root@188.137.177.136 'bash -s' <<'EOF'
   cd /opt/meditation-cms
   npm install --no-audit --no-fund
-  npm run build         # rebuild admin bundle (when content-types меняются)
+  npm run build         # rebuild admin bundle
   systemctl restart meditation-cms
 EOF
 ```
@@ -172,9 +191,11 @@ EOF
 ## Credentials (важно!)
 
 Хранятся на сервере, не в репо:
-- `/root/.strapi_db_password` — пароль роли `strapi` в PostgreSQL.
+- `/root/.strapi_db_password` — пароль роли `strapi` в PostgreSQL (CMS).
+- `/root/.api_db_password` — пароль роли `api` в PostgreSQL (наш API).
 - `/root/.strapi_admin_password` — пароль суперюзера Strapi
   (`admin@meditation.local`).
+- `/opt/meditation-api/.env` — `JWT_SECRET` нашего API + `DATABASE_URL`.
 - `/root/.ssh/authorized_keys` — публичный ключ заказчика, можно
   логиниться без пароля.
 
@@ -186,6 +207,7 @@ EOF
 | Production | `http://188.137.177.136/` |
 | CMS admin | `http://188.137.177.136/admin` |
 | CMS API (public) | `http://188.137.177.136/cms/api/practices` |
+| Backend API | `http://188.137.177.136/api/health` |
 
 ## Bundle stats (current)
 
