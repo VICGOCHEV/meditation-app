@@ -243,22 +243,37 @@ Email: `admin@meditation.local`
 Через эту админку клиент сам заливает практики/голос/музыку — это и
 есть основной use-case CMS.
 
-### Caddy: разделение admin / api
+### Caddy + admin URL: финальная конфигурация после трёх итераций
 
-Сначала поставили `handle_path /cms/* { reverse_proxy }` со strip
-префикса. Открыли `/cms/admin` → пришёл HTML, но `<script src>`
-ссылался на `/admin/strapi-XXX.js` — этот путь поймал SPA-фолбэк и
-вернул `index.html`, у браузера MIME-ошибка, белый экран.
+Пытались упаковать админку под `/cms/admin`. Итерации:
 
-Поставили `admin.url = '/cms/admin'` в `config/admin.js` и пересобрали
-админку — теперь бандл ссылается на `/cms/admin/strapi-XXX.js`, но
-Strapi внутри тоже переехала на путь `/cms/admin` (логично — это её
-public URL). Тогда `handle_path` со strip сломал admin: `/cms/admin`
-→ `/admin` → Strapi 404.
+1. **`handle_path /cms/*` со strip всего** + дефолтный admin на /admin.
+   Открыли /cms/admin → пришёл HTML, но `<script src>` указал
+   `/admin/strapi-X.js` — этот путь поймал SPA-фолбэк, отдал
+   index.html, MIME-mismatch, белый экран.
+2. **Добавили `admin.url='/cms/admin'`** + пересобрали бандл. Теперь
+   `<script src>` указывает `/cms/admin/strapi-X.js`. Но Strapi сдвинул
+   и SPA, И admin API на путь `/cms/admin`. Со strip в Caddy —
+   `/cms/admin` → Strapi `/admin` → 404.
+3. **Split: admin no-strip + cms/* strip** + `STRAPI_ADMIN_BACKEND_URL=/cms`.
+   Admin bundle стал звать API по `/cms/admin/init` (вместо
+   `/admin/init`), а у Strapi с admin.url=/cms/admin API сидит ровно
+   там же, где SPA — и `/cms/admin/init` возвращал HTML, не JSON.
+   Browser получал HTML вместо JSON ответа `hasAdmin: true` → парс
+   ломался → показывался экран первого запуска.
 
-Решение: **два handle-блока, admin без strip, остальное со strip**.
-Конкретный Caddyfile — см. `docs/10-deploy.md`.
+**Финал (что осталось):** убрали `admin.url`, убрали env-vars `URL`,
+`ADMIN_URL`, `STRAPI_ADMIN_BACKEND_URL`. Strapi работает на дефолтных
+путях (SPA + admin API оба на /admin). Caddy:
 
-Эту тонкость стоит держать в голове, если когда-нибудь будем
-сдвигать админку на другой путь — `config/admin.js url` И Caddy
-правило должны менять синхронно.
+```
+handle /admin*       reverse_proxy 127.0.0.1:1337   # no rewrite
+handle_path /cms/*   reverse_proxy 127.0.0.1:1337   # strip → /api, /uploads
+handle              static React SPA
+```
+
+**Урок на будущее:** Strapi 5 НЕ позволяет независимо сконфигурировать
+путь для admin-SPA и admin-API — они привязаны друг к другу через
+`admin.url`. Если когда-то понадобится "admin под /cms/admin", это
+займёт минимум час дебага и серию rebuild'ов. Дефолтный `/admin` —
+самый чистый путь.

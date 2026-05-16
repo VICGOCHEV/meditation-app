@@ -61,20 +61,19 @@ import /etc/caddy/sites/*.caddy
 :80 {
     encode gzip zstd
 
-    # Strapi admin lives at /cms/admin INSIDE Strapi too (we set
-    # admin.url='/cms/admin' in config/admin.js, so the admin bundle
-    # bakes /cms/admin/* asset paths). NO strip here — pass-through.
-    handle /cms/admin* {
+    # Strapi admin at default /admin (both SPA and admin API).
+    handle /admin* {
         reverse_proxy 127.0.0.1:1337
     }
 
-    # Public API + uploads — Strapi serves at /api and /uploads
-    # internally, so we DO strip the /cms prefix.
+    # Public REST + uploads — frontend talks to them at /cms/api and
+    # /cms/uploads (see VITE_CMS_URL=/cms). Caddy strips the /cms
+    # prefix; Strapi serves /api/* and /uploads/*.
     handle_path /cms/* {
         reverse_proxy 127.0.0.1:1337
     }
 
-    # Everything else — single-page React app
+    # Everything else — single-page React app.
     handle {
         root * /opt/meditation-app/dist
         try_files {path} /index.html
@@ -88,18 +87,17 @@ import /etc/caddy/sites/*.caddy
 ```
 
 Маршруты:
-- `/cms/admin*` → Strapi admin UI **с сохранением префикса**, потому что
-  в `config/admin.js` Strapi выставлено `url: '/cms/admin'` — он сам
-  слушает на этом пути и баки админ-бандл с `/cms/admin/*` ассетами.
+- `/admin*` → Strapi админка (SPA + admin API на одном пути,
+  Strapi не позволяет их разделить).
 - `/cms/api/*` → Strapi REST (через `handle_path` со strip префикса).
 - `/cms/uploads/*` → загруженные через Strapi медиа (тот же strip).
 - `/` (всё остальное) → SPA-фолбэк на React `dist/index.html`.
 
-**Урок:** если поставить только `handle_path /cms/* {…}` с strip,
-admin-бандл будет ссылаться на ассеты по `/admin/...`, эти запросы
-поймает SPA-фолбэк (отдаст HTML вместо JS) и админка покажет белый
-экран с MIME-ошибкой. Именно для этого admin вынесен в отдельный
-no-strip handle поверх strip-блока.
+**Что НЕ делать:** не пытаться запихнуть admin под `/cms/admin` через
+`config/admin.js`. Strapi 5 при изменении `admin.url` сдвигает И SPA,
+И API на новый путь. Тогда либо ассеты ломаются (если Caddy strip),
+либо ломается admin/init API (если no-strip). Дефолтный `/admin` —
+самый чистый путь.
 
 No HTTPS — the box has no domain. Browsers must type `http://` and
 the explicit port. Once a domain is bought, change the site file's
@@ -161,7 +159,7 @@ EOF
 |---|---|
 | Local dev | `http://localhost:5173/` (Vite) |
 | Production | `http://188.137.177.136/` |
-| CMS admin | `http://188.137.177.136/cms/admin` |
+| CMS admin | `http://188.137.177.136/admin` |
 | CMS API (public) | `http://188.137.177.136/cms/api/practices` |
 
 ## Bundle stats (current)
