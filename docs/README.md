@@ -22,6 +22,9 @@ Start at the top and stop when you have what you need.
 | [11-spec-status.md](11-spec-status.md) | Spec compliance vs. contract VC-26-013 — what's done, partial, or still left. |
 | [12-client-questions.md](12-client-questions.md) | Internal: questions and asset requests to send the client before starting the remaining work. |
 | [13-client-brief.md](13-client-brief.md) | Clean Russian brief for the client — locked decisions + what to send back + step-by-step TG/VK/MAX setup. |
+| [14-work-plan.md](14-work-plan.md) | Plan with green/yellow/red blockers per stream — what we can do without the client. |
+| [15-strapi-implementation-log.md](15-strapi-implementation-log.md) | Live rollout log for the Strapi CMS deployment. |
+| [16-cms-guide-for-client.md](16-cms-guide-for-client.md) | Russian how-to for the client on uploading practices / voice / music via the Strapi admin. |
 | [99-session-changelog.md](99-session-changelog.md) | Chronological log of every iteration in this session. |
 
 ## Quick links
