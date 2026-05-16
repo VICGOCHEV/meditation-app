@@ -61,8 +61,24 @@ import /etc/caddy/sites/*.caddy
 :80 {
     encode gzip zstd
 
-    # Strapi admin at default /admin (both SPA and admin API).
-    handle /admin* {
+    # Strapi-managed paths. The admin SPA (/admin) loads plugin
+    # APIs at their own top-level paths (/content-manager,
+    # /upload, /users-permissions, /content-type-builder, etc).
+    # If we don't proxy these to Strapi, the React SPA fallback
+    # returns HTML and the admin's loaders spin forever.
+    @strapi path \
+        /admin* \
+        /content-manager* \
+        /content-type-builder* \
+        /content-releases* \
+        /upload* \
+        /users-permissions* \
+        /i18n* \
+        /email* \
+        /review-workflows* \
+        /documentation* \
+        /webhooks*
+    handle @strapi {
         reverse_proxy 127.0.0.1:1337
     }
 
@@ -87,17 +103,26 @@ import /etc/caddy/sites/*.caddy
 ```
 
 Маршруты:
-- `/admin*` → Strapi админка (SPA + admin API на одном пути,
-  Strapi не позволяет их разделить).
-- `/cms/api/*` → Strapi REST (через `handle_path` со strip префикса).
+- `@strapi` matcher → Strapi (`/admin` + плагинные API на их
+  собственных корневых путях: `/content-manager`, `/upload`,
+  `/users-permissions`, `/content-type-builder` и т. д.).
+- `/cms/api/*` → Strapi REST для фронта (через `handle_path` со
+  strip префикса).
 - `/cms/uploads/*` → загруженные через Strapi медиа (тот же strip).
 - `/` (всё остальное) → SPA-фолбэк на React `dist/index.html`.
 
-**Что НЕ делать:** не пытаться запихнуть admin под `/cms/admin` через
-`config/admin.js`. Strapi 5 при изменении `admin.url` сдвигает И SPA,
-И API на новый путь. Тогда либо ассеты ломаются (если Caddy strip),
-либо ломается admin/init API (если no-strip). Дефолтный `/admin` —
-самый чистый путь.
+**Грабли, которые не нужно повторять:**
+
+1. **Не запихивать admin под `/cms/admin`** через `config/admin.js`.
+   Strapi 5 при изменении `admin.url` сдвигает И SPA, И admin API на
+   новый путь. Тогда либо ассеты ломаются (если Caddy strip), либо
+   ломается admin/init API (если no-strip).
+2. **Не забывать про плагинные маршруты.** В Strapi 5 admin-SPA
+   подгружает данные с API, который живёт НЕ под `/admin/*`, а на
+   собственных корневых путях типа `/content-manager/content-types`,
+   `/upload/files`, `/users-permissions/...`. Если Caddy не проксирует
+   эти пути — SPA-фолбэк отдаёт HTML вместо JSON и любой контент-менеджер
+   крутит загрузчик навсегда. Поэтому список путей в `@strapi` matcher.
 
 No HTTPS — the box has no domain. Browsers must type `http://` and
 the explicit port. Once a domain is bought, change the site file's

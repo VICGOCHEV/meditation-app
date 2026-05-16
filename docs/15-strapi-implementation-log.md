@@ -262,18 +262,27 @@ Email: `admin@meditation.local`
    Browser получал HTML вместо JSON ответа `hasAdmin: true` → парс
    ломался → показывался экран первого запуска.
 
-**Финал (что осталось):** убрали `admin.url`, убрали env-vars `URL`,
-`ADMIN_URL`, `STRAPI_ADMIN_BACKEND_URL`. Strapi работает на дефолтных
-путях (SPA + admin API оба на /admin). Caddy:
+**4-я итерация (финальная).** После предыдущей правки Content Manager
+показал спиннер навечно. По логам — SPA вызывал
+`/content-manager/content-types`, а у нас в Caddy этого пути не было,
+и SPA-фолбэк отдавал HTML вместо JSON. JSON-парс падал, react-query
+ретраил → loader.
+
+**Финал.** Все плагинные роуты Strapi проксируются через
+матчер `@strapi`:
 
 ```
-handle /admin*       reverse_proxy 127.0.0.1:1337   # no rewrite
-handle_path /cms/*   reverse_proxy 127.0.0.1:1337   # strip → /api, /uploads
-handle              static React SPA
+@strapi path /admin* /content-manager* /content-type-builder*
+             /content-releases* /upload* /users-permissions*
+             /i18n* /email* /review-workflows* /documentation*
+             /webhooks*
+handle @strapi { reverse_proxy 127.0.0.1:1337 }
+handle_path /cms/* { reverse_proxy 127.0.0.1:1337 }
+handle { /* React SPA */ }
 ```
 
 **Урок на будущее:** Strapi 5 НЕ позволяет независимо сконфигурировать
 путь для admin-SPA и admin-API — они привязаны друг к другу через
-`admin.url`. Если когда-то понадобится "admin под /cms/admin", это
-займёт минимум час дебага и серию rebuild'ов. Дефолтный `/admin` —
-самый чистый путь.
+`admin.url`. И главное — admin SPA вызывает плагинные API не под
+`/admin/*`, а на собственных корневых путях. Список путей в `@strapi`
+matcher нужно держать актуальным при добавлении новых плагинов.
