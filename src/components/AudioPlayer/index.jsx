@@ -114,9 +114,8 @@ export default function AudioPlayer({
               }}
               transition={{ duration: 0.9, ease: [0.22, 0.8, 0.36, 1] }}
             >
-              <div className="relative aspect-square w-full max-w-[460px] px-2">
+              <div className="relative aspect-square w-full max-w-[540px]">
                 <AmorphSphere
-                  blendMode="screen"
                   onFirstPaint={() => setShaderPainted(true)}
                 />
               </div>

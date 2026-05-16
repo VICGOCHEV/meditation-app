@@ -123,9 +123,9 @@ const amorphFragment = /* glsl */ `
     float pulseA = 1.0 + 0.55 * sin(t * 0.113) * cos(t * 0.079 + 0.9);
     float pulseB = 1.0 + 0.65 * sin(t * 0.091 + 1.7) * cos(t * 0.137);
 
-    float s1 = blobFill(p, c0, 0.255, 0.035,           0.012, t, 0.0);
-    float s2 = blobFill(p, c1, 0.245, 0.045 * pulseA,  0.018, t, 1.9);
-    float s3 = blobFill(p, c2, 0.235, 0.055,           0.022, t, 3.7);
+    float s1 = blobFill(p, c0, 0.330, 0.035,           0.012, t, 0.0);
+    float s2 = blobFill(p, c1, 0.320, 0.045 * pulseA,  0.018, t, 1.9);
+    float s3 = blobFill(p, c2, 0.310, 0.055,           0.022, t, 3.7);
 
     vec2 c3 = vec2(
       sin(t * 0.091 + 3.7 + cos(t * 0.043) * 0.6) * 0.028,
@@ -139,15 +139,15 @@ const amorphFragment = /* glsl */ `
       sin(t * 0.083 + 0.9 + cos(t * 0.037) * 0.7) * 0.026,
       cos(t * 0.137 + 6.1 + sin(t * 0.053) * 0.7) * 0.020
     );
-    float s4 = blobFillSharp(p, c3, 0.252, 0.038,           0.012, t, 8.1);
-    float s5 = blobFillSharp(p, c4, 0.242, 0.048 * pulseB,  0.018, t, 11.7);
-    float s6 = blobFillSharp(p, c5, 0.248, 0.042,           0.013, t, 14.3);
+    float s4 = blobFillSharp(p, c3, 0.327, 0.038,           0.012, t, 8.1);
+    float s5 = blobFillSharp(p, c4, 0.317, 0.048 * pulseB,  0.018, t, 11.7);
+    float s6 = blobFillSharp(p, c5, 0.323, 0.042,           0.013, t, 14.3);
 
     vec2 c6 = vec2(
       cos(t * 0.071 + 4.2 + sin(t * 0.039) * 0.8) * 0.020,
       sin(t * 0.101 + 0.6 + cos(t * 0.051) * 0.8) * 0.016
     );
-    float s7 = blobFill(p, c6, 0.268, 0.040, 0.020, t, 17.9);
+    float s7 = blobFill(p, c6, 0.343, 0.040, 0.020, t, 17.9);
 
     float body = max(max(max(max(max(max(s1, s2), s3), s4), s5), s6), s7);
 
@@ -159,9 +159,13 @@ const amorphFragment = /* glsl */ `
     float lighting = 0.5 + 0.5 * dot(normalize(p + vec2(0.0001)), lightDir) * lightStab;
     float rim = pow(smoothstep(0.35, 1.0, lighting), 3.0);
 
-    vec3 cDeep   = vec3(0.120, 0.050, 0.320);
-    vec3 cMid    = vec3(0.420, 0.220, 0.850);
-    vec3 cViolet = vec3(0.46, 0.24, 0.92);
+    // Brighter palette than the original (which assumed
+    // mix-blend-mode: screen to lighten everything against the page
+    // bg). We now composite the sphere with regular alpha, so colours
+    // must look final at output — bumped luminance ~30%.
+    vec3 cDeep   = vec3(0.180, 0.080, 0.440);
+    vec3 cMid    = vec3(0.560, 0.320, 1.000);
+    vec3 cViolet = vec3(0.62, 0.36, 1.00);
     vec3 shell1Col = mix(cDeep,        cMid,         lighting);
     vec3 shell2Col = mix(cDeep * 1.15, cMid * 1.05,  lighting);
     vec3 shell3Col = mix(cDeep * 0.85, cViolet,      lighting);
@@ -230,11 +234,19 @@ function AmorphSphereMesh({ onFirstPaint }) {
   )
 }
 
-export default function AmorphSphere({ className, blendMode = 'screen', onFirstPaint }) {
+export default function AmorphSphere({ className, blendMode, onFirstPaint }) {
+  // No more mix-blend-mode by default — the shader outputs proper
+  // RGBA (premultipliedAlpha:false, transparent outside the blob),
+  // so standard alpha compositing works. The old `blendMode='screen'`
+  // path used to lift the sphere's colours against the dark page bg,
+  // but it was repeatedly trapped in framer-motion's route-fade
+  // stacking context, producing the persistent "black blob" flash on
+  // route entry and exit. Colours have been brightened in the shader
+  // to compensate.
   return (
     <div
       className={className ?? 'absolute inset-0 h-full w-full'}
-      style={{ mixBlendMode: blendMode }}
+      style={blendMode ? { mixBlendMode: blendMode } : undefined}
     >
       <Canvas
         gl={{
