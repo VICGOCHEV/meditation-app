@@ -61,12 +61,20 @@ import /etc/caddy/sites/*.caddy
 :80 {
     encode gzip zstd
 
-    # CMS — Strapi v5 at /cms/*
+    # Strapi admin lives at /cms/admin INSIDE Strapi too (we set
+    # admin.url='/cms/admin' in config/admin.js, so the admin bundle
+    # bakes /cms/admin/* asset paths). NO strip here — pass-through.
+    handle /cms/admin* {
+        reverse_proxy 127.0.0.1:1337
+    }
+
+    # Public API + uploads — Strapi serves at /api and /uploads
+    # internally, so we DO strip the /cms prefix.
     handle_path /cms/* {
         reverse_proxy 127.0.0.1:1337
     }
 
-    # Frontend — single-page React app
+    # Everything else — single-page React app
     handle {
         root * /opt/meditation-app/dist
         try_files {path} /index.html
@@ -80,15 +88,18 @@ import /etc/caddy/sites/*.caddy
 ```
 
 Маршруты:
-- `/` (любой путь, кроме `/cms/*`) — SPA-фолбэк на React `dist/index.html`.
-- `/cms/admin` → Strapi admin UI.
-- `/cms/api/*` → Strapi REST API.
-- `/cms/uploads/*` → загруженные через Strapi медиа.
+- `/cms/admin*` → Strapi admin UI **с сохранением префикса**, потому что
+  в `config/admin.js` Strapi выставлено `url: '/cms/admin'` — он сам
+  слушает на этом пути и баки админ-бандл с `/cms/admin/*` ассетами.
+- `/cms/api/*` → Strapi REST (через `handle_path` со strip префикса).
+- `/cms/uploads/*` → загруженные через Strapi медиа (тот же strip).
+- `/` (всё остальное) → SPA-фолбэк на React `dist/index.html`.
 
-`handle_path /cms/*` режет префикс перед проксированием, поэтому
-Strapi внутри живёт по дефолтным путям (`/admin`, `/api`, `/uploads`).
-Чтобы он генерировал правильные ссылки наружу, в `.env` Strapi
-прописаны `URL=http://188.137.177.136/cms` и `ADMIN_URL=/cms/admin`.
+**Урок:** если поставить только `handle_path /cms/* {…}` с strip,
+admin-бандл будет ссылаться на ассеты по `/admin/...`, эти запросы
+поймает SPA-фолбэк (отдаст HTML вместо JS) и админка покажет белый
+экран с MIME-ошибкой. Именно для этого admin вынесен в отдельный
+no-strip handle поверх strip-блока.
 
 No HTTPS — the box has no domain. Browsers must type `http://` and
 the explicit port. Once a domain is bought, change the site file's

@@ -242,3 +242,23 @@ Email: `admin@meditation.local`
 Пароль: лежит в `/root/.strapi_admin_password` на сервере (не в репо!).
 Через эту админку клиент сам заливает практики/голос/музыку — это и
 есть основной use-case CMS.
+
+### Caddy: разделение admin / api
+
+Сначала поставили `handle_path /cms/* { reverse_proxy }` со strip
+префикса. Открыли `/cms/admin` → пришёл HTML, но `<script src>`
+ссылался на `/admin/strapi-XXX.js` — этот путь поймал SPA-фолбэк и
+вернул `index.html`, у браузера MIME-ошибка, белый экран.
+
+Поставили `admin.url = '/cms/admin'` в `config/admin.js` и пересобрали
+админку — теперь бандл ссылается на `/cms/admin/strapi-XXX.js`, но
+Strapi внутри тоже переехала на путь `/cms/admin` (логично — это её
+public URL). Тогда `handle_path` со strip сломал admin: `/cms/admin`
+→ `/admin` → Strapi 404.
+
+Решение: **два handle-блока, admin без strip, остальное со strip**.
+Конкретный Caddyfile — см. `docs/10-deploy.md`.
+
+Эту тонкость стоит держать в голове, если когда-нибудь будем
+сдвигать админку на другой путь — `config/admin.js url` И Caddy
+правило должны менять синхронно.
