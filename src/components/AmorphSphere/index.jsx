@@ -189,13 +189,11 @@ const amorphFragment = /* glsl */ `
     // Grain only inside blob — keep outside clean.
     col += (hash(gl_FragCoord.xy + t) - 0.5) * 0.015 * body;
 
-    // Alpha gated by per-pixel brightness as well as the shape mask.
-    // Without `mix-blend-mode: screen` the dark inner shells were
-    // reading as solid dark patches against the page bg; this drops
-    // them to alpha=0 so only the lit / coloured pixels remain
-    // visible. Rec.709 luminance, soft smoothstep from 0.06 → 0.45
-    // gives a wide range where colour gradually emerges from
-    // transparency instead of a hard cut.
+    // Alpha gated by per-pixel brightness AND the shape mask.
+    // Without screen blend the dark inner shells would read as black
+    // patches against the page bg; this drops them to alpha=0 so
+    // only the lit / coloured pixels are visible. Rec.709 luminance,
+    // smoothstep 0.06..0.45 — soft band, no hard cut.
     float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
     float alpha = body * smoothstep(0.06, 0.45, lum);
 
