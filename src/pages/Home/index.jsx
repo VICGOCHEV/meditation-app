@@ -8,6 +8,7 @@ import VoiceMusicModal from '../../components/VoiceMusicModal'
 import OnboardingFog from '../../components/OnboardingFog'
 import AnimatedSubscribeButton from '../../components/ui/AnimatedSubscribeButton'
 import { mockPractices } from '../../api/mock'
+import { fetchPractices } from '../../api/practices'
 import { useCheckinStore } from '../../store/useCheckinStore'
 import { useProgression } from '../../hooks/useProgression'
 
@@ -144,6 +145,9 @@ export default function Home() {
 
   const [redirecting, setRedirecting] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // Initial paint uses static mockPractices so the page never blanks.
+  // Once fetchPractices() resolves (CMS or real-backend), we swap.
+  const [practices, setPractices] = useState(mockPractices)
 
   useEffect(() => {
     if (!todayDone && !redirecting) {
@@ -151,6 +155,24 @@ export default function Home() {
       navigate('/checkin', { replace: true })
     }
   }, [todayDone, redirecting, navigate])
+
+  useEffect(() => {
+    let alive = true
+    fetchPractices()
+      .then((p) => {
+        if (!alive || !p) return
+        const hasContent =
+          (p.relaxation?.length || 0) +
+            (p.awareness?.length || 0) +
+            (p.author?.length || 0) >
+          0
+        if (hasContent) setPractices(p)
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const goPlay = (id) => navigate(`/player/${id}`)
 
@@ -176,7 +198,7 @@ export default function Home() {
           initial="initial"
           animate="animate"
         >
-          {mockPractices.relaxation.map((p) => (
+          {practices.relaxation.map((p) => (
             <motion.div key={p.id} variants={cardItem}>
               <Card
                 title={p.title}
@@ -208,7 +230,7 @@ export default function Home() {
           initial="initial"
           animate="animate"
         >
-          {mockPractices.awareness.map((p, idx) => {
+          {practices.awareness.map((p, idx) => {
             const unlocked = subscription.active && isPracticeUnlocked(p.id)
             const completed = isPracticeCompleted(p.id)
             return (
@@ -235,7 +257,7 @@ export default function Home() {
           initial="initial"
           animate="animate"
         >
-          {mockPractices.author.map((p) => {
+          {practices.author.map((p) => {
             const isBonus = bonusUnlocked.includes(p.id)
             return (
               <motion.div key={p.id} variants={cardItem}>

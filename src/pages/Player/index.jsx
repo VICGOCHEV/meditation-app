@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import AudioPlayer from '../../components/AudioPlayer'
-import { findPractice, mockAudioUrl } from '../../api/mock'
-import { completePractice } from '../../api/practices'
+import { findPractice as findFromMock, mockAudioUrl } from '../../api/mock'
+import { completePractice, fetchPractice } from '../../api/practices'
 import { usePlayerStore } from '../../store/usePlayerStore'
 import { useProgressStore } from '../../store/useProgressStore'
 import { formatTime } from '../../hooks/useAudio'
@@ -25,16 +25,33 @@ export default function Player() {
   const markComplete = useProgressStore((s) => s.markPracticeComplete)
   const addTrackerDay = useProgressStore((s) => s.addTrackerDay)
 
-  const practice = useMemo(() => findPractice(id), [id])
+  // Start from the synchronous mock match so the page renders
+  // immediately; if the CMS/backend returns a richer record, swap.
+  const [practice, setPractice] = useState(() => findFromMock(id))
+  const [practiceLoaded, setPracticeLoaded] = useState(false)
   const [resumePrompt, setResumePrompt] = useState(null)
   const [completed, setCompleted] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    fetchPractice(id)
+      .then((p) => {
+        if (!alive) return
+        if (p) setPractice(p)
+        setPracticeLoaded(true)
+      })
+      .catch(() => alive && setPracticeLoaded(true))
+    return () => {
+      alive = false
+    }
+  }, [id])
 
   useEffect(() => {
     const savedPos = loadPosition(id)
     if (savedPos > 10) setResumePrompt(savedPos)
   }, [id, loadPosition])
 
-  if (!practice) {
+  if (!practice && practiceLoaded) {
     return (
       <ScreenShell>
         <div className="flex min-h-[50dvh] flex-col items-center justify-center">
@@ -73,10 +90,10 @@ export default function Player() {
 
       <AudioPlayer
         practiceId={id}
-        audioUrl={mockAudioUrl}
-        title={practice.title}
-        blockLabel={BLOCK_LABEL[practice.block]?.toUpperCase()}
-        durationLabel={practice.duration}
+        audioUrl={practice?.audioUrl || mockAudioUrl}
+        title={practice?.title || '…'}
+        blockLabel={BLOCK_LABEL[practice?.block]?.toUpperCase()}
+        durationLabel={practice?.duration || ''}
         onEnd={onEnd}
       />
 
