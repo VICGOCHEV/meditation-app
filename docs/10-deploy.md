@@ -11,21 +11,25 @@ Author identity is passed inline per commit (`-c user.name=…
 
 | | |
 |---|---|
-| Host | `212.43.148.208` (current) |
-| OS | Ubuntu 22.04 |
-| Node | 22.x (preinstalled) |
-| Auth | password during bootstrap; rotate or `ssh-copy-id` after |
-| Port | **8081** (port 80 is taken by another agent's Next.js project on this shared box) |
+| Host | `188.137.177.136` (current — dedicated for the project) |
+| OS | Ubuntu 22.04 LTS |
+| Node | 22.x (NodeSource apt repo) |
+| Postgres | 14.22 (Ubuntu default) |
+| Caddy | 2.11.3 |
+| Auth | password during bootstrap, client's pubkey in `authorized_keys` |
+| Port | **80** (no other apps competing on this box) |
 
-Earlier hosts (legacy, may be torn down):
-- `89.105.213.173` — Hostkey IPv4, Caddy on port 80, full stack we built
-  out across the original session.
-- `188.137.239.182` — IPv6-only, replaced by `89.105.213.173`.
+Legacy hosts:
+- `212.43.148.208:8081` — shared with another agent's Next.js project
+  on `:80`. Used as our test sandbox earlier in the session; still up,
+  но не основной.
+- `89.105.213.173` — Hostkey IPv4 от первой версии MVP, может быть
+  снесена.
+- `188.137.239.182` — IPv6-only, давно заменён.
 
-The current box is **shared**: another agent runs a Next.js app on
-`:80`. We coexist by giving each project its own port + its own
-Caddy site file (see Caddy section below). Nobody touches the other's
-config; both can deploy independently.
+Текущий бокс **выделен под нас**. Caddy слушает `:80`, разводит трафик
+по двум маршрутам: `/cms/*` → Strapi на 127.0.0.1:1337, всё остальное
+→ статика React (`/opt/meditation-app/dist`).
 
 ## Stack on the box
 
@@ -40,9 +44,10 @@ by Caddy.
 
 ## Caddy configuration (modular)
 
-Because the box is shared, we run Caddy in **modular** mode: the main
-`/etc/caddy/Caddyfile` only imports per-site fragments, and each
-project owns one fragment. Nobody overwrites anyone else's config.
+Caddy runs в **modular** режиме: главный `/etc/caddy/Caddyfile`
+только импортирует фрагменты. Поведение полезное, если на бокс
+заедет ещё один проект — у каждого свой файл, не затирают друг
+друга.
 
 `/etc/caddy/Caddyfile`:
 
@@ -53,63 +58,100 @@ import /etc/caddy/sites/*.caddy
 `/etc/caddy/sites/meditation.caddy`:
 
 ```
-:8081 {
-    root * /opt/meditation-app/dist
+:80 {
     encode gzip zstd
-    try_files {path} /index.html
-    file_server
 
-    @assets path /assets/*
-    header @assets Cache-Control "public, max-age=31536000, immutable"
-    header /index.html Cache-Control "no-cache"
+    # CMS — Strapi v5 at /cms/*
+    handle_path /cms/* {
+        reverse_proxy 127.0.0.1:1337
+    }
+
+    # Frontend — single-page React app
+    handle {
+        root * /opt/meditation-app/dist
+        try_files {path} /index.html
+        file_server
+
+        @assets path /assets/*
+        header @assets Cache-Control "public, max-age=31536000, immutable"
+        header /index.html Cache-Control "no-cache"
+    }
 }
 ```
 
-- Listens on `:8081`. Public URL: `http://212.43.148.208:8081/`.
-- `try_files {path} /index.html` — SPA fallback.
-- gzip + zstd encoding.
-- Hashed `/assets/*` get a 1-year immutable cache.
-- `/index.html` is no-cache so deploys flip immediately.
+Маршруты:
+- `/` (любой путь, кроме `/cms/*`) — SPA-фолбэк на React `dist/index.html`.
+- `/cms/admin` → Strapi admin UI.
+- `/cms/api/*` → Strapi REST API.
+- `/cms/uploads/*` → загруженные через Strapi медиа.
 
-Other projects on this box drop their own file in
-`/etc/caddy/sites/` and pick a different port. `caddy validate
---config /etc/caddy/Caddyfile` checks that the merged config is sane;
-`systemctl reload caddy` applies it without dropping connections.
+`handle_path /cms/*` режет префикс перед проксированием, поэтому
+Strapi внутри живёт по дефолтным путям (`/admin`, `/api`, `/uploads`).
+Чтобы он генерировал правильные ссылки наружу, в `.env` Strapi
+прописаны `URL=http://188.137.177.136/cms` и `ADMIN_URL=/cms/admin`.
 
 No HTTPS — the box has no domain. Browsers must type `http://` and
 the explicit port. Once a domain is bought, change the site file's
 listen address to `example.com` and Caddy will provision Let's
 Encrypt automatically (port 443 needs to be open in the firewall).
 
+## Stacks on the box
+
+| Service | Path | Port | Manager |
+|---|---|---|---|
+| Frontend (React, dist) | `/opt/meditation-app/dist/` | 80 (via Caddy) | static — `npm run build` |
+| Strapi CMS v5.46 | `/opt/meditation-cms/` | 1337 (loopback) | systemd: `meditation-cms.service`, logs `/var/log/meditation-cms.log` |
+| Caddy 2.11.3 | `/etc/caddy/` | 80 | systemd: `caddy.service` |
+| PostgreSQL 14.22 | DB `meditation_cms`, role `strapi` | 5432 (loopback) | systemd: `postgresql.service` |
+
 ## Deploy procedure
 
-From the developer's Mac:
+С макбука:
 
 ```bash
 git -C ~/Desktop/MED/APP add .
 git -C ~/Desktop/MED/APP commit -m "..."
 git -C ~/Desktop/MED/APP push
 
-ssh root@212.43.148.208 'bash -s' <<'EOF'
+ssh root@188.137.177.136 'bash -s' <<'EOF'
   set -euo pipefail
   cd /opt/meditation-app
   git pull --ff-only
   npm ci --no-audit --no-fund --silent   # skip if package.json unchanged
-  npm run build
-  systemctl reload caddy
+  npm run build                          # пишет в dist/, Caddy сразу видит
+  # Caddy не нужно перезагружать — статика отдается с диска.
+  # systemctl reload caddy — только если меняли /etc/caddy/sites/*.caddy.
 EOF
 ```
 
-Most deploys — `git pull && npm run build && systemctl reload caddy`
-is enough; `npm ci` only when dependencies change.
+CMS обновляется отдельно (когда меняем content-types / lifecycles):
+
+```bash
+ssh root@188.137.177.136 'bash -s' <<'EOF'
+  cd /opt/meditation-cms
+  npm install --no-audit --no-fund
+  npm run build         # rebuild admin bundle (when content-types меняются)
+  systemctl restart meditation-cms
+EOF
+```
+
+## Credentials (важно!)
+
+Хранятся на сервере, не в репо:
+- `/root/.strapi_db_password` — пароль роли `strapi` в PostgreSQL.
+- `/root/.strapi_admin_password` — пароль суперюзера Strapi
+  (`admin@meditation.local`).
+- `/root/.ssh/authorized_keys` — публичный ключ заказчика, можно
+  логиниться без пароля.
 
 ## URLs
 
 | Env | URL |
 |---|---|
 | Local dev | `http://localhost:5173/` (Vite) |
-| Local network | `http://192.168.0.220:5173/` (varies) |
-| Production | `http://212.43.148.208:8081/` |
+| Production | `http://188.137.177.136/` |
+| CMS admin | `http://188.137.177.136/cms/admin` |
+| CMS API (public) | `http://188.137.177.136/cms/api/practices` |
 
 ## Bundle stats (current)
 

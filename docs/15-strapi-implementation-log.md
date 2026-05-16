@@ -114,59 +114,131 @@
   одним env-флагом `VITE_USE_CMS=true`.
 - [x] `npm run build` — зелёный после правок.
 
-### Phase 1 — Server side
-- [ ] Установлен PostgreSQL (если не было).
-- [ ] Создана БД `meditation_cms` + роль `strapi` со своим паролем.
-- [ ] `npx create-strapi-app@latest /opt/meditation-cms`
-      (postgres, no quickstart, no cloud).
-- [ ] Перенесён `JWT_SECRET / ADMIN_JWT_SECRET / APP_KEYS` в `.env`
-      (генерируются автоматом установщиком — фиксируем, чтобы при
-      перезапуске не потерять админов).
-- [ ] `config/server.js` — `url: 'http://212.43.148.208:8081/cms'`.
-- [ ] systemd-юнит `/etc/systemd/system/meditation-cms.service`,
-      `systemctl enable --now meditation-cms`.
-- [ ] Caddy site `/etc/caddy/sites/meditation-cms.caddy`:
-      handle_path `/cms/*` → reverse_proxy :1337.
-- [ ] Создан первый суперюзер админки.
-- [ ] Открыт `http://212.43.148.208:8081/cms/admin` → видна форма
-      логина.
+### Phase 1 — Server side (**ДЕПЛОЕНО на 188.137.177.136**)
+- [x] PostgreSQL 14.22 установлен.
+- [x] БД `meditation_cms` + роль `strapi` с автогенерированным паролем
+      (хранится в `/root/.strapi_db_password` на сервере).
+- [x] `npx create-strapi@latest /opt/meditation-cms` со всеми
+      DB-флагами, `--js`, `--no-run`, `--no-git-init`, `--skip-cloud`.
+- [x] `.env` сгенерён установщиком (APP_KEYS / ADMIN_JWT_SECRET /
+      TRANSFER_TOKEN_SALT / API_TOKEN_SALT). Доустановили вручную:
+      `JWT_SECRET` (для users-permissions plugin), `URL=http://188.137.177.136/cms`,
+      `ADMIN_URL=/cms/admin`, `HOST=127.0.0.1`.
+- [x] `config/plugins.js` — wired `users-permissions.jwtSecret` к
+      env-vars.
+- [x] systemd-юнит `/etc/systemd/system/meditation-cms.service`,
+      enabled+started. Логи: `/var/log/meditation-cms.log`.
+- [x] Caddy: главный `/etc/caddy/Caddyfile` — только `import`,
+      сайт-конфиг `/etc/caddy/sites/meditation.caddy` слушает `:80`,
+      `handle_path /cms/*` → `reverse_proxy 127.0.0.1:1337`,
+      все остальные пути → `/opt/meditation-app/dist` (SPA fallback).
+- [x] Суперюзер создан через `npx strapi admin:create-user` —
+      `admin@meditation.local` / пароль в `/root/.strapi_admin_password`.
+- [x] `http://188.137.177.136/cms/admin` отвечает 200.
 
 ### Phase 2 — Content
-- [ ] Schema-файлы для Practice / Voice / Music положены в
+- [x] Schema-файлы для Practice / Voice / Music-track положены в
       `src/api/<type>/content-types/<type>/schema.json`.
-- [ ] `npm install music-metadata`.
-- [ ] Лайфсайкл-хук `src/api/practice/content-types/practice/lifecycles.js`
-      — `afterCreate` / `afterUpdate` читают `audio.url`, дёргают
-      `music-metadata`, пишут `duration_sec`.
-- [ ] Public-роль permissions выставлены через UI или
-      bootstrap-скрипт.
-- [ ] Сидинг: 3 relaxation + 6 awareness + 2 author + 2 voice +
-      3 music. Placeholder-mp3 — текущий `mockAudioUrl` (10 мин
-      silence) до прихода клиентских файлов.
+- [x] Boilerplate factories: `controllers/<type>.js`,
+      `routes/<type>.js`, `services/<type>.js` для всех трёх типов.
+      Без них Strapi не регистрирует REST-эндпоинты —
+      `/api/practices` отдавал 404.
+- [x] `npm install music-metadata` в /opt/meditation-cms.
+- [x] Лайфсайкл-хук
+      `src/api/practice/content-types/practice/lifecycles.js` —
+      `afterCreate` / `afterUpdate` читают `audio.url`, дёргают
+      `music-metadata.parseFile`, пишут `duration_sec` через knex
+      (минуя entity-service, защита от рекурсии).
+- [x] Public-роль permissions — через `src/index.js` bootstrap hook
+      идемпотентно гарантирует 6 разрешений (find/findOne × 3 типа).
+      Подтверждено в БД через SQL JOIN.
+- [ ] Сидинг: НЕ делали. Реальный клиент сделает через `/cms/admin`
+      UI — это и есть основной use-case CMS. Когда зальёт аудио,
+      duration подтянется лайфсайкл-хуком.
 
 ### Phase 3 — Frontend integration
-- [ ] `src/api/cms.js` — обёртка над `fetch('/cms/api/...')`.
-      Нормализует Strapi-ответ (вытащить из `attributes`, развернуть
-      `data.media.url`).
-- [ ] Переключаемая обёртка в `src/api/practices.js`: если
-      `VITE_USE_CMS=true` — берём из `cms.js`, иначе fallback на
-      `mock.js`.
-- [ ] Аналогично — для `usePlayerStore` голос/музыка (читаем из
-      `/cms/api/voices`, `/cms/api/music`).
-- [ ] Smoke: открыть Home, увидеть карточки практик из CMS, нажать
-      play → услышать аудио с `/cms/uploads/...`.
+- [x] `src/api/cms.js` — обёртка над `fetch('/cms/api/...')`.
+      Группирует practices по блоку, разворачивает media URL,
+      форматирует duration.
+- [x] `src/api/practices.js` — переключаемая обёртка: `VITE_USE_CMS=true`
+      берёт из cms.js, иначе fallback на mock.
+- [x] **Refactor Home и Player**: раньше импортировали `mockPractices`
+      и `findPractice` напрямую из `mock.js`, минуя wrapper —
+      `cms.js` отрезался tree-shaker'ом. Теперь:
+      - `Home` — initial state = mockPractices, useEffect зовёт
+        fetchPractices(), при непустом ответе свапает state.
+      - `Player` — initial state = findFromMock(id), useEffect зовёт
+        fetchPractice(id), при непустом ответе свапает.
+      - `audioUrl` падает на `mockAudioUrl` если CMS-запись пустая.
+      - DA остаётся на mock (unlock-callouts завязаны на mock-id
+        `a1..a6`; их разрулим когда поднимем user-progression бэк).
+- [x] `.env` на сервере: `VITE_USE_CMS=true`, `VITE_CMS_URL=/cms`.
+- [x] Smoke external: `/`, `/cms/admin`, `/cms/api/practices`
+      → все 200. `/cms/uploads/test.mp3` → 404 (нет файлов; reverse-proxy
+      прошёл — это не 502).
 
 ### Phase 4 — Polish
 - [ ] Editor-роль (не Super Admin) — отдельный аккаунт для клиента.
 - [ ] Бэкап БД: ежедневный `pg_dump` в `/var/backups/cms/*.sql.gz`.
 - [ ] README в `/opt/meditation-cms/README.md` — как обновлять,
       перезапускать, бэкапить.
-- [ ] Запись в `docs/14-work-plan.md` — поток 2 ✅.
+- [x] Запись в `docs/14-work-plan.md` — поток 2 в процессе (CMS уже
+      онлайн, остался сидинг и polish).
 - [ ] Запись в `docs/99-session-changelog.md` — Phase 19.
 
 ---
 
 ## Сноски / решения по ходу
 
-(Раздел будет дописываться по мере выкатки. Сюда складываем любые
-неочевидные моменты: на что наткнулись, как решили, что отложили.)
+### Сервер сменили на 188.137.177.136
+
+Изначально CMS планировалась на 212.43.148.208:8081 (там жил фронт +
+другой Next.js проект другого агента). Заказчик дал новый чистый бокс
+`188.137.177.136` — Ubuntu 22.04, Node/Postgres/Caddy не было, /opt
+пустой. Все деплои перенеслись сюда; старый бокс пока живой как
+архив.
+
+### Caddy сел прямо на :80
+
+Бокс наш только, никто не конкурирует — Caddy слушает :80 без портов
+в URL. Внутри modular config: главный Caddyfile = только `import
+/etc/caddy/sites/*.caddy`, сайт = один файл meditation.caddy.
+
+### Strapi missing jwtSecret
+
+Strapi 5.46 installer не сгенерировал `JWT_SECRET` для
+users-permissions plugin → сервис падал на bootstrap. Чинится
+руками: `JWT_SECRET=$(node -e "...")` в `.env` + `config/plugins.js`
+с `'users-permissions': { config: { jwtSecret: env('JWT_SECRET') } }`.
+
+### Schema без routes/controllers/services = 404
+
+Положить только `schema.json` мало — Strapi 5 не регистрирует
+REST-эндпоинты, пока нет factory-файлов routes/controllers/services.
+Минимальный boilerplate из 3 строк каждый, через
+`factories.createCoreRouter('api::<type>.<type>')` и т. п.
+
+### URL/ADMIN_URL под reverse-proxy
+
+С `handle_path /cms/*` Caddy режет `/cms` префикс перед проксированием.
+Strapi внутри слушает `/admin`, `/api`, `/uploads`. Чтобы Strapi
+генерировал URLs с правильным префиксом — выставлены `URL=http://188.137.177.136/cms`
+и `ADMIN_URL=/cms/admin`. Browser получает HTML/JSON со ссылками
+`/cms/admin/*` и `/cms/uploads/*`, которые Caddy корректно проксирует
+обратно.
+
+### Frontend impractices.js обходился стороной
+
+Home/Player/DeepAnalysis импортировали `mockPractices` / `findPractice`
+прямо из `mock.js`. Wrapper `practices.js` с `USE_CMS`-флагом был dead
+code → Vite его выкидывал. Решено: рефактор Home + Player на пару
+"initial=mock, swap on CMS resolve". DA пока на mock (unlock-callouts
+завязаны на статичные `a1..a6`, ждут user-progression бэк).
+
+### Доступ к админке
+
+`http://188.137.177.136/cms/admin`
+Email: `admin@meditation.local`
+Пароль: лежит в `/root/.strapi_admin_password` на сервере (не в репо!).
+Через эту админку клиент сам заливает практики/голос/музыку — это и
+есть основной use-case CMS.

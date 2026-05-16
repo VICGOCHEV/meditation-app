@@ -26,7 +26,8 @@ Start at the top and stop when you have what you need.
 
 ## Quick links
 
-- **Live (production):** http://212.43.148.208:8081/ — current; older 89.105.213.173 may still be up
+- **Live (production):** http://188.137.177.136/ — current dedicated box (older 212.43.148.208:8081 and 89.105.213.173 may still be up as archives)
+- **CMS admin:** http://188.137.177.136/cms/admin
 - **Local dev:** http://localhost:5173/
 - **Repo:** https://github.com/VICGOCHEV/meditation-app
 - **Brief:** `/Users/eblan/Desktop/MED/BRIEF.md`
