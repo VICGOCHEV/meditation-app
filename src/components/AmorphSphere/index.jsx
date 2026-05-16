@@ -186,23 +186,26 @@ const amorphFragment = /* glsl */ `
     float pinkHit = pow(smoothstep(0.55, 1.00, lighting), 2.0);
     col += cPink * pinkHit * body * cut * 0.36;
 
-    // Ambient violet base across the whole body — guarantees that no
-    // inside-pixel is ever near-black, no matter how it's shaded. The
-    // shadow side of the sphere (where the directional lighting falls
-    // off) used to render as dark patches that my luminance-alpha
-    // formula then made transparent — so the lower-left of the sphere
-    // visibly disappeared. Ambient bias keeps the dark side lit.
-    col += cDeep * body * 0.55;
+    // Gentle ambient bias so the shadow side of the sphere isn't
+    // pure black. Kept small (0.25) so the per-pixel lighting still
+    // dominates and the overlap-cut effect below can dim the centre.
+    col += cDeep * body * 0.25;
 
     // Grain only inside blob — keep outside clean.
     col += (hash(gl_FragCoord.xy + t) - 0.5) * 0.015 * body;
 
-    // Soft alpha fade for the very-darkest residual pixels (anti-aliased
-    // edge cleanup). Threshold pulled WAY down (0..0.10) so only near-
-    // black pixels become transparent — the ambient bias above keeps
-    // the rest comfortably above it.
+    // Smoky look: alpha is the shape mask MULTIPLIED by `cut`. cut
+    // goes 1.0 at single-shell areas → 0.15 at the dense centre
+    // where 4-7 shells overlap. So the centre fades to ~50% alpha
+    // instead of being a solid bright patch — same "lowered
+    // opacity at the intersection of all shells" feel that the
+    // original screen-blend version had.
+    float alphaMix = mix(0.55, 1.00, cut);
     float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-    float alpha = body * smoothstep(0.0, 0.10, lum);
+    // Edge cleanup: very near-black pixels (anti-alias artefacts
+    // on the body edge) drop to transparent.
+    float edgeFade = smoothstep(0.0, 0.06, lum);
+    float alpha = body * alphaMix * edgeFade;
 
     gl_FragColor = vec4(col, alpha);
   }
