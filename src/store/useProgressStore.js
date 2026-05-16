@@ -206,13 +206,19 @@ export const useProgressStore = create((set, get) => ({
 
   // Returns the most recent bonus-progress snapshot. Server pushes
   // it into state on loadFromServer; for USE_MOCK we recompute locally.
-  bonusProgress: () => {
+  //
+  // NB: named getBonusProgress (not bonusProgress) — the state already
+  // has a `bonusProgress` data field hydrated from the server, and
+  // Zustand would otherwise let the field overwrite the method on
+  // `set(serverPayload)`, blowing up every callsite with
+  // "bonusProgress is not a function".
+  getBonusProgress: () => {
     const stored = get().bonusProgress
-    if (stored) return stored
+    if (stored && typeof stored === 'object') return stored
     return computeLocalBonusProgress(get())
   },
 
-  checkBonusEligibility: () => get().bonusProgress().eligible,
+  checkBonusEligibility: () => get().getBonusProgress().eligible,
 
   // No longer called from the page in real-backend mode — server does
   // the unlock during recordDeepAnalysis. Kept for USE_MOCK fallback.
