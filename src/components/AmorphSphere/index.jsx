@@ -189,8 +189,9 @@ const amorphFragment = /* glsl */ `
   }
 `
 
-function AmorphSphereMesh() {
+function AmorphSphereMesh({ onFirstPaint }) {
   const matRef = useRef(null)
+  const firedFirstPaint = useRef(false)
   const { size } = useThree()
 
   const uniforms = useMemo(
@@ -206,6 +207,12 @@ function AmorphSphereMesh() {
     if (!matRef.current) return
     matRef.current.uniforms.uTime.value = state.clock.elapsedTime
     matRef.current.uniforms.uResolution.value.set(state.size.width, state.size.height)
+    if (!firedFirstPaint.current) {
+      firedFirstPaint.current = true
+      // Defer one frame so the renderer commits this frame to the
+      // composite BEFORE the parent fades us in.
+      requestAnimationFrame(() => onFirstPaint?.())
+    }
   })
 
   return (
@@ -223,7 +230,7 @@ function AmorphSphereMesh() {
   )
 }
 
-export default function AmorphSphere({ className, blendMode = 'screen' }) {
+export default function AmorphSphere({ className, blendMode = 'screen', onFirstPaint }) {
   return (
     <div
       className={className ?? 'absolute inset-0 h-full w-full'}
@@ -238,17 +245,18 @@ export default function AmorphSphere({ className, blendMode = 'screen' }) {
         }}
         dpr={[1, 2]}
         // Explicit transparent clear colour — without it some browsers
-        // (most reliably Chromium) blit the canvas first frame with an
-        // OPAQUE BLACK background, so `mix-blend-mode: screen` shows a
-        // black square for the few frames before our shader paints over
-        // it. Setting alpha=0 in setClearColor guarantees an alpha=0
-        // backbuffer from frame 0.
+        // blit the canvas first frame with an OPAQUE BLACK background,
+        // and `mix-blend-mode: screen` shows that as a black square for
+        // a few frames before our shader paints anything.
         onCreated={({ gl }) => {
           gl.setClearColor(0x000000, 0)
+          // Same intent at the renderer level, in case some browsers
+          // honour clearAlpha but not setClearColor's alpha argument.
+          gl.setClearAlpha(0)
         }}
         style={{ width: '100%', height: '100%', display: 'block' }}
       >
-        <AmorphSphereMesh />
+        <AmorphSphereMesh onFirstPaint={onFirstPaint} />
       </Canvas>
     </div>
   )

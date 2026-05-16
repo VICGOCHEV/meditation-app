@@ -40,8 +40,9 @@ export default function AudioPlayer({
   // first frame before our opacity fade-in begins; otherwise the canvas
   // appears empty for ~200ms, then the sphere pops in at full opacity.
   const [shaderReady, setShaderReady] = useState(false)
+  const [shaderPainted, setShaderPainted] = useState(false)
   useEffect(() => {
-    const t = setTimeout(() => setShaderReady(true), 1200)
+    const t = setTimeout(() => setShaderReady(true), 800)
     return () => clearTimeout(t)
   }, [])
 
@@ -93,35 +94,32 @@ export default function AudioPlayer({
         role="button"
         aria-label={isPlaying ? 'Пауза' : 'Играть'}
       >
-        {/* Sphere fills the player column. `overflow-hidden` on the
-            parent above clips anything that drifts past the bounds.
-            Wrapped in AnimatePresence so we can play a fast fade-OUT
-            when shaderReady flips back to false on navigation — that
-            prevents the route's own opacity fade-out from trapping
-            the screen-blend in a stacking context (visible as black). */}
+        {/* Sphere lives inside a square host so it never overflows the
+            column on tall viewports. AnimatePresence drives a clean
+            fade-OUT on navigation so the screen-blend isn't trapped
+            in the route's own opacity stacking context (= black).
+            Crucially: we fade in only AFTER the shader signals first
+            paint — until then the canvas is fully transparent and
+            no black flash is possible. */}
         <AnimatePresence>
           {shaderReady && !shaderHidden && (
             <motion.div
               key="amorph-shader"
-              className="pointer-events-none absolute inset-0"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center"
               initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              // Slow fade-IN so the WebGL canvas has time to finish
-              // its first frame (~1 s with EASE). Quick fade-OUT
-              // (~280 ms) so the sphere is fully transparent BEFORE
-              // the route transition starts its own opacity fade —
-              // otherwise mix-blend-mode is trapped in a stacking
-              // context and the user sees black.
+              animate={{ opacity: shaderPainted ? 1 : 0 }}
               exit={{
                 opacity: 0,
                 transition: { duration: 0.28, ease: [0.22, 0.8, 0.36, 1] },
               }}
-              transition={{
-                duration: 1.0,
-                ease: [0.22, 0.8, 0.36, 1],
-              }}
+              transition={{ duration: 0.9, ease: [0.22, 0.8, 0.36, 1] }}
             >
-              <AmorphSphere blendMode="screen" />
+              <div className="relative aspect-square w-full max-w-[460px] px-2">
+                <AmorphSphere
+                  blendMode="screen"
+                  onFirstPaint={() => setShaderPainted(true)}
+                />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
