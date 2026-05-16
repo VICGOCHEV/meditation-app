@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                Int                  @id @default(autoincrement())
+  email             String               @unique
+  passwordHash      String
+  name              String?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  subscription      Subscription?
+  completions       PracticeCompletion[]
+  trackerDays       TrackerDay[]
+  checkins          Checkin[]
+  ktEntries         KtEntry[]
+  bonusUnlocks      BonusUnlock[]
+  unlockedAwareness UnlockedAwareness[]
+}
+
+model Subscription {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  active    Boolean   @default(false)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model UnlockedAwareness {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practiceId String
+  unlockedAt DateTime @default(now())
+
+  @@unique([userId, practiceId])
+}
+
+model PracticeCompletion {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practiceId  String
+  completedAt DateTime @default(now())
+  positionSec Int      @default(0)
+
+  @@unique([userId, practiceId])
+}
+
+model TrackerDay {
+  id     Int      @id @default(autoincrement())
+  userId Int
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date   DateTime @db.Date
+
+  @@unique([userId, date])
+}
+
+model Checkin {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  q1        Int
+  q2        Int
+  q3        Int
+  q4        Int
+  is_       Int      @map("is_value")
+  createdAt DateTime @default(now())
+}
+
+model KtEntry {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  it        Float
+  io        Float
+  kt        Float
+  answers   Json
+  createdAt DateTime @default(now())
+}
+
+model BonusUnlock {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  practiceId String
+  grantedAt  DateTime @default(now())
+
+  @@unique([userId, practiceId])
+}

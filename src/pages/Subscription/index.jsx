@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import AnimatedSubscribeButton from '../../components/ui/AnimatedSubscribeButton'
-import { createSubscription } from '../../api/subscription'
 import { useProgressStore } from '../../store/useProgressStore'
 
 const BENEFITS = [
@@ -21,8 +20,12 @@ export default function Subscription() {
   const onPay = async () => {
     setStage('loading')
     try {
-      await createSubscription()
-      activate(30)
+      // `activateSubscription` is the single source of truth. In
+      // real-backend mode it POSTs /api/subscription, which flips
+      // active=true (+30d) and unlocks 'a1'. In USE_MOCK mode it just
+      // mutates local store. The legacy `createSubscription` mock
+      // (with random failure rate) is no longer called here.
+      await activate(30)
       setStage('success')
     } catch {
       setStage('error')

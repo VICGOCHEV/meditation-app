@@ -18,7 +18,6 @@ import {
   interpretIO,
   ktDelta,
 } from '../../utils/scoreCalc'
-import { postDeepAnalysis } from '../../api/checkin'
 import { findPractice } from '../../api/mock'
 
 const EASE = [0.22, 0.8, 0.36, 1]
@@ -377,7 +376,7 @@ export default function DeepAnalysis() {
     setAnswers(next)
   }
 
-  const onNext = () => {
+  const onNext = async () => {
     if (step < 9) {
       setStep(step + 1)
       return
@@ -386,19 +385,21 @@ export default function DeepAnalysis() {
     const IO = calcIO(answers[5], answers[6], answers[7], answers[8], answers[9])
     const KT = calcKT(IO, IT)
     const delta = ktDelta(KT, historyAtMount)
-    recordAnalysis(KT)
-    const newlyUnlockedId = unlockNext()
-    const newlyUnlockedBonus = unlockBonus()
+    // recordDeepAnalysis is now the single source of truth — in
+    // real-backend mode the server unlocks the next awareness practice
+    // and re-evaluates the bonus inside this one call, and returns the
+    // ids. unlockNext() / unlockBonus() are kept on the store for the
+    // mock-mode path inside recordDeepAnalysis.
+    const r = await recordAnalysis({ answers, IT, IO, KT })
     setResult({
       IT,
       IO,
       KT,
       delta,
       ...interpretKT(KT),
-      newlyUnlockedId,
-      newlyUnlockedBonus,
+      newlyUnlockedId: r?.newlyUnlockedId ?? null,
+      newlyUnlockedBonus: r?.newlyUnlockedBonus ?? [],
     })
-    postDeepAnalysis({ answers, IT, IO, KT }).catch(() => {})
   }
 
   if (result) {

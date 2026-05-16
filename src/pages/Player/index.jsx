@@ -5,7 +5,7 @@ import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import AudioPlayer from '../../components/AudioPlayer'
 import { findPractice as findFromMock, mockAudioUrl } from '../../api/mock'
-import { completePractice, fetchPractice } from '../../api/practices'
+import { fetchPractice } from '../../api/practices'
 import { usePlayerStore } from '../../store/usePlayerStore'
 import { useProgressStore } from '../../store/useProgressStore'
 import { formatTime } from '../../hooks/useAudio'
@@ -23,7 +23,6 @@ export default function Player() {
   const loadPosition = usePlayerStore((s) => s.loadPosition)
   const clearPosition = usePlayerStore((s) => s.clearPosition)
   const markComplete = useProgressStore((s) => s.markPracticeComplete)
-  const addTrackerDay = useProgressStore((s) => s.addTrackerDay)
 
   // Start from the synchronous mock match so the page renders
   // immediately; if the CMS/backend returns a richer record, swap.
@@ -66,12 +65,12 @@ export default function Player() {
 
   const onEnd = async () => {
     clearPosition(id)
-    markComplete(id)
-    addTrackerDay()
+    // markPracticeComplete is now async — it does both completion +
+    // today's tracker entry in a single server call.
     try {
-      await completePractice(id)
+      await markComplete(id)
     } catch {
-      /* progress already saved locally */
+      /* progress saved locally even on network failure */
     }
     setCompleted(true)
   }

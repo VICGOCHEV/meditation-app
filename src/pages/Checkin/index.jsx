@@ -6,7 +6,6 @@ import DialSlider from '../../components/ui/DialSlider'
 import ScreenShell from '../../components/ui/ScreenShell'
 import { useCheckinStore } from '../../store/useCheckinStore'
 import { interpretIS } from '../../utils/scoreCalc'
-import { postCheckin } from '../../api/checkin'
 
 const EASE = [0.22, 0.8, 0.36, 1]
 const stepVariants = {
@@ -253,9 +252,10 @@ export default function Checkin() {
       return
     }
     const [q1, q2, q3, q4] = answers
-    const IS = completeCheckin({ q1, q2, q3, q4 })
+    // completeCheckin computes IS locally and (in real-backend mode)
+    // POSTs to /api/checkin internally — no separate postCheckin call.
+    const IS = await completeCheckin({ q1, q2, q3, q4 })
     setResult({ IS, ...interpretIS(IS) })
-    postCheckin({ q1, q2, q3, q4, IS }).catch(() => {})
   }
 
   if (result) return <ResultScreen result={result} onContinue={() => navigate('/')} />
