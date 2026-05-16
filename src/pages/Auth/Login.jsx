@@ -23,7 +23,8 @@ export default function Login() {
       authLogin(token, user)
       navigate('/')
     } catch (e) {
-      setErr(e.message || 'Не удалось войти')
+      const msg = e?.response?.data?.error || e?.message || 'Не удалось войти'
+      setErr(msg)
     } finally {
       setLoading(false)
     }

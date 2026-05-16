@@ -32,7 +32,16 @@ export async function authRoutes(app) {
         subscription: { create: {} },
       },
     })
-    return { ok: true, challengeId: `verified_${user.id}`, user: toPublicUser(user) }
+    // For email registration we skip the "verify code" step entirely
+    // (SMS flow not wired yet). The token is issued immediately so the
+    // frontend can drop into the app without a second round-trip.
+    const token = app.jwt.sign({ id: user.id }, { expiresIn: '7d' })
+    return {
+      ok: true,
+      challengeId: `email_${user.id}`,
+      token,
+      user: toPublicUser(user),
+    }
   })
 
   // POST /api/auth/login {identifier, password}

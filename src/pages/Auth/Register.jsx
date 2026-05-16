@@ -31,10 +31,19 @@ export default function Register() {
     }
     setLoading(true)
     try {
-      await register({ identifier, password })
+      const res = await register({ identifier, password })
+      // Email-registration returns a ready token — drop straight into
+      // the app, no SMS step. Phone-registration (when wired) will
+      // omit the token and fall through to the verify stage.
+      if (res?.token && res?.user) {
+        authLogin(res.token, res.user)
+        navigate('/')
+        return
+      }
       setStage('verify')
     } catch (e) {
-      setErr(e.message || 'Ошибка регистрации')
+      const msg = e?.response?.data?.error || e?.message || 'Ошибка регистрации'
+      setErr(msg)
     } finally {
       setLoading(false)
     }
