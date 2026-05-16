@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import AmorphSphere from '../AmorphSphere'
 import { useAudio, formatTime } from '../../hooks/useAudio'
 import { usePlayerStore } from '../../store/usePlayerStore'
@@ -27,6 +27,7 @@ export default function AudioPlayer({
   blockLabel,
   durationLabel,
   onEnd,
+  shaderHidden = false,
 }) {
   const savePosition = usePlayerStore((s) => s.savePosition)
   const loadPosition = usePlayerStore((s) => s.loadPosition)
@@ -92,22 +93,38 @@ export default function AudioPlayer({
         role="button"
         aria-label={isPlaying ? 'Пауза' : 'Играть'}
       >
-        {/* Centred square host for the sphere — keeps the shader in
-            its own aspect-correct box rather than filling the whole
-            player column (where it visually overlapped title/buttons
-            and the aspect-ratio correction stretched the sphere). */}
-        {shaderReady && (
-          <motion.div
-            className="pointer-events-none absolute inset-0 flex items-center justify-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1.0, ease: [0.22, 0.8, 0.36, 1] }}
-          >
-            <div className="relative aspect-square w-[min(78vw,420px)]">
+        {/* Sphere fills the player column. `overflow-hidden` on the
+            parent above clips anything that drifts past the bounds.
+            Wrapped in AnimatePresence so we can play a fast fade-OUT
+            when shaderReady flips back to false on navigation — that
+            prevents the route's own opacity fade-out from trapping
+            the screen-blend in a stacking context (visible as black). */}
+        <AnimatePresence>
+          {shaderReady && !shaderHidden && (
+            <motion.div
+              key="amorph-shader"
+              className="pointer-events-none absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              // Slow fade-IN so the WebGL canvas has time to finish
+              // its first frame (~1 s with EASE). Quick fade-OUT
+              // (~280 ms) so the sphere is fully transparent BEFORE
+              // the route transition starts its own opacity fade —
+              // otherwise mix-blend-mode is trapped in a stacking
+              // context and the user sees black.
+              exit={{
+                opacity: 0,
+                transition: { duration: 0.28, ease: [0.22, 0.8, 0.36, 1] },
+              }}
+              transition={{
+                duration: 1.0,
+                ease: [0.22, 0.8, 0.36, 1],
+              }}
+            >
               <AmorphSphere blendMode="screen" />
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <h1 className="relative z-10 px-6 text-center font-serif text-[32px] leading-tight text-fg-0">
           {title}

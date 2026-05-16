@@ -237,6 +237,15 @@ export default function AmorphSphere({ className, blendMode = 'screen' }) {
           preserveDrawingBuffer: false,
         }}
         dpr={[1, 2]}
+        // Explicit transparent clear colour — without it some browsers
+        // (most reliably Chromium) blit the canvas first frame with an
+        // OPAQUE BLACK background, so `mix-blend-mode: screen` shows a
+        // black square for the few frames before our shader paints over
+        // it. Setting alpha=0 in setClearColor guarantees an alpha=0
+        // backbuffer from frame 0.
+        onCreated={({ gl }) => {
+          gl.setClearColor(0x000000, 0)
+        }}
         style={{ width: '100%', height: '100%', display: 'block' }}
       >
         <AmorphSphereMesh />

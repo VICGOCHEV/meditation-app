@@ -30,6 +30,21 @@ export default function Player() {
   const [practiceLoaded, setPracticeLoaded] = useState(false)
   const [resumePrompt, setResumePrompt] = useState(null)
   const [completed, setCompleted] = useState(false)
+  // `leaving` flips on intent-to-navigate. AudioPlayer reads it as
+  // `shaderHidden` and runs an AnimatePresence exit on the sphere
+  // BEFORE the route's own opacity fade kicks in. Without this the
+  // route fade would create a stacking context that traps the
+  // mix-blend-mode: screen sphere — showing as black during exit.
+  const [leaving, setLeaving] = useState(false)
+
+  // Intercept all navigation away from the player so we always have
+  // the ~280 ms sphere fade-out before the route transition runs.
+  const exit = (target = -1) => {
+    setLeaving(true)
+    setTimeout(() => {
+      navigate(target)
+    }, 280)
+  }
 
   useEffect(() => {
     let alive = true
@@ -56,7 +71,7 @@ export default function Player() {
         <div className="flex min-h-[50dvh] flex-col items-center justify-center">
           <p className="text-fg-2">Практика не найдена</p>
           <div className="mt-6">
-            <Button onClick={() => navigate('/')}>На главную</Button>
+            <Button onClick={() => exit('/')}>На главную</Button>
           </div>
         </div>
       </ScreenShell>
@@ -79,7 +94,7 @@ export default function Player() {
     <ScreenShell fixed>
       <header className="mb-4 shrink-0">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => exit(-1)}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-line-2 bg-white/5 text-fg-0 hover:bg-white/10"
           aria-label="Назад"
         >
@@ -94,6 +109,7 @@ export default function Player() {
         blockLabel={BLOCK_LABEL[practice?.block]?.toUpperCase()}
         durationLabel={practice?.duration || ''}
         onEnd={onEnd}
+        shaderHidden={leaving}
       />
 
       <Modal
@@ -123,14 +139,14 @@ export default function Player() {
 
       <Modal
         open={completed}
-        onClose={() => navigate('/')}
+        onClose={() => exit('/')}
         title="Практика завершена ✓"
       >
         <p className="text-[14px] text-fg-1">
           Отмечено в трекере. Путь продолжается.
         </p>
         <div className="mt-5">
-          <Button fullWidth onClick={() => navigate('/')}>
+          <Button fullWidth onClick={() => exit('/')}>
             На главную
           </Button>
         </div>
