@@ -34,10 +34,13 @@ export default function AudioPlayer({
 
   // Defer mounting AmorphSphere until the route opacity fade completes —
   // while opacity < 1 the route wrapper is a stacking context and screen
-  // blend cannot reach the global AppBackground (visible as black).
+  // blend cannot reach the global AppBackground (visible as black). Plus
+  // give the WebGL canvas a beat to compile its shader and paint the
+  // first frame before our opacity fade-in begins; otherwise the canvas
+  // appears empty for ~200ms, then the sphere pops in at full opacity.
   const [shaderReady, setShaderReady] = useState(false)
   useEffect(() => {
-    const t = setTimeout(() => setShaderReady(true), 750)
+    const t = setTimeout(() => setShaderReady(true), 1200)
     return () => clearTimeout(t)
   }, [])
 
@@ -89,17 +92,20 @@ export default function AudioPlayer({
         role="button"
         aria-label={isPlaying ? 'Пауза' : 'Играть'}
       >
-        {/* Fade the shader in once it's actually drawing — the canvas's
-            first frame can briefly show as a black contour because the
-            mesh is still uploading; the fade hides that. */}
+        {/* Centred square host for the sphere — keeps the shader in
+            its own aspect-correct box rather than filling the whole
+            player column (where it visually overlapped title/buttons
+            and the aspect-ratio correction stretched the sphere). */}
         {shaderReady && (
           <motion.div
-            className="pointer-events-none absolute inset-0"
+            className="pointer-events-none absolute inset-0 flex items-center justify-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.55, ease: [0.22, 0.8, 0.36, 1] }}
+            transition={{ duration: 1.0, ease: [0.22, 0.8, 0.36, 1] }}
           >
-            <AmorphSphere blendMode="screen" className="absolute inset-0" />
+            <div className="relative aspect-square w-[min(78vw,420px)]">
+              <AmorphSphere blendMode="screen" />
+            </div>
           </motion.div>
         )}
 
