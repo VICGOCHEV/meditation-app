@@ -186,16 +186,23 @@ const amorphFragment = /* glsl */ `
     float pinkHit = pow(smoothstep(0.55, 1.00, lighting), 2.0);
     col += cPink * pinkHit * body * cut * 0.36;
 
+    // Ambient violet base across the whole body — guarantees that no
+    // inside-pixel is ever near-black, no matter how it's shaded. The
+    // shadow side of the sphere (where the directional lighting falls
+    // off) used to render as dark patches that my luminance-alpha
+    // formula then made transparent — so the lower-left of the sphere
+    // visibly disappeared. Ambient bias keeps the dark side lit.
+    col += cDeep * body * 0.55;
+
     // Grain only inside blob — keep outside clean.
     col += (hash(gl_FragCoord.xy + t) - 0.5) * 0.015 * body;
 
-    // Alpha gated by per-pixel brightness AND the shape mask.
-    // Without screen blend the dark inner shells would read as black
-    // patches against the page bg; this drops them to alpha=0 so
-    // only the lit / coloured pixels are visible. Rec.709 luminance,
-    // smoothstep 0.06..0.45 — soft band, no hard cut.
+    // Soft alpha fade for the very-darkest residual pixels (anti-aliased
+    // edge cleanup). Threshold pulled WAY down (0..0.10) so only near-
+    // black pixels become transparent — the ambient bias above keeps
+    // the rest comfortably above it.
     float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-    float alpha = body * smoothstep(0.06, 0.45, lum);
+    float alpha = body * smoothstep(0.0, 0.10, lum);
 
     gl_FragColor = vec4(col, alpha);
   }
