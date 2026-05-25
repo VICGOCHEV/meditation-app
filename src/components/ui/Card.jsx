@@ -10,9 +10,18 @@ function PlayIcon() {
 
 function LockIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
       <rect x="5" y="10" width="14" height="10" rx="2" />
       <path d="M8 10V7a4 4 0 1 1 8 0v3" />
+    </svg>
+  )
+}
+
+function SunIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2 2M17.1 17.1l2 2M4.9 19.1l2-2M17.1 6.9l2-2" />
     </svg>
   )
 }
@@ -35,19 +44,36 @@ function CardContent({ title, duration, locked, badge, completed, price, onPlay,
         </span>
       )}
 
-      <div className="text-lilac" style={{ filter: 'drop-shadow(0 0 6px #6145c2) drop-shadow(0 0 14px rgba(97,69,194,.6))' }}>
-        <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2 2M17.1 17.1l2 2M4.9 19.1l2-2M17.1 6.9l2-2" />
-        </svg>
+      {/* Top icon: sun when available, lock when locked. Lock icon живёт
+          в той же позиции / размере что и солнце — не наезжает на title. */}
+      <div
+        className={locked ? 'text-fg-3' : 'text-lilac'}
+        style={
+          locked
+            ? undefined
+            : { filter: 'drop-shadow(0 0 6px #6145c2) drop-shadow(0 0 14px rgba(97,69,194,.6))' }
+        }
+      >
+        {locked ? <LockIcon /> : <SunIcon />}
       </div>
 
-      <h4 className="mt-4 font-sans text-[17px] font-medium leading-tight text-fg-0">{title}</h4>
+      <h4
+        className={[
+          'mt-4 font-sans text-[17px] font-medium leading-tight',
+          locked ? 'text-fg-2' : 'text-fg-0',
+        ].join(' ')}
+      >
+        {title}
+      </h4>
 
       <div className="mt-4 flex items-center justify-between">
-        <span className="text-[13px] text-lilac">{duration}</span>
+        <span className={['text-[13px]', locked ? 'text-fg-3' : 'text-lilac'].join(' ')}>
+          {duration}
+        </span>
         {locked ? (
-          <span className="text-[12px] text-lilac/70">{lockedLabel || 'Заблокировано'}</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-3">
+            {lockedLabel || 'Заблокировано'}
+          </span>
         ) : price ? (
           <Button size="sm" variant="secondary" onClick={onBuy}>
             {price}
@@ -68,14 +94,6 @@ function CardContent({ title, duration, locked, badge, completed, price, onPlay,
           </button>
         )}
       </div>
-
-      {locked && (
-        <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
-          <div className="text-fg-1">
-            <LockIcon />
-          </div>
-        </div>
-      )}
     </>
   )
 }
@@ -92,7 +110,7 @@ export default function Card(props) {
   return (
     <div
       className={`relative isolate flex min-h-[200px] flex-col justify-between overflow-hidden rounded-lg p-5 ${
-        locked ? 'opacity-60' : ''
+        locked ? 'opacity-75' : ''
       }`}
       style={{
         boxShadow:

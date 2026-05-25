@@ -100,18 +100,35 @@ function CompanionsCounter() {
   )
 }
 
-function SectionHead({ numLine1, numLine2, title, subLine1, subLine2 }) {
+// Чистая 3-уровневая иерархия:
+//   eyebrow (mono uppercase, мелкий)
+//     "02 · СИСТЕМА"
+//   title (serif, крупный)
+//     "Архитектура состояний"
+//   meta-строка (mono uppercase, ещё мельче, серый) — опционально
+//     "ПЕРЕХОД В ОСОЗНАННОСТЬ · ПАРОЛЬ ОТ ЖИЗНИ"
+//
+// Справа — один компактный chip с условием доступа: "ПО ПОДПИСКЕ · 6/мес"
+// (вместо двух конкурирующих мини-строк).
+function SectionHead({ eyebrow, title, sub, chip }) {
   return (
-    <div className="mb-4 flex items-end justify-between gap-3 border-b border-line pb-3">
-      <div className="min-w-0">
-        <div className="label-mono">{numLine1}</div>
-        {numLine2 && <div className="label-mono">{numLine2}</div>}
-        <h2 className="mt-1 font-serif text-[22px] leading-tight text-fg-0">{title}</h2>
+    <div className="mb-4 border-b border-line pb-3">
+      {/* Топ-строка: eyebrow слева, chip справа — на одной горизонтальной
+          линии, выровнены по baseline. Заголовок ниже занимает всю ширину. */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="label-mono text-fg-3">{eyebrow}</div>
+        {chip && (
+          <span className="shrink-0 rounded-full border border-line-2 bg-white/5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-lilac/90">
+            {chip}
+          </span>
+        )}
       </div>
-      <div className="shrink-0 text-right text-[12px] leading-tight text-lilac">
-        <div>{subLine1}</div>
-        {subLine2 && <div>{subLine2}</div>}
-      </div>
+      <h2 className="mt-2 font-serif text-[24px] leading-tight text-fg-0">{title}</h2>
+      {sub && (
+        <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-3">
+          {sub}
+        </div>
+      )}
     </div>
   )
 }
@@ -205,11 +222,10 @@ export default function Home() {
 
       <section className="mt-8">
         <SectionHead
-          numLine1="01 · СТАРТ"
-          numLine2="ВХОД В РАССЛАБЛЕНИЕ"
+          eyebrow="01 · СТАРТ"
           title="Точка тишины"
-          subLine1="Бесплатно"
-          subLine2="3 практики"
+          sub="ВХОД В РАССЛАБЛЕНИЕ"
+          chip="Бесплатно · 3"
         />
         <motion.div
           className="grid grid-cols-2 gap-3"
@@ -231,19 +247,11 @@ export default function Home() {
 
       <section className="mt-10">
         <SectionHead
-          numLine1="02 · СИСТЕМА"
-          numLine2="ПЕРЕХОД В ОСОЗНАННОСТЬ"
+          eyebrow="02 · СИСТЕМА"
           title="Архитектура состояний"
-          subLine1="По подписке"
-          subLine2="6 практик / мес"
+          sub="ПЕРЕХОД В ОСОЗНАННОСТЬ · ПАРОЛЬ ОТ ЖИЗНИ"
+          chip="По подписке · 6/мес"
         />
-        {/* Месячный подзаголовок — клиент сказал «Пароль от жизни» как
-            подзаголовок секции, обновляется каждый месяц (вместе с
-            новыми 6 практиками). Пока хардкод; перенесём в Strapi
-            Settings, когда сделаем месячную ротацию. */}
-        <div className="-mt-2 mb-4 font-serif italic text-[15px] text-lilac/70">
-          Пароль от жизни
-        </div>
 
         {!subscription.active && (
           <div className="mb-3 rounded-md border border-line-2 bg-white/5 p-4">
@@ -283,11 +291,10 @@ export default function Home() {
 
       <section className="mt-10">
         <SectionHead
-          numLine1="03 · ГЛУБИНА"
-          numLine2="ПОГРУЖЕНИЕ В АВТОРСКИЕ"
+          eyebrow="03 · ГЛУБИНА"
           title="Поток из пространства"
-          subLine1="2 бесплатные"
-          subLine2="остальные 99 ₽"
+          sub="ПОГРУЖЕНИЕ В АВТОРСКИЕ"
+          chip="2 бесплатные · 99 ₽"
         />
         <motion.div
           className="grid grid-cols-2 gap-3"
