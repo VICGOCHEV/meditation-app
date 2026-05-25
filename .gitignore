@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Client-provided audio — должно жить в Strapi CMS, не в git
+AUDIO/
+
+# Сгенерированные PDF — исходники в .md лежат рядом
+docs/*.pdf
+
+# Большие скриншоты CMS — для документации, но раздувают репо
+docs/cms-screens/
+
+# Прод-бэкапы (если когда-то лягут сюда)
+prod-backup-*/
