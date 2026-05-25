@@ -83,7 +83,7 @@ progress hint) read the full progress object via
 | `isToday(d)` | compares ISO date prefix |
 | `daysSince(d)` | `floor((now - d) / DAY)`; `Infinity` for null |
 | `daysUntil(d)` | `ceil((d - now) / DAY)`, clamped at 0 |
-| `canDoDeepAnalysis(lastDate)` | true if no last date or ≥ 3 days passed |
+| `canDoDeepAnalysis(lastDate)` | true if no last date or ≥ `PROGRESSION_CYCLE_DAYS` (=4) passed |
 | `formatRuDate(d)` | Russian short month: «15 мая 2026» |
 | `consecutiveStreak(dates)` | Walks today, today-1, … in `Set`-membership; returns count. |
 | `monthGrid(year, month)` | 7×6 grid (42 days, Mon-first) `{ iso, day, inMonth }`. |

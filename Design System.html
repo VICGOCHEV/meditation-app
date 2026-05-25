@@ -884,7 +884,7 @@
         <span class="panel-label">Primary</span>
         <div class="btn-row">
           <button class="btn btn-primary btn-lg">Начать практику</button>
-          <button class="btn btn-primary">Оплатить</button>
+          <button class="btn btn-primary">Получить ключи к жизни</button>
           <button class="btn btn-primary btn-sm">Далее</button>
         </div>
       </div>
@@ -1339,7 +1339,7 @@
             <div class="hint">Минимум 8 символов</div>
           </div>
           <div class="btn-row">
-            <button class="btn btn-primary" style="flex:1;">Войти</button>
+            <button class="btn btn-primary" style="flex:1;">Присоединиться</button>
             <button class="btn btn-ghost">Забыл пароль?</button>
           </div>
         </div>
@@ -1812,7 +1812,7 @@
               <path d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z"/>
             </svg>
             <span class="ui-anim-txt">
-              <span class="ui-anim-letter">О</span><span class="ui-anim-letter">ф</span><span class="ui-anim-letter">о</span><span class="ui-anim-letter">р</span><span class="ui-anim-letter">м</span><span class="ui-anim-letter">и</span><span class="ui-anim-letter">т</span><span class="ui-anim-letter">ь</span><span class="ui-anim-letter">&nbsp;</span><span class="ui-anim-letter">п</span><span class="ui-anim-letter">о</span><span class="ui-anim-letter">д</span><span class="ui-anim-letter">п</span><span class="ui-anim-letter">и</span><span class="ui-anim-letter">с</span><span class="ui-anim-letter">к</span><span class="ui-anim-letter">у</span>
+              <span class="ui-anim-letter">П</span><span class="ui-anim-letter">о</span><span class="ui-anim-letter">л</span><span class="ui-anim-letter">у</span><span class="ui-anim-letter">ч</span><span class="ui-anim-letter">и</span><span class="ui-anim-letter">т</span><span class="ui-anim-letter">ь</span><span class="ui-anim-letter">&nbsp;</span><span class="ui-anim-letter">к</span><span class="ui-anim-letter">л</span><span class="ui-anim-letter">ю</span><span class="ui-anim-letter">ч</span><span class="ui-anim-letter">и</span><span class="ui-anim-letter">&nbsp;</span><span class="ui-anim-letter">к</span><span class="ui-anim-letter">&nbsp;</span><span class="ui-anim-letter">ж</span><span class="ui-anim-letter">и</span><span class="ui-anim-letter">з</span><span class="ui-anim-letter">н</span><span class="ui-anim-letter">и</span>
             </span>
           </button>
         </div>
@@ -1874,10 +1874,196 @@
     </div>
   </section>
 
+  <!-- ══════════ DELTA v0.2 — изменения от клиента 2026-05-20 ══════════ -->
+  <style>
+    /* === LinearSlider mock === */
+    .ls-wrap{ padding: 24px; background: rgba(20,14,40,.6); border-radius: var(--r-md); border: 1px solid var(--line); }
+    .ls-num{ font-family: var(--font-display); font-weight: 200; font-size: 76px; line-height: 1; letter-spacing: -0.02em; color: var(--fg-0); text-align: center; }
+    .ls-cap{ font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .18em; color: var(--acc-lilac); text-align: center; margin-top: 6px; text-transform: uppercase; }
+    .ls-row{ display: flex; justify-content: space-between; margin-top: 24px; padding: 0 4px; font-family: var(--font-display); }
+    .ls-row span{ font-size: 16px; font-weight: 300; color: rgba(216,200,255,.55); }
+    .ls-row span.active{ color: var(--fg-0); font-weight: 500; }
+    .ls-track{ position: relative; margin-top: 12px; height: 48px; }
+    .ls-bar{ position: absolute; left: 14px; right: 14px; top: 50%; height: 14px; transform: translateY(-50%); border-radius: 999px; background: rgba(180,160,255,.16); }
+    .ls-fill{ position: absolute; left: 14px; top: 50%; height: 14px; width: 50%; transform: translateY(-50%); border-radius: 999px; background: linear-gradient(90deg, #9b75ff, #6145c2); box-shadow: 0 0 16px rgba(155,117,255,.7); }
+    .ls-knob{ position: absolute; top: 50%; left: calc(14px + 50% - 12px); width: 24px; height: 24px; border-radius: 50%; background: #fff; transform: translateY(-50%); box-shadow: 0 0 18px rgba(155,117,255,.85), 0 0 36px rgba(155,117,255,.55); }
+    .ls-anchors{ display: flex; justify-content: space-between; margin-top: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .15em; color: var(--fg-3); text-transform: uppercase; padding: 0 2px; }
+
+    /* === Two-line section head (Home) === */
+    .home-head{ display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+    .home-head .num{ font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .18em; color: var(--acc-lilac); text-transform: uppercase; line-height: 1.4; }
+    .home-head h3{ font-family: var(--font-display); font-weight: 300; font-size: 22px; color: var(--fg-0); line-height: 1.15; letter-spacing: -0.01em; margin: 6px 0 0; }
+    .home-head .sub{ text-align: right; font-size: 12px; color: var(--acc-lilac); line-height: 1.3; }
+    .home-pwd{ margin-top: 8px; font-family: var(--font-display); font-style: italic; font-size: 15px; color: rgba(216,200,255,.7); }
+
+    /* === Delete-account modal mock === */
+    .modal-mock{ background: rgba(14,10,28,.95); border: 1px solid var(--line-2); border-radius: var(--r-md); padding: 24px; max-width: 380px; }
+    .modal-mock h4{ font-family: var(--font-display); font-weight: 300; font-size: 20px; color: var(--fg-0); margin: 0 0 12px; }
+    .modal-mock p{ font-size: 14px; color: var(--fg-1); margin: 0 0 10px; }
+    .modal-mock .confirm-input{ width: 100%; padding: 12px 14px; background: rgba(0,0,0,.3); border: 1px solid var(--line-2); border-radius: var(--r-sm); color: var(--fg-0); font: 500 14px 'Manrope'; letter-spacing: .12em; text-transform: uppercase; }
+    .btn-destructive{ background: linear-gradient(180deg, oklch(0.60 0.20 25), oklch(0.50 0.22 20)); color: #fff; border: 0; padding: 14px 24px; border-radius: 999px; font: 500 14px 'Manrope'; cursor: pointer; }
+  </style>
+
+  <section>
+    <div class="section-head">
+      <span class="num">v0.2 / Delta · 2026-05-20</span>
+      <h2>Что поменялось после правок клиента</h2>
+      <div class="tail">
+        Новые лейблы кнопок, горизонтальный слайдер вместо круга,
+        двустрочные заголовки секций на главной, удаление аккаунта.
+        Старый <code class="mono">DialSlider</code> и бонусная механика — выпилены.
+      </div>
+    </div>
+
+    <!-- LinearSlider — заменил DialSlider в Checkin + DeepAnalysis -->
+    <div class="panel" style="margin-bottom: 28px;">
+      <span class="panel-label">LinearSlider — горизонтальный слайдер (Checkin + DA)</span>
+      <div class="ls-wrap">
+        <div class="ls-num">5</div>
+        <div class="ls-cap">баллов</div>
+        <div class="ls-row">
+          <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+          <span class="active">5</span>
+          <span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+        </div>
+        <div class="ls-track">
+          <div class="ls-bar"></div>
+          <div class="ls-fill"></div>
+          <div class="ls-knob"></div>
+        </div>
+        <div class="ls-anchors">
+          <span>не отвлекали</span>
+          <span>постоянно</span>
+        </div>
+      </div>
+      <div class="muted" style="margin-top: 14px; font-size: 12px;">
+        Заменил круговой <code class="mono">DialSlider</code> — drag вертикально
+        конфликтовал с прокруткой страницы на мобиле. Горизонтальный с
+        <code class="mono">touch-action: none</code> на треке решает.
+        Те же визуальные элементы: градиент <code class="mono">#9b75ff → #6145c2</code>,
+        glow, пульсирующее хало вокруг кноба, анимация большой цифры
+        blur+y на смене. Источник: <code class="mono">src/components/ui/LinearSlider.jsx</code>.
+      </div>
+    </div>
+
+    <!-- Two-line section heads на главной -->
+    <div class="grid g-3" style="gap: 20px;">
+      <div class="panel">
+        <span class="panel-label">Главная · Секция 01</span>
+        <div class="home-head">
+          <div>
+            <div class="num">01 · СТАРТ<br>ВХОД В РАССЛАБЛЕНИЕ</div>
+            <h3>Точка тишины</h3>
+          </div>
+          <div class="sub">Бесплатно<br>3 практики</div>
+        </div>
+      </div>
+      <div class="panel">
+        <span class="panel-label">Главная · Секция 02</span>
+        <div class="home-head">
+          <div>
+            <div class="num">02 · СИСТЕМА<br>ПЕРЕХОД В ОСОЗНАННОСТЬ</div>
+            <h3>Архитектура состояний</h3>
+          </div>
+          <div class="sub">По подписке<br>6 практик / мес</div>
+        </div>
+        <div class="home-pwd">Пароль от жизни</div>
+      </div>
+      <div class="panel">
+        <span class="panel-label">Главная · Секция 03</span>
+        <div class="home-head">
+          <div>
+            <div class="num">03 · ГЛУБИНА<br>ПОГРУЖЕНИЕ В АВТОРСКИЕ</div>
+            <h3>Поток из пространства</h3>
+          </div>
+          <div class="sub">2 бесплатные<br>остальные 99 ₽</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Новые лейблы кнопок -->
+    <div class="panel" style="margin-top: 28px;">
+      <span class="panel-label">Новые лейблы CTA</span>
+      <div class="btn-row" style="gap: 14px;">
+        <button class="btn btn-primary btn-lg">Получить ключи к жизни</button>
+        <button class="btn btn-primary">Присоединиться</button>
+        <button class="btn-destructive">Удалить аккаунт</button>
+      </div>
+      <div class="muted" style="margin-top: 14px; font-size: 12px;">
+        <code class="mono">Оформить подписку</code> → <code class="mono">Получить ключи к жизни</code>
+        (везде, включая AnimatedSubscribeButton).<br>
+        <code class="mono">Войти / Зарегистрироваться</code> → <code class="mono">Присоединиться</code> на обоих экранах auth.<br>
+        В Profile добавлена кнопка <code class="mono">Удалить аккаунт</code> — открывает модалку с подтверждением (см. ниже).
+      </div>
+    </div>
+
+    <!-- Delete-account modal -->
+    <div class="grid g-2" style="gap: 24px; margin-top: 28px;">
+      <div class="panel">
+        <span class="panel-label">Модалка удаления аккаунта</span>
+        <div class="modal-mock">
+          <h4>Удалить аккаунт?</h4>
+          <p>Это необратимо. Прогресс, история КТ, подписка и трекер удалятся. Восстановить нельзя.</p>
+          <p style="font-size: 13px; color: var(--fg-2);">
+            Для подтверждения введи слово <strong style="color: var(--fg-0);">УДАЛИТЬ</strong>.
+          </p>
+          <input class="confirm-input" placeholder="УДАЛИТЬ" value="">
+          <div class="btn-row" style="margin-top: 18px; gap: 12px;">
+            <button class="btn btn-secondary" style="flex:1;">Отмена</button>
+            <button class="btn-destructive" style="flex:1;">Удалить</button>
+          </div>
+        </div>
+        <div class="muted" style="margin-top: 14px; font-size: 12px;">
+          GDPR + требование Apple/Google. Сервер: <code class="mono">DELETE /api/auth/me</code> с
+          каскадным удалением всех связанных записей (Subscription, Checkin,
+          KtEntry, TrackerDay, PracticeCompletion, UnlockedAwareness).
+        </div>
+      </div>
+
+      <div class="panel">
+        <span class="panel-label">Бизнес-логика — что поменялось</span>
+        <ul style="list-style: none; padding: 0; margin: 0; color: var(--fg-1); font-size: 14px; line-height: 1.6;">
+          <li>· Цикл прогрессии: <strong>4 дня</strong> (не 3).</li>
+          <li>· Глубокий анализ: <strong>3 чекпоинта</strong> вместо «раз в 4 дня».<br>
+            <span class="muted" style="font-size: 12px;">start → mid (перед a4) → final (после a6)</span>
+          </li>
+          <li>· Условие открытия Осознанности: 4 дня прошли + предыдущая прослушана + отметка в трекере (DA больше не открывает).</li>
+          <li>· Авторский блок: бонусная механика <strong>удалена</strong>. 2 практики («Знакомство с автором», «Подкаст») — всегда бесплатны. Остальные — 99 ₽ поштучно.</li>
+          <li>· Подписка: тариф <strong>199 ₽ / мес</strong>, 7 дней trial.</li>
+          <li>· Расслабление: <strong>3 практики</strong> (раньше «3–5»).</li>
+          <li>· Счётчик соратников: диапазон <strong>47–740</strong>.</li>
+          <li>· Чекин Q1 переформулирован: добавлено «(сожаления, воспоминания)».</li>
+          <li>· Чекин Q2: новая формулировка про «тревожное планирование или ожидание будущего».</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Фоны / атмосфера -->
+    <div class="panel" style="margin-top: 28px;">
+      <span class="panel-label">Фоны и атмосфера</span>
+      <div class="grid g-3" style="gap: 16px;">
+        <div style="aspect-ratio: 4 / 5; border-radius: var(--r-md); background: radial-gradient(circle at 60% 50%, rgba(155,117,255,.7), rgba(97,69,194,.4) 35%, transparent 65%), #11101a; position: relative; overflow: hidden;">
+          <div style="position: absolute; left: 16px; bottom: 14px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--acc-lilac); letter-spacing: .18em; text-transform: uppercase;">AmorphSphere</div>
+        </div>
+        <div style="aspect-ratio: 4 / 5; border-radius: var(--r-md); background: linear-gradient(135deg, rgba(97,69,194,.25), rgba(20,14,40,.95)), #11101a; position: relative; overflow: hidden;">
+          <div style="position: absolute; left: 16px; bottom: 14px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--acc-lilac); letter-spacing: .18em; text-transform: uppercase;">OnboardingFog</div>
+        </div>
+        <div style="aspect-ratio: 4 / 5; border-radius: var(--r-md); background: radial-gradient(900px 600px at 80% 20%, rgba(70,40,150,.35), transparent 60%), #0a0714; position: relative; overflow: hidden;">
+          <div style="position: absolute; left: 16px; bottom: 14px; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--acc-lilac); letter-spacing: .18em; text-transform: uppercase;">AppBackground</div>
+        </div>
+      </div>
+      <div class="muted" style="margin-top: 14px; font-size: 12px;">
+        <code class="mono">AmorphSphere</code> — экран плеера, three.js + R3F фрагмент-шейдер.
+        <code class="mono">OnboardingFog</code> — мягкий fbm-туман на онбординге и главной.
+        <code class="mono">AppBackground</code> — глобальный градиент-фон, не размонтируется между экранами.
+      </div>
+    </div>
+  </section>
+
   <!-- Footer -->
   <footer style="padding-top: 60px; border-top: 1px solid var(--line); color: var(--fg-3); font-size: 12px; display:flex; justify-content:space-between;" data-cc-id="cc-44">
-    <span class="mono">MEDITATION · DESIGN SYSTEM v0.1 · 20 APR 2026</span>
-    <span class="mono">VC-26-013 · ETAP 1</span>
+    <span class="mono">MEDITATION · DESIGN SYSTEM v0.2 · 20 MAY 2026</span>
+    <span class="mono">VC-26-013 · ETAP 2</span>
   </footer>
 
 </div>
