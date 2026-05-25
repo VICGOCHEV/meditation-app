@@ -5,6 +5,48 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0714" />
     <title>Meditation</title>
+
+    <!-- БЛОК 1: правило filter живёт inline-style блоком прямо в <head>.
+         Без transition — чтобы при первом применении не было плавного
+         перехода с `filter:none` на `filter:hue-rotate(...)`. Transition
+         для последующих апдейтов добавляется в index.css; CSS-файл
+         перезатрёт это правило, но к тому моменту filter уже стоит на
+         нужном значении и delta=0 — transition не запускается. -->
+    <style>
+      html { filter: hue-rotate(var(--app-hue, 0deg)); }
+    </style>
+
+    <!-- БЛОК 2: sync init --app-hue ДО первого рендера. Без этого
+         первый кадр идёт с дефолтным hue=0, потом useTimeTheme поднимает
+         реальное значение и CSS transition 2s плавно крутит цвет —
+         даёт «плавающий» оттенок на старте, особенно заметно на
+         preloader-видео (его контр-фильтр меняется мгновенно, а
+         парент-фильтр — за 2с). Логика та же что в hooks/useTimeTheme.js
+         (без 30-мин crossfade — расхождение в первую миллисекунду
+         незаметно, хук сам подкрутит при mount). -->
+    <script>
+      (function () {
+        try {
+          var SLOT_HUE = { morning: 110, day: 0, evening: 225, night: 315 }
+          var mode = localStorage.getItem('theme_mode')
+          if (!mode || ['auto','morning','day','evening','night'].indexOf(mode) === -1) {
+            mode = 'auto'
+          }
+          var hue
+          if (mode === 'auto') {
+            var d = new Date()
+            var m = d.getHours() * 60 + d.getMinutes()
+            if (m < 300 || m >= 1320) hue = SLOT_HUE.night
+            else if (m < 660) hue = SLOT_HUE.morning
+            else if (m < 1020) hue = SLOT_HUE.day
+            else hue = SLOT_HUE.evening
+          } else {
+            hue = SLOT_HUE[mode]
+          }
+          document.documentElement.style.setProperty('--app-hue', hue + 'deg')
+        } catch (e) { /* localStorage / private mode — оставляем дефолт 0 */ }
+      })()
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

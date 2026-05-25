@@ -1,41 +1,72 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useThemeStore } from '../../store/useThemeStore'
 
 const SESSION_KEY = 'preloader_played'
-const FALLBACK_TIMEOUT = 6500
+const FALLBACK_TIMEOUT = 8000
+
+// Вычисляем «слот по времени», когда тема в режиме auto. Логика такая
+// же как в useTimeTheme.js (05/11/17/22 границы), но без 30-мин
+// crossfade — нам нужно выбрать ОДИН файл, не интерполировать между.
+function autoSlot(date = new Date()) {
+  const m = date.getHours() * 60 + date.getMinutes()
+  if (m < 300 || m >= 1320) return 'night'
+  if (m < 660) return 'morning'
+  if (m < 1020) return 'day'
+  return 'evening'
+}
 
 export default function Preloader({ onDone }) {
+  const themeMode = useThemeStore((s) => s.mode)
+
   const [visible, setVisible] = useState(() => {
     if (typeof window === 'undefined') return false
     return sessionStorage.getItem(SESSION_KEY) !== '1'
   })
   const videoRef = useRef(null)
 
+  // Слот выбираем один раз при монтировании, чтобы не дёргать src
+  // на пересечении границ слотов (в этот момент пользователь смотрит
+  // preloader, и переключение разрушит проигрывание).
+  const [slot] = useState(() =>
+    themeMode === 'auto' ? autoSlot() : themeMode
+  )
+  const src = `/preloaders/${slot}.mp4`
+
   useEffect(() => {
     if (!visible) {
       onDone?.()
       return
     }
+
     const finish = () => {
       sessionStorage.setItem(SESSION_KEY, '1')
       setVisible(false)
       onDone?.()
     }
+
     const v = videoRef.current
     if (v) {
-      // Imperatively ensure muted before play — iOS won't autoplay otherwise,
-      // and React's `muted` prop occasionally fails to make it onto the
-      // initial DOM attribute fast enough.
-      v.muted = true
-      v.defaultMuted = true
-      const tryPlay = v.play()
-      if (tryPlay && typeof tryPlay.catch === 'function') {
-        // Autoplay denied (typical on touch devices without prior gesture).
-        // Skip the preloader instead of leaving the user staring at the
-        // browser's tap-to-play overlay.
-        tryPlay.catch(() => finish())
+      // Каскад автоплея для видео со звуком:
+      // 1. Пробуем с включённым звуком (если user уже взаимодействовал
+      //    со страницей — например, кликнул «Войти» — браузер пустит).
+      // 2. Если отказ — пробуем muted (всегда разрешено).
+      // 3. Если и muted отказ — скипаем preloader, чтобы не показывать
+      //    tap-to-play overlay.
+      v.muted = false
+      const tryUnmuted = v.play()
+      if (tryUnmuted && typeof tryUnmuted.catch === 'function') {
+        tryUnmuted.catch(() => {
+          v.muted = true
+          v.defaultMuted = true
+          const tryMuted = v.play()
+          if (tryMuted && typeof tryMuted.catch === 'function') {
+            tryMuted.catch(() => finish())
+          }
+        })
       }
     }
+
     const fallback = setTimeout(finish, FALLBACK_TIMEOUT)
     const onEnded = () => {
       clearTimeout(fallback)
@@ -60,11 +91,13 @@ export default function Preloader({ onDone }) {
         >
           <video
             ref={videoRef}
-            src="/preloader.mp4"
+            src={src}
             className="pointer-events-none h-full w-full object-cover"
+            // Контр-фильтр: парент <html> крутит хью на +var(--app-hue),
+            // мы здесь крутим обратно. Net = 0deg. Видео остаётся в
+            // оригинальной палитре (уже снято под нужный цвет суток).
+            style={{ filter: 'hue-rotate(calc(-1 * var(--app-hue, 0deg)))' }}
             autoPlay
-            muted
-            defaultMuted
             playsInline
             webkit-playsinline="true"
             x5-playsinline="true"
