@@ -1,14 +1,48 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import Sparkline from '../../components/ui/Sparkline'
+import Modal from '../../components/ui/Modal'
 import TrackerCalendar from '../../components/TrackerCalendar'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useProgressStore } from '../../store/useProgressStore'
 import { usePlayerStore } from '../../store/usePlayerStore'
+import { useThemeStore } from '../../store/useThemeStore'
 import { consecutiveStreak, formatRuDate } from '../../utils/dateHelpers'
+
+// Текст под заголовком блока, когда DA в данный момент недоступен —
+// поясняет, что мешает (4-дневный кулдаун, не прослушана, нет
+// тракер-марки, и т.д.). Зеркалит причины с бэка из nextAwarenessUnlock.
+function daHelpText(next) {
+  if (!next) return 'Замер откроется на ключевых точках курса.'
+  switch (next.reason) {
+    case 'sub-not-active':
+      return 'Замер открывается после активации подписки.'
+    case 'cycle-not-elapsed':
+      return `Следующая практика откроется через ${next.daysLeft} ${plural(next.daysLeft)}.`
+    case 'prev-not-completed':
+      return 'Допроходи предыдущую практику до конца.'
+    case 'no-tracker-mark':
+      return 'Отметь день прослушивания в трекере.'
+    case 'mid-da-required':
+      return 'Промежуточный замер откроется после 3-й практики.'
+    case 'all-unlocked':
+      return 'Курс пройден. Финальный замер уже сделан.'
+    default:
+      return 'Замер откроется на ключевых точках курса.'
+  }
+}
+function plural(n) {
+  const m10 = n % 10
+  const m100 = n % 100
+  if (m10 === 1 && m100 !== 11) return 'день'
+  if ([2, 3, 4].includes(m10) && ![12, 13, 14].includes(m100)) return 'дня'
+  return 'дней'
+}
 import { useProgression } from '../../hooks/useProgression'
+import { deleteAccount } from '../../api/auth'
 
 function Section({ title, children, trailing }) {
   return (
@@ -37,7 +71,15 @@ export default function Profile() {
   const setVoice = usePlayerStore((s) => s.setVoice)
   const setMusic = usePlayerStore((s) => s.setMusic)
 
-  const { canDoDeepAnalysis, daysUntilAnalysis, ktHistory, bonus } = useProgression()
+  const themeMode = useThemeStore((s) => s.mode)
+  const setThemeMode = useThemeStore((s) => s.setMode)
+
+  const {
+    canDoDeepAnalysis,
+    daCheckpoint,
+    nextAwarenessUnlock,
+    ktHistory,
+  } = useProgression()
 
   const awarenessDone = completedPractices.filter((id) => id.startsWith('a')).length
   const streak = consecutiveStreak(trackerDays)
@@ -51,6 +93,25 @@ export default function Profile() {
   const onLogout = () => {
     logout()
     navigate('/auth/login')
+  }
+
+  // Two-step delete: user has to type «УДАЛИТЬ» (mirrors GitHub /
+  // Apple's irreversible-action UX). Sends DELETE /api/auth/me, then
+  // logs out + redirects.
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const onDelete = async () => {
+    setDeleting(true)
+    try {
+      await deleteAccount()
+      logout()
+      navigate('/auth/login')
+    } catch {
+      setDeleting(false)
+      // eslint-disable-next-line no-alert
+      alert('Не удалось удалить аккаунт. Попробуй позже.')
+    }
   }
 
   return (
@@ -159,58 +220,66 @@ export default function Profile() {
               })}
             </div>
           </div>
+          <div>
+            <div className="label-mono mb-2">Тема оформления</div>
+            <div className="flex flex-col gap-2">
+              {[
+                { id: 'auto',    label: 'Авто',    sub: 'По времени суток' },
+                { id: 'morning', label: 'Утро',    sub: '05:00 — 11:00 · коралл' },
+                { id: 'day',     label: 'День',    sub: '11:00 — 17:00 · фиолетовый' },
+                { id: 'evening', label: 'Вечер',   sub: '17:00 — 22:00 · изумрудный' },
+                { id: 'night',   label: 'Ночь',    sub: '22:00 — 05:00 · индиго' },
+              ].map((t) => {
+                const on = themeMode === t.id
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setThemeMode(t.id)}
+                    className={[
+                      'flex items-center justify-between rounded-sm border px-4 py-3 text-left transition',
+                      on ? 'border-lilac bg-white/10' : 'border-line-2 bg-white/5 hover:bg-white/10',
+                    ].join(' ')}
+                  >
+                    <span className="flex flex-col">
+                      <span className="text-fg-0">{t.label}</span>
+                      <span className="text-[11px] text-fg-3">{t.sub}</span>
+                    </span>
+                    <span className={[
+                      'h-2.5 w-2.5 rounded-full',
+                      on ? 'bg-lilac' : 'bg-line-2',
+                    ].join(' ')} />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </Section>
 
       <Section title="Глубокий анализ">
         <div className="panel">
-          <div className="flex items-start gap-4">
-            {/* Countdown ring on the left */}
-            <div className="relative h-20 w-20 shrink-0">
-              <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(180,160,255,.16)" strokeWidth="6" />
-                <motion.circle
-                  cx="50" cy="50" r="44" fill="none"
-                  stroke="#6145c2" strokeWidth="6" strokeLinecap="round"
-                  pathLength="1"
-                  initial={{ pathLength: 0 }}
-                  animate={{
-                    pathLength: canDoDeepAnalysis
-                      ? 1
-                      : Math.max(0, Math.min(1, (3 - daysUntilAnalysis) / 3)),
-                  }}
-                  transition={{ duration: 0.9, ease: [0.22, 0.8, 0.36, 1] }}
-                  style={{ filter: 'drop-shadow(0 0 6px rgba(97,69,194,.55))' }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                {canDoDeepAnalysis ? (
-                  <span className="text-lilac">✓</span>
-                ) : (
-                  <>
-                    <div className="font-serif text-xl text-fg-0 leading-none">{daysUntilAnalysis}</div>
-                    <div className="font-mono text-[9px] uppercase tracking-[.16em] text-fg-3">
-                      {daysUntilAnalysis === 1 ? 'день' : 'дн.'}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="flex-1">
-              <div className="label-mono">{canDoDeepAnalysis ? 'Доступен сейчас' : 'Следующий замер'}</div>
-              <p className="mt-1 text-[14px] text-fg-1">
-                {canDoDeepAnalysis
-                  ? 'Готов(а) зафиксировать прогресс за последние 3 дня?'
-                  : `До следующего анализа ${daysUntilAnalysis} ${daysUntilAnalysis === 1 ? 'день' : 'дн.'}`}
-              </p>
-              {(ktHistory?.length ?? 0) > 0 && (
-                <div className="mt-3">
-                  <Sparkline data={ktHistory} height={48} />
-                </div>
-              )}
-            </div>
+          <div className="label-mono">
+            {daCheckpoint === 'start' && '01 · Стартовый замер'}
+            {daCheckpoint === 'mid'   && '02 · Промежуточный замер'}
+            {daCheckpoint === 'final' && '03 · Финальный замер'}
+            {!daCheckpoint            && 'Следующий замер'}
           </div>
+          <p className="mt-1 text-[14px] text-fg-1">
+            {daCheckpoint === 'start' &&
+              'Зафиксируй точку входа в курс — нужно, чтобы потом увидеть динамику.'}
+            {daCheckpoint === 'mid' &&
+              'Половина курса позади. Замерь, что изменилось, чтобы открыть 4-ю практику.'}
+            {daCheckpoint === 'final' &&
+              'Курс пройден. Сравни себя в начале и сейчас.'}
+            {!daCheckpoint &&
+              daHelpText(nextAwarenessUnlock)}
+          </p>
+
+          {(ktHistory?.length ?? 0) > 0 && (
+            <div className="mt-3">
+              <Sparkline data={ktHistory} height={48} />
+            </div>
+          )}
 
           {canDoDeepAnalysis && (
             <div className="mt-4">
@@ -219,70 +288,70 @@ export default function Profile() {
               </Button>
             </div>
           )}
-
-          {/* Bonus progress */}
-          <div className="mt-5 rounded-md p-3" style={{ background: 'rgba(180,160,255,.04)', border: '1px dashed rgba(180,160,255,.18)' }}>
-            <div className="flex items-center justify-between">
-              <div className="label-mono">{bonus.eligible ? '🎁 Бонус доступен' : 'Бонусы за месяц'}</div>
-              <div className="font-mono text-[10px] uppercase tracking-[.16em] text-fg-3">
-                окно {bonus.window} дн.
-              </div>
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-3">
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-[.15em] text-fg-3">
-                  Замеры с КТ ≥ 0
-                </div>
-                <div className="mt-1 flex items-baseline gap-1">
-                  <span className="font-serif text-lg text-fg-0">{bonus.ktSamples}</span>
-                  <span className="text-[12px] text-fg-3">/ {bonus.ktReq}</span>
-                </div>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(1, bonus.ktSamples / bonus.ktReq) * 100}%` }}
-                    transition={{ duration: 0.7, ease: [0.22, 0.8, 0.36, 1] }}
-                    className="h-full"
-                    style={{ background: 'linear-gradient(90deg, #6145c2, #9eb5ff)' }}
-                  />
-                </div>
-              </div>
-              <div>
-                <div className="font-mono text-[10px] uppercase tracking-[.15em] text-fg-3">
-                  Дни в трекере
-                </div>
-                <div className="mt-1 flex items-baseline gap-1">
-                  <span className="font-serif text-lg text-fg-0">{bonus.trackerCount}</span>
-                  <span className="text-[12px] text-fg-3">/ {bonus.trackerReq}</span>
-                </div>
-                <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/8">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${Math.min(1, bonus.trackerCount / bonus.trackerReq) * 100}%` }}
-                    transition={{ duration: 0.7, ease: [0.22, 0.8, 0.36, 1], delay: 0.05 }}
-                    className="h-full"
-                    style={{ background: 'linear-gradient(90deg, #9eb5ff, #7be1a3)' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <p className="mt-3 text-[12px] leading-snug text-fg-3">
-              {bonus.eligible
-                ? 'Условия выполнены — бонусные «авторские» практики открыты.'
-                : 'Положительная динамика КТ + 6 дней в трекере за 30 дней — и откроются 1–2 «авторских» практики бесплатно.'}
-            </p>
-          </div>
         </div>
       </Section>
 
-      <div className="mt-10">
+      <div className="mt-10 flex flex-col gap-3">
         <Button variant="destructive" fullWidth onClick={onLogout}>
           Выйти из аккаунта
         </Button>
+        <button
+          type="button"
+          onClick={() => setDeleteOpen(true)}
+          className="text-center text-[12px] text-fg-3 hover:text-fg-1"
+        >
+          Удалить аккаунт
+        </button>
       </div>
 
+      <Modal
+        open={deleteOpen}
+        onClose={() => {
+          if (deleting) return
+          setDeleteOpen(false)
+          setDeleteConfirm('')
+        }}
+        title="Удалить аккаунт?"
+      >
+        <p className="text-[14px] text-fg-1">
+          Это необратимо. Прогресс, история КТ, подписка и трекер
+          удалятся. Восстановить нельзя.
+        </p>
+        <p className="mt-3 text-[13px] text-fg-2">
+          Для подтверждения введи слово <strong className="text-fg-0">УДАЛИТЬ</strong>.
+        </p>
+        <input
+          type="text"
+          value={deleteConfirm}
+          onChange={(e) => setDeleteConfirm(e.target.value)}
+          placeholder="УДАЛИТЬ"
+          autoCorrect="off"
+          autoCapitalize="characters"
+          className="field-input mt-3"
+        />
+        <div className="mt-5 flex gap-3">
+          <Button
+            variant="secondary"
+            fullWidth
+            onClick={() => {
+              setDeleteOpen(false)
+              setDeleteConfirm('')
+            }}
+            disabled={deleting}
+          >
+            Отмена
+          </Button>
+          <Button
+            variant="destructive"
+            fullWidth
+            disabled={deleteConfirm.trim().toUpperCase() !== 'УДАЛИТЬ' || deleting}
+            loading={deleting}
+            onClick={onDelete}
+          >
+            Удалить
+          </Button>
+        </div>
+      </Modal>
     </ScreenShell>
   )
 }

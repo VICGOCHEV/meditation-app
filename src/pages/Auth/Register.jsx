@@ -42,7 +42,13 @@ export default function Register() {
       }
       setStage('verify')
     } catch (e) {
-      const msg = e?.response?.data?.error || e?.message || 'Ошибка регистрации'
+      const msg =
+        e?.response?.data?.error ||
+        (e?.response?.status >= 500
+          ? 'Мы ненадолго замедлились. Пожалуйста, попробуй чуть позже.'
+          : null) ||
+        e?.message ||
+        'Ошибка регистрации'
       setErr(msg)
     } finally {
       setLoading(false)
@@ -85,7 +91,7 @@ export default function Register() {
           </Field>
           {err && <div className="text-sm text-err">{err}</div>}
           <Button type="submit" size="lg" fullWidth loading={loading}>
-            Зарегистрироваться
+            Присоединиться
           </Button>
           <div className="pt-2 text-center text-[13px] text-fg-2">
             Уже есть аккаунт?{' '}

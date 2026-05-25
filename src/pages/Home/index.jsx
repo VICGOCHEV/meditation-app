@@ -27,7 +27,17 @@ const cardItem = {
 }
 
 const COMP_MIN = Number(import.meta.env.VITE_COMPANIONS_MIN || 47)
-const COMP_MAX = Number(import.meta.env.VITE_COMPANIONS_MAX || 312)
+const COMP_MAX = Number(import.meta.env.VITE_COMPANIONS_MAX || 740)
+
+// Russian pluralisation for «человек»:
+// 1 → человек, 2–4 → человека, 5–20 → человек, etc.
+function declineLudei(n) {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return 'человек'
+  if ([2, 3, 4].includes(mod10) && ![12, 13, 14].includes(mod100)) return 'человека'
+  return 'человек'
+}
 
 function CompanionsCounter() {
   const initial = useMemo(
@@ -70,8 +80,8 @@ function CompanionsCounter() {
   return (
     <div className="panel flex items-center justify-between">
       <div>
-        <div className="label-mono">Соратники</div>
-        <div className="mt-1 text-[14px] text-lilac/80">Сейчас в практике</div>
+        <div className="label-mono">В моменте</div>
+        <div className="mt-1 text-[14px] text-lilac/80">Сейчас расслабляются</div>
       </div>
       <div className="text-right">
         <motion.div
@@ -84,20 +94,24 @@ function CompanionsCounter() {
         >
           {count}
         </motion.div>
-        <div className="text-[12px] text-lilac">человек</div>
+        <div className="text-[12px] text-lilac">{declineLudei(count)}</div>
       </div>
     </div>
   )
 }
 
-function SectionHead({ num, title, subtitle }) {
+function SectionHead({ numLine1, numLine2, title, subLine1, subLine2 }) {
   return (
-    <div className="mb-4 flex items-end justify-between border-b border-line pb-3">
-      <div>
-        <div className="label-mono">{num}</div>
-        <h2 className="font-serif text-[22px] text-fg-0">{title}</h2>
+    <div className="mb-4 flex items-end justify-between gap-3 border-b border-line pb-3">
+      <div className="min-w-0">
+        <div className="label-mono">{numLine1}</div>
+        {numLine2 && <div className="label-mono">{numLine2}</div>}
+        <h2 className="mt-1 font-serif text-[22px] leading-tight text-fg-0">{title}</h2>
       </div>
-      <div className="text-right text-[12px] text-lilac">{subtitle}</div>
+      <div className="shrink-0 text-right text-[12px] leading-tight text-lilac">
+        <div>{subLine1}</div>
+        {subLine2 && <div>{subLine2}</div>}
+      </div>
     </div>
   )
 }
@@ -140,7 +154,6 @@ export default function Home() {
     subscription,
     isPracticeUnlocked,
     isPracticeCompleted,
-    bonusUnlocked,
   } = useProgression()
 
   const [redirecting, setRedirecting] = useState(false)
@@ -191,7 +204,13 @@ export default function Home() {
       <CompanionsCounter />
 
       <section className="mt-8">
-        <SectionHead num="01" title="Расслабление" subtitle="Бесплатно · 3–5 практик" />
+        <SectionHead
+          numLine1="01 · СТАРТ"
+          numLine2="ВХОД В РАССЛАБЛЕНИЕ"
+          title="Точка тишины"
+          subLine1="Бесплатно"
+          subLine2="3 практики"
+        />
         <motion.div
           className="grid grid-cols-2 gap-3"
           variants={gridContainer}
@@ -211,7 +230,20 @@ export default function Home() {
       </section>
 
       <section className="mt-10">
-        <SectionHead num="02" title="Осознанность" subtitle="По подписке · 6 практик" />
+        <SectionHead
+          numLine1="02 · СИСТЕМА"
+          numLine2="ПЕРЕХОД В ОСОЗНАННОСТЬ"
+          title="Архитектура состояний"
+          subLine1="По подписке"
+          subLine2="6 практик / мес"
+        />
+        {/* Месячный подзаголовок — клиент сказал «Пароль от жизни» как
+            подзаголовок секции, обновляется каждый месяц (вместе с
+            новыми 6 практиками). Пока хардкод; перенесём в Strapi
+            Settings, когда сделаем месячную ротацию. */}
+        <div className="-mt-2 mb-4 font-serif italic text-[15px] text-lilac/70">
+          Пароль от жизни
+        </div>
 
         {!subscription.active && (
           <div className="mb-3 rounded-md border border-line-2 bg-white/5 p-4">
@@ -250,7 +282,13 @@ export default function Home() {
       </section>
 
       <section className="mt-10">
-        <SectionHead num="03" title="Авторский" subtitle="Авторские практики" />
+        <SectionHead
+          numLine1="03 · ГЛУБИНА"
+          numLine2="ПОГРУЖЕНИЕ В АВТОРСКИЕ"
+          title="Поток из пространства"
+          subLine1="2 бесплатные"
+          subLine2="остальные 99 ₽"
+        />
         <motion.div
           className="grid grid-cols-2 gap-3"
           variants={gridContainer}
@@ -258,15 +296,18 @@ export default function Home() {
           animate="animate"
         >
           {practices.author.map((p) => {
-            const isBonus = bonusUnlocked.includes(p.id)
+            // Авторские: первые 2 («Знакомство», «Подкаст») — всегда
+            // бесплатны (flag `free`). Остальные — поштучно за 99₽.
+            // Бонусная механика убрана в правках клиента 2026-05-20.
+            const isFree = p.free === true
             return (
               <motion.div key={p.id} variants={cardItem}>
                 <Card
                   title={p.title}
                   duration={p.duration}
-                  badge={isBonus ? 'Бонус 🎁' : undefined}
-                  price={isBonus ? undefined : p.price}
-                  onPlay={isBonus ? () => goPlay(p.id) : undefined}
+                  badge={isFree ? 'Бесплатно' : undefined}
+                  price={isFree ? undefined : p.price}
+                  onPlay={isFree ? () => goPlay(p.id) : undefined}
                   onBuy={() => navigate('/subscription')}
                 />
               </motion.div>

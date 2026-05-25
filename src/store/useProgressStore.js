@@ -1,20 +1,25 @@
 import { create } from 'zustand'
-import { todayISO, countWithinLastDays } from '../utils/dateHelpers'
+import { todayISO } from '../utils/dateHelpers'
 import { api, USE_MOCK } from '../api/client'
 import { fetchProgress, completePractice as apiCompletePractice } from '../api/progress'
 
 const KEY = 'progress_state'
 
+const AWARENESS_ORDER = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']
+const PROGRESSION_CYCLE_DAYS = 4
+
 const defaults = {
-  subscription: { active: false, expiresAt: null },
+  subscription: { active: false, autoRenew: false, expiresAt: null },
   unlockedPractices: [],
   completedPractices: [],
   trackerDays: [],
   lastDeepAnalysisDate: null,
   lastKT: null,
   ktHistory: [],
-  bonusUnlocked: [],
-  bonusProgress: null, // hydrated from server; falls back to local compute when missing
+  // 'start' | 'mid' | 'final' | null — пришло от сервера.
+  daCheckpoint: null,
+  // { id, reason, daysLeft? } — что мешает открыть следующую awareness.
+  nextAwarenessUnlock: { id: null, reason: 'sub-not-active' },
 }
 
 const load = () => {
@@ -34,48 +39,47 @@ const persist = (state) => {
     lastDeepAnalysisDate: state.lastDeepAnalysisDate,
     lastKT: state.lastKT,
     ktHistory: state.ktHistory,
-    bonusUnlocked: state.bonusUnlocked,
-    bonusProgress: state.bonusProgress,
+    daCheckpoint: state.daCheckpoint,
+    nextAwarenessUnlock: state.nextAwarenessUnlock,
   }
   localStorage.setItem(KEY, JSON.stringify(snap))
 }
 
-const awarenessOrder = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']
-
-// Local fallback for bonusProgress when the server hasn't provided one
-// (USE_MOCK mode, or before first /api/progress fetch lands).
-function computeLocalBonusProgress(state) {
-  const window = 30
-  const recentKT = (state.ktHistory || []).filter((e) => {
-    const ts = new Date(e.date).getTime()
-    return Number.isFinite(ts) && ts >= Date.now() - window * 86400000
-  })
-  const ktSamples = recentKT.length
-  const ktAvg = ktSamples
-    ? recentKT.reduce((s, e) => s + e.kt, 0) / ktSamples
-    : 0
-  const trackerCount = countWithinLastDays(state.trackerDays || [], window)
-  const ktReq = 2
-  const trackerReq = 6
-  const eligible =
-    ktSamples >= ktReq && ktAvg >= 0.5 && trackerCount >= trackerReq
-  return {
-    eligible,
-    window,
-    ktSamples,
-    ktReq,
-    ktAvg: Number(ktAvg.toFixed(2)),
-    trackerCount,
-    trackerReq,
+// Mock-mode зеркала серверных progressionRules. Используется только
+// при USE_MOCK=true, в проде сервер решает.
+function mockDaCheckpoint({ unlockedPractices, completedPractices, ktHistory }) {
+  if (!unlockedPractices.length) return null
+  const ktCount = ktHistory.length
+  if (ktCount === 0) return 'start'
+  if (ktCount === 1) {
+    return ['a1', 'a2', 'a3'].every((id) => completedPractices.includes(id)) ? 'mid' : null
   }
+  if (ktCount === 2) {
+    return completedPractices.includes('a6') ? 'final' : null
+  }
+  return null
+}
+
+function mockNextUnlock(state) {
+  const unlocked = new Set(state.unlockedPractices)
+  const nextIdx = AWARENESS_ORDER.findIndex((id) => !unlocked.has(id))
+  if (nextIdx === -1) return { id: null, reason: 'all-unlocked' }
+  if (nextIdx === 0) return { id: null, reason: 'sub-not-active' }
+  const prevId = AWARENESS_ORDER[nextIdx - 1]
+  if (!state.completedPractices.includes(prevId)) {
+    return { id: null, reason: 'prev-not-completed' }
+  }
+  if (nextIdx === 3 && state.ktHistory.length < 2) {
+    return { id: null, reason: 'mid-da-required' }
+  }
+  // Время проверять не будем в моке (нет хранения unlockedAt) — для UI
+  // достаточно reason. В проде backend всё считает.
+  return { id: AWARENESS_ORDER[nextIdx], reason: 'unlock' }
 }
 
 export const useProgressStore = create((set, get) => ({
   ...load(),
 
-  // Pull authoritative state from the server. Called after auth (login
-  // success or session restore). Returns null on 401 — caller can stay
-  // on LS-only mode.
   loadFromServer: async () => {
     try {
       const p = await fetchProgress()
@@ -83,8 +87,7 @@ export const useProgressStore = create((set, get) => ({
       set(p)
       persist({ ...get(), ...p })
       return p
-    } catch (e) {
-      // network error — stay on local state
+    } catch {
       return null
     }
   },
@@ -94,23 +97,28 @@ export const useProgressStore = create((set, get) => ({
       const expires = new Date()
       expires.setDate(expires.getDate() + days)
       const unlockedPractices = Array.from(new Set([...get().unlockedPractices, 'a1']))
+      const sub = { active: true, autoRenew: true, expiresAt: expires.toISOString() }
       const next = {
-        subscription: { active: true, expiresAt: expires.toISOString() },
+        subscription: sub,
         unlockedPractices,
+        daCheckpoint: mockDaCheckpoint({
+          unlockedPractices,
+          completedPractices: get().completedPractices,
+          ktHistory: get().ktHistory,
+        }),
       }
       set(next)
       persist({ ...get(), ...next })
       return
     }
     const { data } = await api.post('/subscription')
-    // Refresh the whole snapshot — server may have unlocked a1, etc.
     await get().loadFromServer()
     return data
   },
 
   cancelSubscription: async () => {
     if (USE_MOCK) {
-      const next = { subscription: { ...get().subscription, active: false } }
+      const next = { subscription: { ...get().subscription, autoRenew: false } }
       set(next)
       persist({ ...get(), ...next })
       return
@@ -119,11 +127,9 @@ export const useProgressStore = create((set, get) => ({
     await get().loadFromServer()
   },
 
-  // Mark practice complete + add today to tracker. In real-backend mode
-  // both happen on the server in a single endpoint; we then reload.
-  // Returns the practice id (for chaining).
+  // Mark practice complete + add today to tracker. Сервер сам решит,
+  // нужно ли открыть следующую awareness (см. backend/utils/progressionRules).
   markPracticeComplete: async (id) => {
-    // Optimistic local update first so the UI sees the change immediately.
     const { completedPractices, trackerDays } = get()
     const next = {
       completedPractices: completedPractices.includes(id)
@@ -141,16 +147,20 @@ export const useProgressStore = create((set, get) => ({
         await apiCompletePractice(id)
         await get().loadFromServer()
       } catch {
-        /* network failure — local state already reflects the action */
+        /* network failure — local state уже отражает действие */
       }
+    } else {
+      // Mock: пересчитать daCheckpoint + nextAwarenessUnlock локально
+      const s = get()
+      set({
+        daCheckpoint: mockDaCheckpoint(s),
+        nextAwarenessUnlock: mockNextUnlock(s),
+      })
+      persist(get())
     }
     return id
   },
 
-  // Kept for compatibility with the older "two-call" flow (Player.onEnd
-  // calls markPracticeComplete + addTrackerDay separately). With the
-  // server-side endpoint these collapse — addTrackerDay becomes a no-op
-  // when called right after markPracticeComplete with the same date.
   addTrackerDay: (date = todayISO()) => {
     const { trackerDays } = get()
     if (trackerDays.includes(date)) return
@@ -159,93 +169,31 @@ export const useProgressStore = create((set, get) => ({
     persist({ ...get(), ...next })
   },
 
-  // Records the new KT entry. In real-backend mode the server does
-  // the unlock-next-awareness + bonus-eligibility check too and
-  // returns { newlyUnlockedId, newlyUnlockedBonus }. Caller (DeepAnalysis
-  // page) reads those from the returned object.
+  // Записывает результат DA. Бизнес-логика unlock'а перенесена в
+  // markPracticeComplete (на сервере) — DA больше не открывает awareness.
   recordDeepAnalysis: async ({ answers, IT, IO, KT }) => {
     if (USE_MOCK) {
       const entry = { date: new Date().toISOString(), kt: KT }
-      const { ktHistory, unlockedPractices, bonusUnlocked } = get()
-      const newlyUnlockedId = (() => {
-        const idx = awarenessOrder.findIndex((id) => !unlockedPractices.includes(id))
-        return idx === -1 ? null : awarenessOrder[idx]
-      })()
+      const ktHistory = [...get().ktHistory, entry].slice(-12)
       const after = {
         lastDeepAnalysisDate: entry.date,
         lastKT: KT,
-        ktHistory: [...ktHistory, entry].slice(-12),
-        unlockedPractices: newlyUnlockedId
-          ? [...unlockedPractices, newlyUnlockedId]
-          : unlockedPractices,
+        ktHistory,
       }
-      // Local bonus check
-      const bp = computeLocalBonusProgress({
-        ...get(),
-        ...after,
+      set(after)
+      const s = get()
+      set({
+        daCheckpoint: mockDaCheckpoint(s),
+        nextAwarenessUnlock: mockNextUnlock(s),
       })
-      const newlyUnlockedBonus = []
-      if (bp.eligible) {
-        for (const id of ['au1', 'au2']) {
-          if (!bonusUnlocked.includes(id)) newlyUnlockedBonus.push(id)
-        }
-      }
-      const next = {
-        ...after,
-        bonusUnlocked: [...bonusUnlocked, ...newlyUnlockedBonus],
-        bonusProgress: bp,
-      }
-      set(next)
-      persist({ ...get(), ...next })
-      return { ok: true, IT, IO, KT, newlyUnlockedId, newlyUnlockedBonus }
+      persist(get())
+      return { ok: true, IT, IO, KT }
     }
     const { data } = await api.post('/deep-analysis', { answers, IT, IO, KT })
     await get().loadFromServer()
     return data
   },
 
-  // Returns the most recent bonus-progress snapshot. Server pushes
-  // it into state on loadFromServer; for USE_MOCK we recompute locally.
-  //
-  // NB: named getBonusProgress (not bonusProgress) — the state already
-  // has a `bonusProgress` data field hydrated from the server, and
-  // Zustand would otherwise let the field overwrite the method on
-  // `set(serverPayload)`, blowing up every callsite with
-  // "bonusProgress is not a function".
-  getBonusProgress: () => {
-    const stored = get().bonusProgress
-    if (stored && typeof stored === 'object') return stored
-    return computeLocalBonusProgress(get())
-  },
-
-  checkBonusEligibility: () => get().getBonusProgress().eligible,
-
-  // No longer called from the page in real-backend mode — server does
-  // the unlock during recordDeepAnalysis. Kept for USE_MOCK fallback.
-  unlockNextPractice: () => {
-    const { unlockedPractices } = get()
-    const nextIdx = awarenessOrder.findIndex((id) => !unlockedPractices.includes(id))
-    if (nextIdx === -1) return null
-    const id = awarenessOrder[nextIdx]
-    const next = { unlockedPractices: [...unlockedPractices, id] }
-    set(next)
-    persist({ ...get(), ...next })
-    return id
-  },
-
-  unlockBonus: () => {
-    if (!get().checkBonusEligibility()) return []
-    const already = new Set(get().bonusUnlocked)
-    const bonusIds = ['au1', 'au2']
-    const newly = bonusIds.filter((id) => !already.has(id))
-    if (!newly.length) return []
-    const next = { bonusUnlocked: [...get().bonusUnlocked, ...newly] }
-    set(next)
-    persist({ ...get(), ...next })
-    return newly
-  },
-
-  // Local reset (used on logout).
   reset: () => {
     localStorage.removeItem(KEY)
     set(defaults)

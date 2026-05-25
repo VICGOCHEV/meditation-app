@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import Button from '../../components/ui/Button'
-import DialSlider from '../../components/ui/DialSlider'
+import LinearSlider from '../../components/ui/LinearSlider'
 import ScreenShell from '../../components/ui/ScreenShell'
 import { useCheckinStore } from '../../store/useCheckinStore'
 import { interpretIS } from '../../utils/scoreCalc'
@@ -190,15 +190,15 @@ function ResultScreen({ result, onContinue }) {
 const QUESTIONS = [
   {
     title: 'Прошлое',
-    question: 'Насколько сильно мысли о прошлом отвлекают тебя сейчас?',
+    question: 'Насколько сильно мысли о прошлом (сожаления, воспоминания) отвлекают тебя сейчас?',
   },
   {
     title: 'Будущее',
-    question: 'Как часто ты ловишь себя на тревожном планировании?',
+    question: 'Как часто ты ловишь себя на тревожном планировании или ожидании будущего?',
   },
   {
     title: 'Беспокойство',
-    question: 'Оцени свой текущий уровень фонового беспокойства',
+    question: 'Оцени свой текущий уровень фонового беспокойства.',
   },
   {
     title: 'Тело',
@@ -289,7 +289,7 @@ export default function Checkin() {
                   to the centre regardless of how the question text
                   wraps above it. */}
               <div className="flex flex-1 items-center justify-center">
-                <DialSlider value={answers[step]} onChange={setAnswer} />
+                <LinearSlider value={answers[step]} onChange={setAnswer} />
               </div>
             </motion.div>
           </AnimatePresence>

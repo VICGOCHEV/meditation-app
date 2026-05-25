@@ -1,5 +1,11 @@
 const DAY = 24 * 60 * 60 * 1000
 
+// Progression cycle in days. One cycle = «прошло N дней → DA доступен →
+// DA пройден → открывается следующая Awareness-практика». Клиент
+// зафиксировал N=4 в 2026-05-20. Меняем здесь — UI и формулы прогресса
+// подтянутся автоматически.
+export const PROGRESSION_CYCLE_DAYS = 4
+
 export function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -22,7 +28,7 @@ export function daysUntil(dateString) {
 }
 
 export function canDoDeepAnalysis(lastDate) {
-  return !lastDate || daysSince(lastDate) >= 3
+  return !lastDate || daysSince(lastDate) >= PROGRESSION_CYCLE_DAYS
 }
 
 // Count entries (ISO date strings or { date }) that fall within the last `n` days.

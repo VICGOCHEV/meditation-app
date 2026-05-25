@@ -89,7 +89,7 @@ export default function Subscription() {
 
           <div className="mt-6 flex justify-center">
             <AnimatedSubscribeButton
-              labelIdle="Оформить подписку"
+              labelIdle="Получить ключи к жизни"
               labelActive="Обрабатываем платёж"
               generating={stage === 'loading'}
               disabled={stage === 'loading'}
@@ -103,7 +103,7 @@ export default function Subscription() {
 
           {stage === 'error' && (
             <div className="mt-4 flex items-center justify-between rounded-md border border-line-2 bg-err/10 px-4 py-3 text-[13px] text-err">
-              <span>Оплата не прошла. Попробуй ещё раз.</span>
+              <span>Что-то пошло не так с оплатой. Попробуй другую карту или посмотри, всё ли в порядке в банке.</span>
               <Button size="sm" variant="secondary" onClick={onPay}>Повторить</Button>
             </div>
           )}

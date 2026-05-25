@@ -7,6 +7,7 @@ import Preloader from '../components/Preloader'
 import BottomNav from '../components/ui/BottomNav'
 import { LiquidGlassFilter } from '../components/ui/LiquidGlass'
 import { useAuthStore } from '../store/useAuthStore'
+import useTimeTheme from '../hooks/useTimeTheme'
 
 // Routes where the persistent BottomNav should appear. Lifted out of the
 // pages so the bar stays mounted across navigation — this lets Framer
@@ -33,6 +34,7 @@ function AuthGate() {
 export default function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession)
   const [ready, setReady] = useState(false)
+  useTimeTheme()
   // Routes mount only after the preloader finishes — otherwise onboarding
   // would animate hidden→visible while hidden behind the splash and the
   // user would see the final state on reveal.

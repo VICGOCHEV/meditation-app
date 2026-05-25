@@ -29,7 +29,7 @@ export default function ScreenShell({
   }
 
   return (
-    <div className="min-h-dvh w-full">
+    <div className="min-h-dvh w-full overflow-x-hidden">
       <div
         className={[
           'mx-auto w-full max-w-md px-5 pt-6',

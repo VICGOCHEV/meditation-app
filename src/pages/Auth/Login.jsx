@@ -23,7 +23,13 @@ export default function Login() {
       authLogin(token, user)
       navigate('/')
     } catch (e) {
-      const msg = e?.response?.data?.error || e?.message || 'Не удалось войти'
+      const msg =
+        e?.response?.data?.error ||
+        (e?.response?.status >= 500
+          ? 'Мы ненадолго замедлились. Пожалуйста, попробуй чуть позже.'
+          : null) ||
+        e?.message ||
+        'Не удалось войти'
       setErr(msg)
     } finally {
       setLoading(false)
@@ -51,7 +57,7 @@ export default function Login() {
         {err && <div className="text-sm text-err">{err}</div>}
 
         <Button type="submit" size="lg" fullWidth loading={loading}>
-          Войти
+          Присоединиться
         </Button>
 
         <div className="flex flex-col items-center gap-2 pt-4 text-[13px]">

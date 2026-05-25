@@ -45,4 +45,16 @@ export const usePlayerStore = create((set) => ({
     if (!practiceId) return
     localStorage.removeItem(POS_KEY(practiceId))
   },
+
+  // Wipe all saved practice positions. Called on logout so the next
+  // user on this browser doesn't get "Continue?" prompts for the
+  // previous user's sessions.
+  clearAllPositions: () => {
+    const toRemove = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('player_pos_')) toRemove.push(k)
+    }
+    toRemove.forEach((k) => localStorage.removeItem(k))
+  },
 }))

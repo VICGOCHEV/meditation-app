@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { useProgressStore } from './useProgressStore'
+import { useCheckinStore } from './useCheckinStore'
+import { usePlayerStore } from './usePlayerStore'
 
 const TOKEN_KEY = 'auth_token'
 const USER_KEY = 'auth_user'
@@ -31,8 +33,10 @@ export const useAuthStore = create((set) => ({
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
     set({ token: null, user: null, isAuthenticated: false })
-    // Clear local progress mirror — next user shouldn't see prev user's data.
+    // Clear local mirrors — next user shouldn't see prev user's data.
     useProgressStore.getState().reset?.()
+    useCheckinStore.getState().reset?.()
+    usePlayerStore.getState().clearAllPositions?.()
   },
 
   restoreSession: () => {

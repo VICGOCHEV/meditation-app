@@ -4,23 +4,15 @@ import { api, USE_MOCK, delay } from './client'
 // for a brand-new user). Used when VITE_USE_MOCK=true so the app
 // keeps working without a backend during dev.
 const emptyProgress = {
-  subscription: { active: false, expiresAt: null },
+  subscription: { active: false, autoRenew: false, expiresAt: null },
   unlockedPractices: [],
   completedPractices: [],
   trackerDays: [],
   lastDeepAnalysisDate: null,
   lastKT: null,
   ktHistory: [],
-  bonusUnlocked: [],
-  bonusProgress: {
-    eligible: false,
-    window: 30,
-    ktSamples: 0,
-    ktReq: 2,
-    ktAvg: 0,
-    trackerCount: 0,
-    trackerReq: 6,
-  },
+  daCheckpoint: null,
+  nextAwarenessUnlock: { id: null, reason: 'sub-not-active' },
 }
 
 // GET /api/progress — full user state. Returns null on auth failure

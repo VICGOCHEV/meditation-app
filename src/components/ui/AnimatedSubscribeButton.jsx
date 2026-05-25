@@ -116,7 +116,7 @@ injectStyle()
 
 export default function AnimatedSubscribeButton({
   className = '',
-  labelIdle = 'Оформить подписку',
+  labelIdle = 'Получить ключи к жизни',
   labelActive = 'Обрабатываем…',
   generating = false,
   highlightHueDeg = 263,

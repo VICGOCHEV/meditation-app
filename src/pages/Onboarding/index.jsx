@@ -8,12 +8,6 @@ import { usePlayerStore } from '../../store/usePlayerStore'
 
 const EASE = [0.22, 0.8, 0.36, 1]
 
-const MUSIC = [
-  { id: 1, title: 'Спокойствие' },
-  { id: 2, title: 'Природа' },
-  { id: 3, title: 'Космос' },
-]
-
 // Variants — parent drives children entry via staggerChildren, robust to
 // StrictMode double-mount and any nesting edge-cases.
 const slideVar = {
@@ -162,9 +156,7 @@ export default function Onboarding() {
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const selectedVoice = usePlayerStore((s) => s.selectedVoice)
-  const selectedMusic = usePlayerStore((s) => s.selectedMusic)
   const setVoice = usePlayerStore((s) => s.setVoice)
-  const setMusic = usePlayerStore((s) => s.setMusic)
 
   const finish = () => {
     localStorage.setItem('onboarding_completed', 'true')
@@ -178,7 +170,7 @@ export default function Onboarding() {
       <OnboardingFog />
       <div className="flex min-h-[90dvh] flex-col">
         <div className="flex items-center justify-between">
-          <Dots count={4} active={step} />
+          <Dots count={3} active={step} />
           {step < 2 && (
             <button
               type="button"
@@ -210,18 +202,18 @@ export default function Onboarding() {
                   Твой путь
                 </motion.span>
                 <motion.span className="block font-extralight text-fg-1" variants={lineRight}>
-                  к внутреннему
+                  к внутренней
                 </motion.span>
                 <motion.span className="block pl-10 font-medium text-fg-0" variants={lineDown}>
-                  покою.
+                  тишине.
                 </motion.span>
               </h1>
 
               <motion.p
-                className="mt-10 max-w-[28ch] pl-10 text-[14px] leading-relaxed text-fg-2"
+                className="mt-10 max-w-[30ch] pl-10 text-[14px] leading-relaxed text-fg-2"
                 variants={paraVar}
               >
-                Расслабление и осознанность с системой прогрессии — новые практики открываются по мере твоего роста.
+                Мягкие практики расслабления и осознанности. Открывай новые уровни по мере своего роста.
               </motion.p>
             </div>
           )}
@@ -234,21 +226,21 @@ export default function Onboarding() {
 
               <h1 className="mt-5 font-serif text-[44px] leading-[1.02] tracking-tight text-fg-0">
                 <motion.span className="block font-extralight text-fg-1" variants={lineLeft}>
-                  Каждые
+                  Создавай
                 </motion.span>
                 <motion.span className="block font-medium text-fg-0" variants={lineRight}>
-                  три дня —
+                  пространство
                 </motion.span>
                 <motion.span className="block pl-12 font-extralight text-fg-1" variants={lineDown}>
-                  новая практика.
+                  внутри.
                 </motion.span>
               </h1>
 
               <motion.p
-                className="mt-10 max-w-[28ch] pl-12 text-[14px] leading-relaxed text-fg-2"
+                className="mt-10 max-w-[30ch] pl-12 text-[14px] leading-relaxed text-fg-2"
                 variants={paraVar}
               >
-                Проходи анализ состояния, отслеживай прогресс — путь складывается из небольших осознанных шагов.
+                Каждые четыре дня — новая практика. Отслеживай своё состояние и двигайся к себе небольшими, осознанными шагами.
               </motion.p>
             </div>
           )}
@@ -261,18 +253,25 @@ export default function Onboarding() {
 
               <h1 className="mt-5 font-serif text-[44px] leading-[1.02] tracking-tight text-fg-0">
                 <motion.span className="block font-extralight" variants={lineLeft}>
-                  Выбери
+                  Найди
                 </motion.span>
                 <motion.span className="block pl-10 font-medium text-fg-0" variants={lineRight}>
-                  голос
+                  своего
                 </motion.span>
                 <motion.span className="block font-extralight text-fg-1" variants={lineDown}>
                   проводника.
                 </motion.span>
               </h1>
 
+              <motion.p
+                className="mt-6 max-w-[30ch] pl-10 text-[14px] leading-relaxed text-fg-2"
+                variants={paraVar}
+              >
+                Какой голос поможет тебе расслабиться и услышать себя?
+              </motion.p>
+
               <motion.div
-                className="mt-10 flex flex-col gap-3"
+                className="mt-8 flex flex-col gap-3"
                 variants={cardListVar}
               >
                 {[
@@ -295,44 +294,6 @@ export default function Onboarding() {
             </div>
           )}
 
-          {step === 3 && (
-            <div className="flex flex-col">
-              <motion.div className="label-mono text-lilac/80" variants={eyebrowVar}>
-                Музыка · 04
-              </motion.div>
-
-              <h1 className="mt-5 font-serif text-[44px] leading-[1.02] tracking-tight text-fg-0">
-                <motion.span className="block font-extralight" variants={lineLeft}>
-                  Выбери
-                </motion.span>
-                <motion.span className="block pl-12 font-medium text-fg-0" variants={lineRight}>
-                  фон
-                </motion.span>
-                <motion.span className="block font-extralight text-fg-1" variants={lineDown}>
-                  звучания.
-                </motion.span>
-              </h1>
-
-              <motion.div
-                className="mt-10 flex flex-col gap-3"
-                variants={cardListVar}
-              >
-                {MUSIC.map((m) => {
-                  const on = selectedMusic === m.id
-                  return (
-                    <motion.div key={m.id} variants={cardItemVar} whileTap={{ scale: 0.985 }}>
-                      <ChoiceCard
-                        title={m.title}
-                        sub="Прослушать"
-                        selected={on}
-                        onSelect={() => setMusic(m.id)}
-                      />
-                    </motion.div>
-                  )
-                })}
-              </motion.div>
-            </div>
-          )}
         </motion.div>
         </AnimatePresence>
 
@@ -352,8 +313,13 @@ export default function Onboarding() {
               transition: { duration: 0.35, ease: EASE },
             }}
           >
-            {step < 2 && (
-              <ShinyButton fullWidth onClick={() => setStep(step + 1)}>
+            {step === 0 && (
+              <ShinyButton fullWidth onClick={() => setStep(1)}>
+                Начать
+              </ShinyButton>
+            )}
+            {step === 1 && (
+              <ShinyButton fullWidth onClick={() => setStep(2)}>
                 Далее
               </ShinyButton>
             )}
@@ -361,18 +327,9 @@ export default function Onboarding() {
               <ShinyButton
                 fullWidth
                 disabled={!selectedVoice}
-                onClick={() => setStep(3)}
-              >
-                Далее
-              </ShinyButton>
-            )}
-            {step === 3 && (
-              <ShinyButton
-                fullWidth
-                disabled={!selectedMusic}
                 onClick={finish}
               >
-                Начать
+                Да, этот
               </ShinyButton>
             )}
           </motion.div>

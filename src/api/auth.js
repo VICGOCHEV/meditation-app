@@ -43,3 +43,15 @@ export async function resetPassword({ identifier }) {
   const { data } = await api.post('/auth/reset', { identifier })
   return data
 }
+
+// GDPR + Apple/Google requirement — let the user wipe themselves.
+// Server cascades Subscription / Checkin / KtEntry / TrackerDay /
+// PracticeCompletion / UnlockedAwareness / BonusUnlock in one tx.
+export async function deleteAccount() {
+  if (USE_MOCK) {
+    await delay(300)
+    return { ok: true }
+  }
+  const { data } = await api.delete('/auth/me')
+  return data
+}

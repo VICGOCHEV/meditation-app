@@ -24,11 +24,26 @@ html.lenis body {
 @layer base {
   :root {
     color-scheme: dark;
+    --app-hue: 0deg;
+  }
+  /* Глобальный сдвиг хью по времени суток (см. src/hooks/useTimeTheme.js).
+     Фильтр на <html> ловит всё, включая WebGL-канвасы AmorphSphere /
+     OnboardingFog и SVG-иконки. Transition сглаживает минутные апдейты
+     от хука + 30-мин crossfade на границе слотов. */
+  html {
+    filter: hue-rotate(var(--app-hue));
+    transition: filter 2s linear;
   }
   html,
   body,
   #root {
     min-height: 100vh;
+  }
+  /* Disable horizontal page scroll globally — never wanted on mobile,
+     decorative glows / particles sometimes overflow the viewport. */
+  html,
+  body {
+    overflow-x: hidden;
   }
   body {
     margin: 0;

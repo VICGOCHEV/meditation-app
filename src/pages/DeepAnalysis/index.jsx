@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
-import DialSlider from '../../components/ui/DialSlider'
+import LinearSlider from '../../components/ui/LinearSlider'
 import KTGauge from '../../components/ui/KTGauge'
 import Sparkline from '../../components/ui/Sparkline'
 import CountUp from '../../components/ui/CountUp'
@@ -38,7 +38,7 @@ const stepVariants = {
 // Q1–Q5, Block Б · ИО Q1–Q5). Anchors are short phrases shown under the
 // slider's 0 and 10 ticks so the scale is unambiguous per question.
 const Q = [
-  { block: 'А', title: 'Прошлое',       text: 'Насколько навязчивыми были мысли о прошлом в последние 3 дня?',                       left: 'не отвлекали', right: 'постоянно' },
+  { block: 'А', title: 'Прошлое',       text: 'Насколько навязчивыми были мысли о прошлом в последние 4 дня?',                       left: 'не отвлекали', right: 'постоянно' },
   { block: 'А', title: 'Будущее',       text: 'Как часто фокус смещался на тревожное ожидание будущего?',                              left: 'жил в моменте', right: 'жил в «завтра»' },
   { block: 'А', title: 'Беспокойство',  text: 'Оцени средний уровень тревоги за этот период.',                                          left: 'спокойствие',   right: 'сильная тревога' },
   { block: 'А', title: 'Критик',        text: 'Насколько громко звучал твой «внутренний критик» в эти дни?',                            left: 'тихо',          right: 'оглушительно' },
@@ -102,11 +102,11 @@ function ResultScreen({ result, historyAtMount, onContinue }) {
   })
 
   return (
-    <ScreenShell>
-      <div className="flex min-h-[90dvh] flex-col">
+    <ScreenShell fixed>
+      <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar">
         <motion.div {...reveal(0)}>
           <div className="label-mono">Результат</div>
-          <h1 className="mt-1 font-serif text-3xl text-fg-0">Прогресс за 3 дня</h1>
+          <h1 className="mt-1 font-serif text-3xl text-fg-0">Прогресс за 4 дня</h1>
         </motion.div>
 
         {/* KT gauge */}
@@ -306,10 +306,8 @@ const BLOCK_INTRO = {
 
 export default function DeepAnalysis() {
   const navigate = useNavigate()
-  const { canDoDeepAnalysis, daysUntilAnalysis, ktHistory } = useProgression()
-  const unlockNext = useProgressStore((s) => s.unlockNextPractice)
+  const { canDoDeepAnalysis, daCheckpoint, ktHistory } = useProgression()
   const recordAnalysis = useProgressStore((s) => s.recordDeepAnalysis)
-  const unlockBonus = useProgressStore((s) => s.unlockBonus)
 
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState(Array(10).fill(5))
@@ -322,43 +320,18 @@ export default function DeepAnalysis() {
   // "vs прошлый раз" and a sparkline of where this run sits.
   const historyAtMount = useMemo(() => ktHistory || [], [])
 
-  // The "слишком рано" guard must run AFTER the in-memory `result`
-  // check below. Otherwise: as soon as `recordAnalysis(KT)` lands in
-  // the store, `lastDeepAnalysisDate` flips to "now", `canDoDeepAnalysis`
-  // becomes false on the next render, and the user sees "Ещё рано · 3 дн."
-  // instead of their freshly computed result.
+  // DA-гейт теперь не время-зависимый, а чекпоинт-зависимый. Сервер
+  // возвращает `daCheckpoint` ∈ {'start','mid','final',null}. Если null —
+  // пользователь не на ключевой точке, заглушка-стопор.
   if (!canDoDeepAnalysis && !result) {
-    const pct = Math.max(0, Math.min(1, (3 - daysUntilAnalysis) / 3))
     return (
-      <ScreenShell>
-        <div className="flex min-h-[80dvh] flex-col items-center justify-center text-center">
+      <ScreenShell fixed>
+        <div className="flex h-full flex-1 flex-col items-center justify-center text-center">
           <div className="label-mono mb-4">Глубокий анализ</div>
-
-          {/* Countdown ring */}
-          <div className="relative h-36 w-36">
-            <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
-              <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(180,160,255,.16)" strokeWidth="6" />
-              <motion.circle
-                cx="50" cy="50" r="44" fill="none"
-                stroke="#6145c2" strokeWidth="6" strokeLinecap="round"
-                pathLength="1"
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: pct }}
-                transition={{ duration: 1, ease: EASE }}
-                style={{ filter: 'drop-shadow(0 0 8px rgba(97,69,194,.65))' }}
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <div className="font-serif text-4xl text-fg-0">{daysUntilAnalysis}</div>
-              <div className="label-mono mt-1">{daysUntilAnalysis === 1 ? 'день' : 'дн.'}</div>
-            </div>
-          </div>
-
-          <h1 className="mt-6 font-serif text-3xl text-fg-0">Ещё рано</h1>
+          <h1 className="font-serif text-3xl text-fg-0">Сейчас не время</h1>
           <p className="mt-3 max-w-xs text-[15px] text-fg-2">
-            Глубокий анализ откроется через {daysUntilAnalysis}{' '}
-            {daysUntilAnalysis === 1 ? 'день' : 'дней'}. Продолжай практиковать —
-            данные за период станут точнее.
+            Замер откроется в ключевые точки курса — на старте,
+            на половине и в финале. Продолжай практиковать.
           </p>
           <div className="mt-8 w-full max-w-xs">
             <Button size="lg" fullWidth variant="secondary" onClick={() => navigate('/')}>
@@ -494,16 +467,17 @@ export default function DeepAnalysis() {
                 {q.text}
               </h1>
 
-              {/* Dial locked to the centre of the remaining space so it
-                  doesn't drift between Q1 (block intro present) and
-                  later questions. */}
+              {/* Slider + anchors are grouped so the anchors stay
+                  visually attached to the track (was bottom-of-screen
+                  before, looked detached). */}
               <div className="flex flex-1 items-center justify-center">
-                <DialSlider value={answers[step]} onChange={setAnswer} />
-              </div>
-
-              <div className="flex justify-between font-mono text-[11px] uppercase tracking-[.15em] text-fg-3">
-                <span>{q.left}</span>
-                <span>{q.right}</span>
+                <div className="w-full">
+                  <LinearSlider value={answers[step]} onChange={setAnswer} />
+                  <div className="mt-2 flex justify-between px-1 font-mono text-[11px] uppercase tracking-[.15em] text-fg-3">
+                    <span>{q.left}</span>
+                    <span>{q.right}</span>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </AnimatePresence>
