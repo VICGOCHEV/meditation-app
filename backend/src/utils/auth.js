@@ -1,6 +1,9 @@
 import bcrypt from 'bcrypt'
 
-const ROUNDS = 10
+// OWASP 2024: 12 rounds for production. Roughly 250 ms per hash on a
+// modern x86 core — slow enough to make brute-force impractical, fast
+// enough to keep login latency invisible.
+const ROUNDS = Number(process.env.BCRYPT_ROUNDS) || 12
 
 export const hashPassword = (plain) => bcrypt.hash(plain, ROUNDS)
 export const verifyPassword = (plain, hash) => bcrypt.compare(plain, hash)

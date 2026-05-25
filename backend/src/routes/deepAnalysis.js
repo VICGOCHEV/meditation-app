@@ -1,11 +1,12 @@
 import { db } from '../db.js'
 import { calcIT, calcIO, calcKT } from '../utils/scoreCalc.js'
-import {
-  AWARENESS_ORDER,
-  BONUS_IDS,
-  nextAwareness,
-  evaluateBonus,
-} from '../utils/progressionRules.js'
+
+// DA-test: записывает KT-замер. По решению клиента (2026-05-20) DA больше
+// НЕ открывает следующую awareness и НЕ грантит бонусные авторские —
+// бонусная механика снята полностью. Awareness открывается отдельно
+// (см. progressionRules.canUnlockNextAwareness, дёргается из
+// `practices/:id/complete`). DA теперь — измерительный инструмент
+// (3 чекпоинта: старт блока / середина / финал), а не геймификация.
 
 export async function deepAnalysisRoutes(app) {
   app.post('/deep-analysis', {
@@ -38,50 +39,6 @@ export async function deepAnalysisRoutes(app) {
       data: { userId, it: IT, io: IO, kt: KT, answers },
     })
 
-    // Unlock next awareness practice
-    const unlockedRows = await db.unlockedAwareness.findMany({ where: { userId } })
-    const unlockedSet = new Set(unlockedRows.map((r) => r.practiceId))
-    const newlyUnlockedId = nextAwareness(unlockedSet)
-    if (newlyUnlockedId) {
-      await db.unlockedAwareness.create({
-        data: { userId, practiceId: newlyUnlockedId },
-      })
-    }
-
-    // Bonus eligibility — re-evaluate over trailing 30 days, then grant
-    // any missing au1/au2 ids.
-    const cutoff = Date.now() - 30 * 86400000
-    const recentKt = await db.ktEntry.findMany({
-      where: { userId, createdAt: { gte: new Date(cutoff) } },
-      select: { kt: true },
-    })
-    const recentTracker = await db.trackerDay.count({
-      where: { userId, date: { gte: new Date(cutoff) } },
-    })
-    const bonus = evaluateBonus({
-      ktEntriesRecent: recentKt,
-      trackerCountRecent: recentTracker,
-    })
-    let newlyUnlockedBonus = []
-    if (bonus.eligible) {
-      const already = new Set(
-        (await db.bonusUnlock.findMany({ where: { userId } })).map((r) => r.practiceId),
-      )
-      newlyUnlockedBonus = BONUS_IDS.filter((id) => !already.has(id))
-      if (newlyUnlockedBonus.length) {
-        await db.bonusUnlock.createMany({
-          data: newlyUnlockedBonus.map((practiceId) => ({ userId, practiceId })),
-        })
-      }
-    }
-
-    return {
-      ok: true,
-      IT,
-      IO,
-      KT,
-      newlyUnlockedId,
-      newlyUnlockedBonus,
-    }
+    return { ok: true, IT, IO, KT }
   })
 }
