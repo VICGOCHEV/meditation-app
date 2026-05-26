@@ -29,6 +29,8 @@ model Subscription {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   active    Boolean   @default(false)
   expiresAt DateTime?
+  // 'awareness' (199₽) | 'all-inclusive' (299₽)
+  tier      String    @default("awareness")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }

@@ -48,6 +48,7 @@ export async function progressRoutes(app) {
         active: subActive,
         autoRenew: !!sub?.active,
         expiresAt: sub?.expiresAt ? sub.expiresAt.toISOString() : null,
+        tier: sub?.tier ?? null,
       },
       unlockedPractices: unlockedRows.map((r) => r.practiceId),
       completedPractices: completions.map((r) => r.practiceId),

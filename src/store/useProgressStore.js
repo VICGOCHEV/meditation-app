@@ -9,7 +9,8 @@ const AWARENESS_ORDER = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']
 const PROGRESSION_CYCLE_DAYS = 4
 
 const defaults = {
-  subscription: { active: false, autoRenew: false, expiresAt: null },
+  // tier: 'awareness' (199₽) | 'all-inclusive' (299₽), null если sub неактивна
+  subscription: { active: false, autoRenew: false, expiresAt: null, tier: null },
   unlockedPractices: [],
   completedPractices: [],
   trackerDays: [],
@@ -92,12 +93,17 @@ export const useProgressStore = create((set, get) => ({
     }
   },
 
-  activateSubscription: async (days = 30) => {
+  activateSubscription: async (days = 30, tier = 'awareness') => {
     if (USE_MOCK) {
       const expires = new Date()
       expires.setDate(expires.getDate() + days)
       const unlockedPractices = Array.from(new Set([...get().unlockedPractices, 'a1']))
-      const sub = { active: true, autoRenew: true, expiresAt: expires.toISOString() }
+      const sub = {
+        active: true,
+        autoRenew: true,
+        expiresAt: expires.toISOString(),
+        tier,
+      }
       const next = {
         subscription: sub,
         unlockedPractices,
@@ -111,7 +117,7 @@ export const useProgressStore = create((set, get) => ({
       persist({ ...get(), ...next })
       return
     }
-    const { data } = await api.post('/subscription')
+    const { data } = await api.post('/subscription', { tier })
     await get().loadFromServer()
     return data
   },

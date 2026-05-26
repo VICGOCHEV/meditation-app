@@ -1,12 +1,18 @@
 import { db } from '../db.js'
 
 const ONE_MONTH_MS = 30 * 86400000
+const VALID_TIERS = ['awareness', 'all-inclusive']
 
 export async function subscriptionRoutes(app) {
-  // POST /api/subscription — activate / extend by 30 days
+  // POST /api/subscription — activate / extend by 30 days.
+  // Body: { tier?: 'awareness' | 'all-inclusive' }, default 'awareness'.
   app.post('/subscription', { preHandler: app.authenticate }, async (req) => {
     const userId = req.user.id
     const now = new Date()
+
+    const rawTier = req.body?.tier
+    const tier = VALID_TIERS.includes(rawTier) ? rawTier : 'awareness'
+
     const sub = await db.subscription.findUnique({ where: { userId } })
     const base = sub?.active && sub.expiresAt && sub.expiresAt > now
       ? sub.expiresAt
@@ -15,8 +21,8 @@ export async function subscriptionRoutes(app) {
 
     await db.subscription.upsert({
       where: { userId },
-      create: { userId, active: true, expiresAt },
-      update: { active: true, expiresAt },
+      create: { userId, active: true, expiresAt, tier },
+      update: { active: true, expiresAt, tier },
     })
 
     // Auto-unlock first awareness practice on activation
@@ -26,7 +32,7 @@ export async function subscriptionRoutes(app) {
       update: {},
     })
 
-    return { ok: true, expiresAt: expiresAt.toISOString() }
+    return { ok: true, tier, expiresAt: expiresAt.toISOString() }
   })
 
   // DELETE /api/subscription — flip active=false, keep expiresAt
