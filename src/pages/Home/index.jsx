@@ -303,18 +303,27 @@ export default function Home() {
           animate="animate"
         >
           {practices.author.map((p) => {
-            // Авторские: первые 2 («Знакомство», «Подкаст») — всегда
-            // бесплатны (flag `free`). Остальные — поштучно за 99₽.
+            // Авторские: 3 источника доступа:
+            //   1. flag `free` — «Знакомство» + «Подкаст», бесплатны всем
+            //   2. tier='all-inclusive' (299₽) — все авторские включены
+            //   3. иначе — поштучно за 99₽, клик ведёт на /subscription
             // Бонусная механика убрана в правках клиента 2026-05-20.
-            const isFree = p.free === true
+            const inAllInclusive =
+              subscription.active && subscription.tier === 'all-inclusive'
+            const accessible = p.free === true || inAllInclusive
+            const badge = p.free
+              ? 'Бесплатно'
+              : inAllInclusive
+              ? 'Включено'
+              : undefined
             return (
               <motion.div key={p.id} variants={cardItem}>
                 <Card
                   title={p.title}
                   duration={p.duration}
-                  badge={isFree ? 'Бесплатно' : undefined}
-                  price={isFree ? undefined : p.price}
-                  onPlay={isFree ? () => goPlay(p.id) : undefined}
+                  badge={badge}
+                  price={accessible ? undefined : p.price}
+                  onPlay={accessible ? () => goPlay(p.id) : undefined}
                   onBuy={() => navigate('/subscription')}
                 />
               </motion.div>
