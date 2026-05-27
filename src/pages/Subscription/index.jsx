@@ -1,9 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import AnimatedSubscribeButton from '../../components/ui/AnimatedSubscribeButton'
 import { useProgressStore } from '../../store/useProgressStore'
+import { api, USE_MOCK } from '../../api/client'
+
+// Подгружает скрипт ЮKassa виджета один раз (или возвращает true если уже).
+function loadYookassaScript() {
+  if (typeof window === 'undefined') return Promise.resolve(false)
+  if (window.YooMoneyCheckoutWidget) return Promise.resolve(true)
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://yookassa.ru/checkout-widget/v1/checkout-widget.js'
+    s.async = true
+    s.onload = () => resolve(true)
+    s.onerror = () => reject(new Error('Не удалось загрузить ЮKassa SDK'))
+    document.head.appendChild(s)
+  })
+}
 
 // Два тарифа клиента от 2026-05-26:
 //   awareness     — только курс Осознанности, авторские по 99₽ поштучно
@@ -117,20 +132,89 @@ function TierCard({ tier, selected, onSelect }) {
 
 export default function Subscription() {
   const navigate = useNavigate()
+  const loadFromServer = useProgressStore((s) => s.loadFromServer)
   const activate = useProgressStore((s) => s.activateSubscription)
-  const [stage, setStage] = useState('idle') // idle | loading | success | error
+  const [stage, setStage] = useState('idle') // idle | loading | widget | success | error
+  const [errorMsg, setErrorMsg] = useState('')
   const [tier, setTier] = useState('awareness') // awareness | all-inclusive
+  const widgetRef = useRef(null)
+
+  // Cleanup виджета при размонтировании / уходе со страницы.
+  useEffect(() => {
+    return () => {
+      try {
+        widgetRef.current?.destroy?.()
+      } catch {
+        /* ignore */
+      }
+      widgetRef.current = null
+    }
+  }, [])
 
   const onPay = async () => {
     setStage('loading')
+    setErrorMsg('')
+
+    // USE_MOCK: эмулируем мгновенную активацию без виджета — для локалки.
+    if (USE_MOCK) {
+      try {
+        await activate(30, tier)
+        setStage('success')
+      } catch {
+        setStage('error')
+        setErrorMsg('Mock-активация не удалась')
+      }
+      return
+    }
+
     try {
-      // `activateSubscription` принимает (days, tier). Backend хранит
-      // tier в Subscription.tier и при 'all-inclusive' открывает доступ
-      // ко всем авторским без поштучной оплаты.
-      await activate(30, tier)
-      setStage('success')
-    } catch {
+      // 1. Создаём платёж на бэке → получаем confirmation_token
+      const { data } = await api.post('/payments/yookassa/create', { tier })
+      if (!data?.confirmationToken) throw new Error('Нет confirmation_token')
+
+      // 2. Подгружаем виджет (один раз за сессию)
+      await loadYookassaScript()
+      if (!window.YooMoneyCheckoutWidget) throw new Error('Виджет недоступен')
+
+      // 3. Создаём и рендерим виджет в контейнер
+      const widget = new window.YooMoneyCheckoutWidget({
+        confirmation_token: data.confirmationToken,
+        // return_url не нужен для embedded — оплата завершается inline
+        customization: {
+          modal: true,
+          colors: { control_primary: '#6145c2', background: '#11101a' },
+        },
+        error_callback: (err) => {
+          // eslint-disable-next-line no-console
+          console.warn('YooKassa widget error', err)
+          setStage('error')
+          setErrorMsg('Ошибка платёжной формы')
+        },
+      })
+      widget.on('success', async () => {
+        widget.destroy()
+        widgetRef.current = null
+        // Виджет показал «оплата прошла». На сервере webhook ЮKassa должен
+        // уже активировать подписку. Подтянем актуальное состояние:
+        try {
+          await loadFromServer()
+        } catch {
+          /* fallback ниже */
+        }
+        setStage('success')
+      })
+      widget.on('fail', () => {
+        widget.destroy()
+        widgetRef.current = null
+        setStage('error')
+        setErrorMsg('Платёж не прошёл')
+      })
+      widgetRef.current = widget
+      widget.render('yukassa-widget')
+      setStage('widget')
+    } catch (err) {
       setStage('error')
+      setErrorMsg(err?.response?.data?.error || err?.message || 'Не удалось начать оплату')
     }
   }
 
@@ -208,9 +292,9 @@ export default function Subscription() {
           <div className="mt-6 flex justify-center">
             <AnimatedSubscribeButton
               labelIdle="Получить ключи к жизни"
-              labelActive="Обрабатываем платёж"
-              generating={stage === 'loading'}
-              disabled={stage === 'loading'}
+              labelActive={stage === 'widget' ? 'Открываем оплату…' : 'Обрабатываем платёж'}
+              generating={stage === 'loading' || stage === 'widget'}
+              disabled={stage === 'loading' || stage === 'widget'}
               onClick={onPay}
             />
           </div>
@@ -219,18 +303,28 @@ export default function Subscription() {
             Автопродление · отмена в любой момент
           </p>
 
+          {/* Контейнер для embedded-виджета ЮKassa. До запуска оплаты —
+              просто плашка-плейсхолдер. Виджет открывается модальным окном
+              благодаря customization.modal=true. */}
           <div
             id="yukassa-widget"
-            className="mt-6 rounded-md border border-dashed border-line-2 p-6 text-center text-[12px] text-fg-3"
+            className={[
+              'mt-6 rounded-md p-6 text-center text-[12px]',
+              stage === 'widget'
+                ? 'border border-line-2 bg-bg-1/40 text-fg-1'
+                : 'border border-dashed border-line-2 text-fg-3',
+            ].join(' ')}
           >
-            Здесь появится форма ЮKassa
+            {stage === 'widget'
+              ? 'Форма оплаты открыта в модальном окне'
+              : 'Форма ЮKassa появится тут после нажатия кнопки выше'}
           </div>
 
           {stage === 'error' && (
-            <div className="mt-4 flex items-center justify-between rounded-md border border-line-2 bg-err/10 px-4 py-3 text-[13px] text-err">
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-md border border-line-2 bg-err/10 px-4 py-3 text-[13px] text-err">
               <span>
-                Что-то пошло не так с оплатой. Попробуй другую карту или
-                посмотри, всё ли в порядке в банке.
+                {errorMsg ||
+                  'Что-то пошло не так с оплатой. Попробуй другую карту или посмотри, всё ли в порядке в банке.'}
               </span>
               <Button size="sm" variant="secondary" onClick={onPay}>
                 Повторить

@@ -14,6 +14,7 @@ import { practicesRoutes } from './routes/practices.js'
 import { checkinRoutes } from './routes/checkin.js'
 import { deepAnalysisRoutes } from './routes/deepAnalysis.js'
 import { subscriptionRoutes } from './routes/subscription.js'
+import { paymentRoutes } from './routes/payments.js'
 
 const app = Fastify({ logger: { level: 'info' }, trustProxy: true })
 
@@ -65,6 +66,7 @@ await app.register(practicesRoutes, { prefix: '/api' })
 await app.register(checkinRoutes, { prefix: '/api' })
 await app.register(deepAnalysisRoutes, { prefix: '/api' })
 await app.register(subscriptionRoutes, { prefix: '/api' })
+await app.register(paymentRoutes, { prefix: '/api' })
 
 const close = async () => {
   app.log.info('shutting down...')
