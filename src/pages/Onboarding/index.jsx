@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import ShinyButton from '../../components/ui/ShinyButton'
@@ -80,7 +80,9 @@ function CheckBadge() {
 // Onboarding voice/music picker tile — visually identical to Home
 // practice cards (liquid-glass surface + same violet play button) per
 // the redesign brief, but as a horizontal row with title on the right.
-function ChoiceCard({ title, sub, selected, onSelect }) {
+// onPreview — отдельная callback для кнопки play (если передана,
+// делает preview без selection); onSelect срабатывает по тапу на тело.
+function ChoiceCard({ title, sub, selected, onSelect, onPreview, playing }) {
   // Random animation phase per card so neighbours breathe out of sync.
   const delay = -(Math.random() * 14).toFixed(2) + 's'
   const duration = (12 + Math.random() * 6).toFixed(2) + 's'
@@ -111,18 +113,44 @@ function ChoiceCard({ title, sub, selected, onSelect }) {
           around these tiles (unlike practice cards which sit on a
           denser background). */}
 
-      {/* Same play button as Card.jsx */}
+      {/* Same play button as Card.jsx — теперь интерактивна для preview */}
       <span
-        className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-lilac"
+        role={onPreview ? 'button' : undefined}
+        tabIndex={onPreview ? 0 : undefined}
+        onClick={(e) => {
+          if (!onPreview) return
+          e.stopPropagation() // не триггерить onSelect
+          onPreview()
+        }}
+        onKeyDown={(e) => {
+          if (!onPreview) return
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            e.stopPropagation()
+            onPreview()
+          }
+        }}
+        aria-label={playing ? 'Остановить превью' : 'Слушать превью голоса'}
+        className={[
+          'relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-lilac',
+          onPreview ? 'cursor-pointer' : '',
+        ].join(' ')}
         style={{
           border: '1.5px solid #6145c2',
           boxShadow:
             '0 0 18px rgba(97,69,194,.95), 0 0 36px rgba(97,69,194,.55), inset 0 0 10px rgba(97,69,194,.35)',
         }}
       >
-        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-          <path d="M8 5v14l11-7z" />
-        </svg>
+        {playing ? (
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+            <rect x="6" y="5" width="4" height="14" rx="1" />
+            <rect x="14" y="5" width="4" height="14" rx="1" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        )}
       </span>
 
       <div className="relative z-10 flex flex-1 flex-col">
@@ -158,7 +186,44 @@ export default function Onboarding() {
   const selectedVoice = usePlayerStore((s) => s.selectedVoice)
   const setVoice = usePlayerStore((s) => s.setVoice)
 
+  // Voice preview — клиентский аудио-превью на step 2.
+  // Файлы: /public/onboarding-voices/male.mp3 (Александр) и female.mp3 (Алёна).
+  const [playingVoice, setPlayingVoice] = useState(null)
+  const audioRef = useRef(null)
+
+  const togglePreview = (voiceId) => {
+    // Тот же голос — стоп
+    if (playingVoice === voiceId) {
+      audioRef.current?.pause()
+      audioRef.current = null
+      setPlayingVoice(null)
+      return
+    }
+    // Иной голос или ничего не играло — стартуем новый, останавливаем старый
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+    const audio = new Audio(`/onboarding-voices/${voiceId}.mp3`)
+    audio.addEventListener('ended', () => setPlayingVoice(null))
+    audio.addEventListener('error', () => setPlayingVoice(null))
+    audio.play().catch(() => setPlayingVoice(null))
+    audioRef.current = audio
+    setPlayingVoice(voiceId)
+  }
+
+  // Cleanup на размонтирование / переход с onboarding
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+    }
+  }, [])
+
   const finish = () => {
+    if (audioRef.current) audioRef.current.pause()
     localStorage.setItem('onboarding_completed', 'true')
     navigate('/auth/login')
   }
@@ -275,17 +340,20 @@ export default function Onboarding() {
                 variants={cardListVar}
               >
                 {[
-                  { id: 'male', label: 'Мужской' },
+                  { id: 'male',   label: 'Мужской' },
                   { id: 'female', label: 'Женский' },
                 ].map((v) => {
                   const on = selectedVoice === v.id
+                  const isPlaying = playingVoice === v.id
                   return (
                     <motion.div key={v.id} variants={cardItemVar} whileTap={{ scale: 0.985 }}>
                       <ChoiceCard
                         title={v.label}
-                        sub="Прослушать"
+                        sub={isPlaying ? 'Идёт превью…' : 'Прослушать'}
                         selected={on}
+                        playing={isPlaying}
                         onSelect={() => setVoice(v.id)}
+                        onPreview={() => togglePreview(v.id)}
                       />
                     </motion.div>
                   )
