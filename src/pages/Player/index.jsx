@@ -4,6 +4,7 @@ import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import AudioPlayer from '../../components/AudioPlayer'
+import MusicSwitcher from '../../components/MusicSwitcher'
 import { findPractice as findFromMock, mockAudioUrl } from '../../api/mock'
 import { fetchPractice } from '../../api/practices'
 import { usePlayerStore } from '../../store/usePlayerStore'
@@ -92,7 +93,7 @@ export default function Player() {
 
   return (
     <ScreenShell fixed>
-      <header className="mb-4 shrink-0">
+      <header className="mb-4 flex shrink-0 items-center justify-between gap-3">
         <button
           onClick={() => exit(-1)}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-line-2 bg-white/5 text-fg-0 hover:bg-white/10"
@@ -100,6 +101,11 @@ export default function Player() {
         >
           ←
         </button>
+        {/* Music switcher — клиент 27.05: выбор фоновой энергии живёт
+            внутри практики, запоминается per-practice. Если у практики
+            ограничен набор фонов — передаём available={[1,2]} и т.п.
+            Пока CMS не отдаёт это поле — все 3 доступны для всех. */}
+        <MusicSwitcher practiceId={id} available={practice?.availableMusics} />
       </header>
 
       <AudioPlayer

@@ -228,15 +228,15 @@ export default function Onboarding() {
     navigate('/auth/login')
   }
 
-  const skip = () => setStep(2)
+  const skip = () => setStep(3)
 
   return (
     <ScreenShell>
       <OnboardingFog />
       <div className="flex min-h-[90dvh] flex-col">
         <div className="flex items-center justify-between">
-          <Dots count={3} active={step} />
-          {step < 2 && (
+          <Dots count={4} active={step} />
+          {step < 3 && (
             <button
               type="button"
               onClick={skip}
@@ -362,6 +362,61 @@ export default function Onboarding() {
             </div>
           )}
 
+          {step === 3 && (
+            <div className="flex flex-col">
+              <motion.div className="label-mono text-lilac/80" variants={eyebrowVar}>
+                Звучание · 04
+              </motion.div>
+
+              <h1 className="mt-5 font-serif text-[40px] leading-[1.05] tracking-tight text-fg-0">
+                <motion.span className="block font-extralight" variants={lineLeft}>
+                  Управляй
+                </motion.span>
+                <motion.span className="block font-extralight text-fg-1" variants={lineRight}>
+                  фоном и энергией
+                </motion.span>
+                <motion.span className="block pl-10 font-medium text-fg-0" variants={lineDown}>
+                  звучания.
+                </motion.span>
+              </h1>
+
+              {/* Информационная карточка — единственный визуальный блок этого
+                  шага. Тот же liquid-glass surface, что и в практик-картах,
+                  но без play-кнопки/чекбокса — это просто пояснение. */}
+              <motion.div
+                className="mt-10 relative isolate overflow-hidden rounded-lg p-5"
+                style={{
+                  boxShadow:
+                    '0 0 24px -8px rgba(97,69,194,.5), inset 0 0 0 1px rgba(180,160,255,.05)',
+                }}
+                variants={cardItemVar}
+              >
+                <span className="liquid-card-glow" style={{ animationDuration: '14s' }} />
+                <span className="liquid-card-border" />
+                <div className="relative z-10 flex items-start gap-4">
+                  {/* Иконка-индикатор «волны» */}
+                  <span
+                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-lilac"
+                    style={{
+                      border: '1.5px solid #6145c2',
+                      boxShadow:
+                        '0 0 18px rgba(97,69,194,.85), 0 0 36px rgba(97,69,194,.45), inset 0 0 10px rgba(97,69,194,.3)',
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                      <path d="M3 12h2M19 12h2M7 6v12M11 3v18M15 6v12" strokeLinecap="round" />
+                    </svg>
+                  </span>
+                  <p className="text-[14px] leading-relaxed text-fg-1">
+                    Внутри практик тебе будет доступна смена звуковых режимов.
+                    Переключай энергии и настраивай фоновое звучание прямо
+                    в&nbsp;плеере под свой текущий запрос.
+                  </p>
+                </div>
+              </motion.div>
+            </div>
+          )}
+
         </motion.div>
         </AnimatePresence>
 
@@ -395,9 +450,14 @@ export default function Onboarding() {
               <ShinyButton
                 fullWidth
                 disabled={!selectedVoice}
-                onClick={finish}
+                onClick={() => setStep(3)}
               >
-                Да, этот
+                Далее
+              </ShinyButton>
+            )}
+            {step === 3 && (
+              <ShinyButton fullWidth onClick={finish}>
+                Начать
               </ShinyButton>
             )}
           </motion.div>
