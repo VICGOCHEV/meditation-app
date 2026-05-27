@@ -1,5 +1,6 @@
 import { db } from '../db.js'
 import { hashPassword, verifyPassword, toPublicUser } from '../utils/auth.js'
+import { verifyTgInitData, verifyVkSign } from '../utils/platformAuth.js'
 
 // RFC 5322 (simplified) — good enough for "is this an email at all".
 // Backend validation is a sanity check; deep validation belongs in client UX.
@@ -117,6 +118,89 @@ export async function authRoutes(app) {
   // GET /api/auth/me — current user (requires JWT)
   app.get('/auth/me', { preHandler: app.authenticate }, async (req) => {
     return { user: toPublicUser(req.user) }
+  })
+
+  // POST /api/auth/tg-init {initData}
+  // Mini App identity через Telegram WebApp.initData. Серверная HMAC-проверка
+  // подписи через TG_BOT_TOKEN. При первом заходе — upsert User по tg_user_id.
+  app.post('/auth/tg-init', {
+    ...authLimit,
+    schema: {
+      body: {
+        type: 'object',
+        required: ['initData'],
+        properties: { initData: { type: 'string', maxLength: 4096 } },
+      },
+    },
+  }, async (req, reply) => {
+    const botToken = process.env.TG_BOT_TOKEN
+    if (!botToken) {
+      return reply.code(503).send({ error: 'TG bot не сконфигурирован на сервере' })
+    }
+    const tgUser = verifyTgInitData(req.body.initData, botToken)
+    if (!tgUser?.id) {
+      return reply.code(401).send({ error: 'Невалидная подпись initData' })
+    }
+
+    const tgId = BigInt(tgUser.id)
+    const fullName = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ').trim()
+    const name = fullName || tgUser.username || 'Пользователь Telegram'
+
+    // upsert по tg_user_id — найдём существующего или создадим
+    let user = await db.user.findUnique({ where: { tgUserId: tgId } })
+    if (!user) {
+      user = await db.user.create({
+        data: {
+          tgUserId: tgId,
+          name,
+          subscription: { create: {} },
+        },
+      })
+    } else if (user.name !== name) {
+      // Подтянем актуальное имя/username при последующих заходах
+      user = await db.user.update({ where: { id: user.id }, data: { name } })
+    }
+
+    const token = app.jwt.sign({ id: user.id }, { expiresIn: '7d' })
+    return { ok: true, token, user: toPublicUser(user) }
+  })
+
+  // POST /api/auth/vk-init {searchParams}
+  // VK Mini App identity через query-параметры контейнера. HMAC-SHA256
+  // подпись через VK_SECURE_KEY.
+  app.post('/auth/vk-init', {
+    ...authLimit,
+    schema: {
+      body: {
+        type: 'object',
+        required: ['searchParams'],
+        properties: { searchParams: { type: 'string', maxLength: 4096 } },
+      },
+    },
+  }, async (req, reply) => {
+    const secureKey = process.env.VK_SECURE_KEY
+    if (!secureKey) {
+      return reply.code(503).send({ error: 'VK не сконфигурирован на сервере' })
+    }
+    const vk = verifyVkSign(req.body.searchParams, secureKey)
+    if (!vk?.vk_user_id) {
+      return reply.code(401).send({ error: 'Невалидная подпись VK' })
+    }
+
+    const vkId = BigInt(vk.vk_user_id)
+    let user = await db.user.findUnique({ where: { vkUserId: vkId } })
+    if (!user) {
+      user = await db.user.create({
+        data: {
+          vkUserId: vkId,
+          name: `VK ${vk.vk_user_id}`,
+          subscription: { create: {} },
+        },
+      })
+    }
+
+    const token = app.jwt.sign({ id: user.id }, { expiresIn: '7d' })
+    return { ok: true, token, user: toPublicUser(user) }
   })
 
   // DELETE /api/auth/me — wipes the user and all linked data. All Prisma

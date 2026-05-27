@@ -44,6 +44,36 @@ export async function resetPassword({ identifier }) {
   return data
 }
 
+// Telegram Mini App auto-login. Передаём Telegram.WebApp.initData
+// (URL-encoded query string), сервер проверяет HMAC через TG_BOT_TOKEN.
+export async function tgInit(initData) {
+  if (USE_MOCK) {
+    await delay(300)
+    return {
+      ok: true,
+      token: 'mock_tg_' + Date.now(),
+      user: { id: 'tg_mock', name: 'Telegram Mock' },
+    }
+  }
+  const { data } = await api.post('/auth/tg-init', { initData })
+  return data
+}
+
+// VK Mini App auto-login. Передаём raw query string из location.search
+// (без leading `?`). Сервер проверяет HMAC через VK_SECURE_KEY.
+export async function vkInit(searchParams) {
+  if (USE_MOCK) {
+    await delay(300)
+    return {
+      ok: true,
+      token: 'mock_vk_' + Date.now(),
+      user: { id: 'vk_mock', name: 'VK Mock' },
+    }
+  }
+  const { data } = await api.post('/auth/vk-init', { searchParams })
+  return data
+}
+
 // GDPR + Apple/Google requirement — let the user wipe themselves.
 // Server cascades Subscription / Checkin / KtEntry / TrackerDay /
 // PracticeCompletion / UnlockedAwareness / BonusUnlock in one tx.

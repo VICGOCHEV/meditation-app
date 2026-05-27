@@ -8,6 +8,7 @@ import BottomNav from '../components/ui/BottomNav'
 import { LiquidGlassFilter } from '../components/ui/LiquidGlass'
 import { useAuthStore } from '../store/useAuthStore'
 import useTimeTheme from '../hooks/useTimeTheme'
+import usePlatformAuth from '../hooks/usePlatformAuth'
 
 // Routes where the persistent BottomNav should appear. Lifted out of the
 // pages so the bar stays mounted across navigation — this lets Framer
@@ -35,6 +36,8 @@ export default function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession)
   const [ready, setReady] = useState(false)
   useTimeTheme()
+  // TG/VK auto-auth + BackButton + header colors. No-op в обычном браузере.
+  usePlatformAuth()
   // Routes mount only after the preloader finishes — otherwise onboarding
   // would animate hidden→visible while hidden behind the splash and the
   // user would see the final state on reveal.
@@ -45,18 +48,6 @@ export default function App() {
 
   useEffect(() => {
     restoreSession()
-    if (typeof window !== 'undefined') {
-      import('@twa-dev/sdk')
-        .then(({ default: WebApp }) => {
-          try {
-            WebApp?.ready?.()
-            WebApp?.expand?.()
-          } catch {
-            /* non-Telegram environment — ignore */
-          }
-        })
-        .catch(() => {})
-    }
     setReady(true)
   }, [restoreSession])
 
