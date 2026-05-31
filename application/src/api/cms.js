@@ -1,120 +1,50 @@
 import axios from 'axios'
 
-// Тонкая обёртка над Strapi v5 REST. Базовый URL берём из
-// VITE_CMS_URL (по умолчанию `/cms` — раздаётся Caddy reverse-proxy
-// на тот же хост, что и фронт). В Strapi 5 ответы уже плоские
-// (без `attributes`-обёртки v4) — поля лежат прямо в entity.
+// Контент-API для аппки. С 01.06.2026 читаем из НАШЕЙ CMS
+// (`/api/content/*` — Fastify, отдаёт уже плоский готовый shape).
+// Раньше тут была обёртка над Strapi v5 с `populate`/`sort`/`status` и
+// парсингом `data.data` — Strapi всё ещё крутится на /cms/api, но аппка
+// его больше не дёргает.
 //
-// Включается флагом VITE_USE_CMS=true. Иначе фронт продолжает
-// читать из mock.js, как раньше — деплой Strapi можно выкатить
-// независимо.
+// Базовый URL берём из VITE_CMS_URL (по умолчанию `/api/content`).
+// Включается флагом VITE_USE_CMS=true. Иначе фронт продолжает читать
+// из mock.js.
 
-const BASE = import.meta.env.VITE_CMS_URL || '/cms'
+const BASE = import.meta.env.VITE_CMS_URL || '/api/content'
 
 const cms = axios.create({
-  baseURL: `${BASE}/api`,
+  baseURL: BASE,
   timeout: 10000,
 })
 
-function audioUrl(media) {
-  if (!media?.url) return null
-  return media.url.startsWith('http') ? media.url : `${BASE}${media.url}`
-}
+// /api/content/* отдаёт абсолютные URL медиа (типа `/cms-media/abc123.mp3`).
+// Caddy на проде раздаёт их статикой с диска. Никакого префикса добавлять
+// не надо — фронт берёт url как есть.
 
-function formatDuration(sec) {
-  if (!sec || sec < 1) return ''
-  const m = Math.round(sec / 60)
-  return `${m} мин`
-}
-
-// Возвращает практики в той же форме, что и `mockPractices`:
-// `{ relaxation: [...], awareness: [...], author: [...] }`.
-// Каждый элемент: `{ id, title, duration, block, price?, audioUrl }`.
+// `{ relaxation: [...], awareness: [...], author: [...] }` — финальная форма,
+// которую ожидает Home. Backend уже группирует по `block`.
 export async function fetchPracticesFromCMS() {
-  const { data } = await cms.get('/practices', {
-    params: {
-      populate: 'audio',
-      'sort[0]': 'order:asc',
-      'pagination[pageSize]': 100,
-      status: 'published',
-    },
-  })
-
-  const groups = { relaxation: [], awareness: [], author: [] }
-  for (const row of data?.data || []) {
-    if (!groups[row.block]) continue
-    groups[row.block].push({
-      id: row.documentId || String(row.id),
-      title: row.title,
-      duration: formatDuration(row.duration_sec),
-      duration_sec: row.duration_sec,
-      block: row.block,
-      description: row.description || undefined,
-      price: row.price ? `${row.price} ₽` : undefined,
-      audioUrl: audioUrl(row.audio),
-    })
-  }
-  return groups
+  const { data } = await cms.get('/practices')
+  return data
 }
 
-export async function fetchPracticeFromCMS(documentId) {
-  const { data } = await cms.get(`/practices/${documentId}`, {
-    params: { populate: 'audio' },
-  })
-  const row = data?.data
-  if (!row) return null
-  return {
-    id: row.documentId,
-    title: row.title,
-    duration: formatDuration(row.duration_sec),
-    duration_sec: row.duration_sec,
-    block: row.block,
-    description: row.description || undefined,
-    price: row.price ? `${row.price} ₽` : undefined,
-    audioUrl: audioUrl(row.audio),
-  }
+// Одна практика по slug (slug = практика id, кладётся в PracticeCompletion).
+export async function fetchPracticeFromCMS(slug) {
+  const { data } = await cms.get(`/practices/${slug}`)
+  return data
 }
 
-// Один голос = `{ id: code, name, fullUrl, previewUrl, active }`.
-// `id` намеренно равен `code` ('male'/'female'), потому что фронтовый
-// `usePlayerStore.selectedVoice` хранит именно код, не documentId.
+// `[{ id: code, name, fullUrl, previewUrl, active }]` — массив голосов.
+// `id` намеренно = `code` ('male'/'female'), потому что фронтовый
+// `usePlayerStore.selectedVoice` хранит код, не numeric id.
 export async function fetchVoicesFromCMS() {
-  const { data } = await cms.get('/voices', {
-    params: {
-      populate: '*',
-      'sort[0]': 'order:asc',
-      status: 'published',
-    },
-  })
-  return (data?.data || [])
-    .filter((v) => v.active !== false)
-    .map((v) => ({
-      id: v.code,
-      name: v.name,
-      fullUrl: audioUrl(v.audio_full),
-      previewUrl: audioUrl(v.audio_preview),
-      active: v.active !== false,
-    }))
+  const { data } = await cms.get('/voices')
+  return data
 }
 
-// Один трек = `{ id (1..n по порядку), title, fullUrl, previewUrl }`.
-// Числовой `id` — чтобы совпадало с тем, как `usePlayerStore.selectedMusic`
-// хранит выбор (1/2/3). Если контента поменяется состав — фронт продолжит
-// работать, главное чтобы порядок был задан в Strapi.
+// `[{ id: 1..n, title, fullUrl, previewUrl }]` — массив музыки.
+// Числовой `id` — чтобы совпадало с `usePlayerStore.selectedMusic` (1/2/3).
 export async function fetchMusicFromCMS() {
-  const { data } = await cms.get('/music-tracks', {
-    params: {
-      populate: '*',
-      'sort[0]': 'order:asc',
-      status: 'published',
-    },
-  })
-  return (data?.data || [])
-    .filter((m) => m.active !== false)
-    .map((m, i) => ({
-      id: i + 1,
-      title: m.title,
-      fullUrl: audioUrl(m.audio_full),
-      previewUrl: audioUrl(m.audio_preview),
-    }))
+  const { data } = await cms.get('/music')
+  return data
 }
