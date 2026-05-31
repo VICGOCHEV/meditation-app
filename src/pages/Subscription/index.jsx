@@ -176,46 +176,59 @@ export default function Subscription() {
       await loadYookassaScript()
       if (!window.YooMoneyCheckoutWidget) throw new Error('Виджет недоступен')
 
-      // 3. Создаём и рендерим виджет в контейнер
+      // 3. Создаём виджет. БЕЗ modal:true — рендерим inline в div #yukassa-widget,
+      // чтобы юзер видел форму прямо на странице, а не в всплывающем окне.
       const widget = new window.YooMoneyCheckoutWidget({
         confirmation_token: data.confirmationToken,
-        // return_url не нужен для embedded — оплата завершается inline
         customization: {
-          modal: true,
           colors: { control_primary: '#6145c2', background: '#11101a' },
         },
         error_callback: (err) => {
           // eslint-disable-next-line no-console
           console.warn('YooKassa widget error', err)
           setStage('error')
-          setErrorMsg('Ошибка платёжной формы')
+          setErrorMsg('Не удалось загрузить форму оплаты. Попробуй ещё раз.')
         },
       })
       widget.on('success', async () => {
-        widget.destroy()
+        try { widget.destroy() } catch { /* ignore */ }
         widgetRef.current = null
-        // Виджет показал «оплата прошла». На сервере webhook ЮKassa должен
-        // уже активировать подписку. Подтянем актуальное состояние:
         try {
           await loadFromServer()
         } catch {
-          /* fallback ниже */
+          /* webhook на сервере всё равно активировал подписку */
         }
         setStage('success')
       })
       widget.on('fail', () => {
-        widget.destroy()
+        try { widget.destroy() } catch { /* ignore */ }
         widgetRef.current = null
         setStage('error')
-        setErrorMsg('Платёж не прошёл')
+        setErrorMsg('Платёж не прошёл. Проверь карту или попробуй другую.')
       })
       widgetRef.current = widget
-      widget.render('yukassa-widget')
+
+      // Переводим в stage='widget' СНАЧАЛА, чтобы React отрендерил
+      // контейнер, ПОТОМ дёргаем render. Иначе element ещё не в DOM.
       setStage('widget')
+      // Ждём один кадр чтобы React commit'нул новый DOM
+      await new Promise((r) => requestAnimationFrame(r))
+      widget.render('yukassa-widget')
     } catch (err) {
       setStage('error')
       setErrorMsg(err?.response?.data?.error || err?.message || 'Не удалось начать оплату')
     }
+  }
+
+  const cancelPayment = () => {
+    try {
+      widgetRef.current?.destroy?.()
+    } catch {
+      /* ignore */
+    }
+    widgetRef.current = null
+    setStage('idle')
+    setErrorMsg('')
   }
 
   const selectedTier = TIERS.find((t) => t.id === tier)
@@ -232,7 +245,8 @@ export default function Subscription() {
         </button>
       </div>
 
-      {stage === 'success' ? (
+      {/* ─── 1. SUCCESS — полноэкранный финал, без выбора ─── */}
+      {stage === 'success' && (
         <div className="flex min-h-[70dvh] flex-col items-center justify-center text-center animate-fade-in">
           <div
             className="mb-6 flex h-20 w-20 items-center justify-center rounded-full"
@@ -263,7 +277,51 @@ export default function Subscription() {
             </Button>
           </div>
         </div>
-      ) : (
+      )}
+
+      {/* ─── 2. WIDGET — оплата идёт. Прячем тариф-карты, рисуем сводку
+              и контейнер для виджета. ─── */}
+      {stage === 'widget' && (
+        <div className="animate-fade-in">
+          <div className="label-mono text-lilac">Оплата подписки</div>
+          <h1 className="mt-2 font-serif text-[28px] leading-tight text-fg-0">
+            {selectedTier?.name}
+          </h1>
+
+          <div className="mt-4 flex items-baseline justify-between gap-3 rounded-md border border-line-2 bg-white/[0.04] px-4 py-3">
+            <div className="flex flex-col">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-3">
+                К списанию через 7 дней
+              </span>
+              <span className="mt-1 font-serif text-[22px] text-fg-0">
+                {selectedTier?.price} ₽ <span className="text-[13px] text-fg-2">/ мес</span>
+              </span>
+            </div>
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-lilac/80">
+              7 дней бесплатно
+            </span>
+          </div>
+
+          {/* ВЫЖНО: контейнер всегда в DOM с фиксированным ID, чтобы
+              widget.render('yukassa-widget') нашёл элемент. min-height
+              ~480 чтобы форма карты помещалась без скачка лейаута. */}
+          <div
+            id="yukassa-widget"
+            className="mt-6 min-h-[480px] rounded-lg border border-line-2 bg-bg-1/40 p-2"
+          />
+
+          <button
+            type="button"
+            onClick={cancelPayment}
+            className="mt-4 w-full text-center text-[13px] text-fg-3 hover:text-fg-1 transition-colors"
+          >
+            ← Отменить и вернуться к выбору
+          </button>
+        </div>
+      )}
+
+      {/* ─── 3. IDLE / LOADING / ERROR — выбор тарифа + CTA ─── */}
+      {stage !== 'success' && stage !== 'widget' && (
         <>
           <div className="label-mono text-lilac">Подписка</div>
           <h1 className="mt-2 font-serif text-[34px] leading-tight text-fg-0">
@@ -289,48 +347,26 @@ export default function Subscription() {
             Расслабление — всегда бесплатно.
           </p>
 
+          {stage === 'error' && (
+            <div className="mt-6 rounded-md border border-line-2 bg-err/10 px-4 py-3 text-[13px] text-err">
+              {errorMsg ||
+                'Что-то пошло не так с оплатой. Проверь данные карты или попробуй другую.'}
+            </div>
+          )}
+
           <div className="mt-6 flex justify-center">
             <AnimatedSubscribeButton
-              labelIdle="Получить ключи к жизни"
-              labelActive={stage === 'widget' ? 'Открываем оплату…' : 'Обрабатываем платёж'}
-              generating={stage === 'loading' || stage === 'widget'}
-              disabled={stage === 'loading' || stage === 'widget'}
+              labelIdle={stage === 'error' ? 'Попробовать снова' : 'Оплатить и начать'}
+              labelActive="Открываем оплату…"
+              generating={stage === 'loading'}
+              disabled={stage === 'loading'}
               onClick={onPay}
             />
           </div>
 
           <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-fg-3">
-            Автопродление · отмена в любой момент
+            7 дней бесплатно · отмена в любой момент
           </p>
-
-          {/* Контейнер для embedded-виджета ЮKassa. До запуска оплаты —
-              просто плашка-плейсхолдер. Виджет открывается модальным окном
-              благодаря customization.modal=true. */}
-          <div
-            id="yukassa-widget"
-            className={[
-              'mt-6 rounded-md p-6 text-center text-[12px]',
-              stage === 'widget'
-                ? 'border border-line-2 bg-bg-1/40 text-fg-1'
-                : 'border border-dashed border-line-2 text-fg-3',
-            ].join(' ')}
-          >
-            {stage === 'widget'
-              ? 'Форма оплаты открыта в модальном окне'
-              : 'Форма ЮKassa появится тут после нажатия кнопки выше'}
-          </div>
-
-          {stage === 'error' && (
-            <div className="mt-4 flex items-center justify-between gap-3 rounded-md border border-line-2 bg-err/10 px-4 py-3 text-[13px] text-err">
-              <span>
-                {errorMsg ||
-                  'Что-то пошло не так с оплатой. Попробуй другую карту или посмотри, всё ли в порядке в банке.'}
-              </span>
-              <Button size="sm" variant="secondary" onClick={onPay}>
-                Повторить
-              </Button>
-            </div>
-          )}
         </>
       )}
     </ScreenShell>
