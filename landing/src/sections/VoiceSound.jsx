@@ -124,16 +124,7 @@ export default function VoiceSound() {
           className="relative"
           style={{ width: 'min(84vw, 460px)', aspectRatio: '1/1', scale: stageScale, opacity: stageOpacity }}
         >
-          {/* мягкий дымчатый орб (вместо WebGL-сферы), screen-бленд, дышит сильнее когда играет */}
-          <motion.div
-            className="absolute inset-[10%] rounded-full mix-blend-screen"
-            style={{ background: `radial-gradient(circle at 50% 44%, #fff 0%, ${accent} 30%, #6145c2 62%, rgba(40,26,90,0) 78%)`, filter: 'blur(2px)' }}
-            animate={{ scale: playing ? [1, 1.07, 1] : [1, 1.03, 1], opacity: [0.85, 1, 0.85] }}
-            transition={{ duration: playing ? 2.4 : 4.2, ease: 'easeInOut', repeat: Infinity }}
-          />
-          {/* дымка-ореол */}
-          <div className="pointer-events-none absolute inset-[4%] rounded-full mix-blend-screen" style={{ background: `radial-gradient(circle at 50% 47%, ${accent}55, ${accent}1f 45%, transparent 70%)`, filter: 'blur(26px)' }} />
-
+          {/* светящаяся сфера убрана полностью — в центре только переливающийся PLAY */}
           {[0, 1, 2].map((i) => (
             <motion.span key={i} className="absolute inset-[12%] rounded-full border" style={{ borderColor: accent }}
               animate={{ scale: [1, 1.5], opacity: [0.4, 0] }} transition={{ duration: 3.6, ease: 'easeOut', delay: i * 1.2, repeat: Infinity }} />
@@ -145,16 +136,28 @@ export default function VoiceSound() {
             <span className="absolute left-1/2 top-[5%] h-2.5 w-2.5 -translate-x-1/2 rounded-full" style={{ background: 'radial-gradient(circle,#fff,#ffe6b3 40%,#d6c8ff 72%,transparent)', boxShadow: '0 0 14px 4px rgba(255,224,160,0.85), 0 0 32px 10px rgba(97,69,194,0.5)' }} />
           </motion.div>
 
-          {/* PLAY / PAUSE — играет превью */}
+          {/* PLAY / PAUSE — крупная, переливающаяся с бликами */}
           <button onClick={toggle} data-hover aria-label={playing ? 'Пауза' : 'Слушать превью'}
-            className="group absolute left-1/2 top-1/2 z-20 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full transition-transform hover:scale-105">
-            <motion.span className="absolute inset-0 rounded-full" style={{ border: `1.5px solid ${accent}`, boxShadow: `0 0 50px -6px ${accent}` }}
-              animate={{ scale: playing ? [1, 1.16, 1] : [1, 1.1, 1], opacity: [0.9, 0.4, 0.9] }} transition={{ duration: playing ? 1.6 : 2.6, ease: 'easeInOut', repeat: Infinity }} />
-            <span className="absolute inset-[12%] rounded-full" style={{ background: 'rgba(18,14,38,0.55)', border: `1px solid ${accent}55`, backdropFilter: 'blur(8px)', boxShadow: `inset 0 0 24px -8px ${accent}` }} />
+            className="group absolute left-1/2 top-1/2 z-20 grid h-32 w-32 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full transition-transform hover:scale-105">
+            {/* пульсирующее свечение */}
+            <motion.span className="absolute inset-0 rounded-full" style={{ boxShadow: `0 0 70px -4px ${accent}` }}
+              animate={{ opacity: playing ? [0.7, 1, 0.7] : [0.5, 0.8, 0.5] }} transition={{ duration: playing ? 1.6 : 2.8, ease: 'easeInOut', repeat: Infinity }} />
+            {/* переливающийся ободок (iridescent), медленно вращается */}
+            <motion.span className="absolute inset-0 rounded-full"
+              style={{ background: 'conic-gradient(from 0deg, #d6c8ff, #9a8cf0, #e6b8ff, #c2a0ff, #b8e0ff, #ffd6f0, #d6c8ff)' }}
+              animate={{ rotate: 360 }} transition={{ duration: 9, ease: 'linear', repeat: Infinity }} />
+            {/* бегущий блик по ободку */}
+            <motion.span className="absolute inset-0 rounded-full mix-blend-overlay"
+              style={{ background: 'conic-gradient(from 0deg, transparent 0deg, rgba(255,255,255,0.95) 28deg, transparent 80deg, transparent 360deg)' }}
+              animate={{ rotate: 360 }} transition={{ duration: 3.4, ease: 'linear', repeat: Infinity }} />
+            {/* тёмное стекло-сердцевина — оставляет тонкий переливающийся кант */}
+            <span className="absolute inset-[8%] rounded-full" style={{ background: 'radial-gradient(circle at 50% 32%, rgba(42,32,72,0.85), rgba(12,9,24,0.94))', backdropFilter: 'blur(8px)', boxShadow: `inset 0 1px 1px rgba(255,255,255,0.2), inset 0 0 34px -10px ${accent}` }} />
+            {/* верхний глянцевый блик стекла */}
+            <span className="pointer-events-none absolute inset-[8%] rounded-full" style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.28), transparent 46%)' }} />
             {playing ? (
-              <svg className="relative" width="30" height="30" viewBox="0 0 24 24" fill={accent} style={{ filter: `drop-shadow(0 0 6px ${accent})` }}><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+              <svg className="relative z-10" width="38" height="38" viewBox="0 0 24 24" fill="#fff" style={{ filter: `drop-shadow(0 0 8px ${accent})` }}><rect x="6" y="5" width="4" height="14" rx="1.2" /><rect x="14" y="5" width="4" height="14" rx="1.2" /></svg>
             ) : (
-              <svg className="relative translate-x-[2px]" width="34" height="34" viewBox="0 0 24 24" fill={accent} style={{ filter: `drop-shadow(0 0 6px ${accent})` }}><path d="M8 5v14l11-7z" /></svg>
+              <svg className="relative z-10 translate-x-[3px]" width="44" height="44" viewBox="0 0 24 24" fill="#fff" style={{ filter: `drop-shadow(0 0 8px ${accent})` }}><path d="M8 5v14l11-7z" /></svg>
             )}
           </button>
         </motion.div>

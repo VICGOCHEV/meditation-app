@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react'
-import { motion, useScroll, useTransform, useMotionValueEvent } from 'framer-motion'
+import { motion, useScroll, useTransform, useMotionValueEvent, useSpring } from 'framer-motion'
 import ScrollScrub from '../components/ScrollScrub'
 import ShinyButton from '../components/ShinyButton'
 import MouseFloat from '../components/MouseFloat'
@@ -187,8 +187,17 @@ export default function IntroJourney() {
   const textFilter = useTransform(textBlur, (b) => `blur(${b}px)`)
   const hintOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
-  // фаза 3 — манифест
+  // фаза 3 — манифест. Прогресс сглажен пружиной → фразы скользят плавно,
+  // без микро-дёрганья от шага колеса/тачпада.
   const mani = useTransform(scrollYProgress, [MANI_START, 1], [0, 1])
+  const maniSmooth = useSpring(mani, { stiffness: 110, damping: 28, mass: 0.3, restDelta: 0.0004 })
+
+  // ждём готовности шрифтов → hero-вход стартует без FOUT-перекомпоновки (заголовок не дёргается)
+  const [fontsReady, setFontsReady] = useState(false)
+  useEffect(() => {
+    if (typeof document !== 'undefined' && document.fonts?.ready) document.fonts.ready.then(() => setFontsReady(true))
+    else setFontsReady(true)
+  }, [])
 
   return (
     <section ref={ref} style={{ height: '880vh' }} className="relative">
@@ -208,7 +217,7 @@ export default function IntroJourney() {
         {/* фаза 2 — фразы пролетают сквозь нас */}
         <div className="absolute inset-0" style={{ zIndex: 5 }}>
           {PHRASES.map((p, i) => (
-            <FlyScene key={p.n} progress={mani} i={i} {...p} />
+            <FlyScene key={p.n} progress={maniSmooth} i={i} {...p} />
           ))}
         </div>
 
@@ -220,7 +229,7 @@ export default function IntroJourney() {
           <motion.h1
             variants={slideVar}
             initial="hidden"
-            animate="visible"
+            animate={fontsReady ? 'visible' : 'hidden'}
             className="mt-[6vh] w-fit text-left font-display leading-[0.92] tracking-tight text-[2.9rem] sm:text-[5.5rem]"
           >
             <motion.span variants={lineLeft} className="block font-extralight text-fg-1">Твой путь</motion.span>
@@ -232,7 +241,7 @@ export default function IntroJourney() {
 
           {/* всё кроме заголовка — по центру, с лёгкой привязкой к мыши */}
           <MouseFloat strength={7} className="flex w-full justify-center">
-            <motion.div className="flex w-full flex-col items-center gap-5 text-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.9, ease: EASE, delay: 0.9 }}>
+            <motion.div className="flex w-full flex-col items-center gap-5 text-center" initial={{ opacity: 0 }} animate={{ opacity: fontsReady ? 1 : 0 }} transition={{ duration: 0.9, ease: EASE, delay: 0.6 }}>
               <p className="max-w-md text-base leading-relaxed text-fg-1" style={{ textShadow: '0 2px 20px rgba(10,7,20,0.8)' }}>
                 Цифровое пространство замедления. Практики осознанности, дыхание, трекер состояния.
               </p>
