@@ -102,3 +102,113 @@ model BonusUnlock {
 
   @@unique([userId, practiceId])
 }
+
+// ───────────────────────────────────────────────────────────────────────────
+//  CMS (своя, замена Strapi) — см. docs/26-custom-cms-spec-2026-05-30.md
+// ───────────────────────────────────────────────────────────────────────────
+
+// Загруженный медиафайл (аудио). Один upload = одна запись. Длительность
+// парсится из mp3 на сервере при загрузке. Контент ссылается сюда по FK.
+model MediaFile {
+  id           Int      @id @default(autoincrement())
+  // относительный путь на диске внутри UPLOAD_DIR
+  path         String
+  // публичный URL, который уйдёт в аппку (например /cms-media/ab12.mp3)
+  url          String
+  originalName String?
+  mime         String
+  sizeBytes    Int
+  durationSec  Int?
+  createdAt    DateTime @default(now())
+
+  // обратные связи (Prisma требует их при именованных relation)
+  pMaleM1      Practice[]   @relation("audioMaleMusic1")
+  pMaleM2      Practice[]   @relation("audioMaleMusic2")
+  pMaleM3      Practice[]   @relation("audioMaleMusic3")
+  pFemaleM1    Practice[]   @relation("audioFemaleMusic1")
+  pFemaleM2    Practice[]   @relation("audioFemaleMusic2")
+  pFemaleM3    Practice[]   @relation("audioFemaleMusic3")
+  voiceFull    Voice[]      @relation("voiceFull")
+  voicePreview Voice[]      @relation("voicePreview")
+  musicFull    MusicTrack[] @relation("musicFull")
+  musicPreview MusicTrack[] @relation("musicPreview")
+}
+
+// Аудио-практика одного из трёх блоков. Аудио — матрица 6 дорожек
+// (голос male/female × музыка 1/2/3). music1 практически обязателен,
+// music2/music3 nullable (часть практик идёт с одной музыкой).
+model Practice {
+  id          Int     @id @default(autoincrement())
+  // строковый публичный id, который аппка кладёт в PracticeCompletion.practiceId.
+  // На миграции из Strapi сюда переносим старый documentId, чтобы не
+  // потерять прогресс юзеров. По умолчанию = "p<id>" (заполняется в роуте).
+  slug        String  @unique
+  title       String
+  block       String // relaxation | awareness | author
+  description String?
+  price       Int?
+  order       Int     @default(0)
+  monthSlot   Int?    @map("month_slot")
+  durationSec Int     @default(0) @map("duration_sec")
+  published   Boolean @default(false)
+
+  audioMaleMusic1Id   Int? @map("audio_male_music1_id")
+  audioMaleMusic2Id   Int? @map("audio_male_music2_id")
+  audioMaleMusic3Id   Int? @map("audio_male_music3_id")
+  audioFemaleMusic1Id Int? @map("audio_female_music1_id")
+  audioFemaleMusic2Id Int? @map("audio_female_music2_id")
+  audioFemaleMusic3Id Int? @map("audio_female_music3_id")
+
+  audioMaleMusic1   MediaFile? @relation("audioMaleMusic1", fields: [audioMaleMusic1Id], references: [id], onDelete: SetNull)
+  audioMaleMusic2   MediaFile? @relation("audioMaleMusic2", fields: [audioMaleMusic2Id], references: [id], onDelete: SetNull)
+  audioMaleMusic3   MediaFile? @relation("audioMaleMusic3", fields: [audioMaleMusic3Id], references: [id], onDelete: SetNull)
+  audioFemaleMusic1 MediaFile? @relation("audioFemaleMusic1", fields: [audioFemaleMusic1Id], references: [id], onDelete: SetNull)
+  audioFemaleMusic2 MediaFile? @relation("audioFemaleMusic2", fields: [audioFemaleMusic2Id], references: [id], onDelete: SetNull)
+  audioFemaleMusic3 MediaFile? @relation("audioFemaleMusic3", fields: [audioFemaleMusic3Id], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([block, order])
+}
+
+// Голос проводника. code ('male'/'female') — то, что хранит фронтовый
+// usePlayerStore.selectedVoice, поэтому unique.
+model Voice {
+  id             Int       @id @default(autoincrement())
+  name           String
+  code           String    @unique
+  audioFullId    Int       @map("audio_full_id")
+  audioPreviewId Int       @map("audio_preview_id")
+  audioFull      MediaFile @relation("voiceFull", fields: [audioFullId], references: [id])
+  audioPreview   MediaFile @relation("voicePreview", fields: [audioPreviewId], references: [id])
+  active         Boolean   @default(true)
+  order          Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// Фоновая музыка («энергия»). Порядок задаёт id 1/2/3 на фронте.
+model MusicTrack {
+  id             Int       @id @default(autoincrement())
+  title          String
+  audioFullId    Int       @map("audio_full_id")
+  audioPreviewId Int       @map("audio_preview_id")
+  audioFull      MediaFile @relation("musicFull", fields: [audioFullId], references: [id])
+  audioPreview   MediaFile @relation("musicPreview", fields: [audioPreviewId], references: [id])
+  active         Boolean   @default(true)
+  order          Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// Админ CMS — отдельная сущность, НЕ юзер аппки.
+model AdminUser {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         String   @default("editor") // editor | admin
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg-0 text-fg-1 font-sans antialiased;
+    margin: 0;
+  }
+  ::selection {
+    background: rgba(97, 69, 194, 0.4);
+  }
+  /* тонкий скроллбар в духе тёмной темы */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(180, 160, 255, 0.14);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(180, 160, 255, 0.24);
+    background-clip: padding-box;
+  }
+}
+
+@layer components {
+  /* стеклянная карточка-панель */
+  .panel {
+    @apply bg-bg-1 border border-line rounded-lg;
+  }
+  .card {
+    @apply bg-bg-2 border border-line rounded-md;
+  }
+  .input {
+    @apply w-full bg-bg-0 border border-line-2 rounded-sm px-3 py-2 text-fg-0
+      placeholder:text-fg-3 outline-none transition-colors
+      focus:border-violet focus:ring-2 focus:ring-violet/25;
+  }
+  .label {
+    @apply block text-xs font-medium text-fg-2 mb-1.5;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-sm px-3.5 py-2
+      text-sm font-semibold transition-all select-none disabled:opacity-40
+      disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn text-white bg-primary-btn shadow-btn-primary
+      hover:brightness-110 active:brightness-95;
+  }
+  .btn-ghost {
+    @apply btn text-fg-1 bg-bg-2 border border-line hover:bg-bg-3 hover:text-fg-0;
+  }
+  .btn-danger {
+    @apply btn text-[oklch(0.85_0.12_20)] bg-[oklch(0.3_0.1_20/0.35)]
+      border border-[oklch(0.5_0.15_20/0.4)] hover:bg-[oklch(0.35_0.12_20/0.5)];
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium;
+  }
+}

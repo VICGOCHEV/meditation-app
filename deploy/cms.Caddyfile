@@ -1,0 +1,22 @@
+# ── Своя CMS: блоки для вставки в site-блок all-relaxme.ru ───────────────────
+# Вставлять ВНУТРЬ существующего `all-relaxme.ru { ... }`, ВЫШЕ общего
+# fallback-а статики фронта. Порядок важен: специфичные пути раньше корня.
+#
+# Папка SPA — /opt/meditation-app/cms/dist, путь раздачи — /admin/
+# (НЕ /cms/: /cms занят живым Strapi до cutover, см. docs/27 §C).
+# API (/api/admin/*, /api/content/*) идёт в тот же Fastify :3001, отдельный
+# proxy не нужен — он уже есть для /api.
+
+# CMS-админка (SPA — index.html на все вложенные пути)
+handle_path /admin/* {
+    root * /opt/meditation-app/cms/dist
+    try_files {path} /index.html
+    file_server
+}
+
+# Загруженное CMS-аудио (отдаём с диска напрямую)
+handle_path /cms-media/* {
+    root * /opt/meditation-app/uploads
+    file_server
+    header Cache-Control "public, max-age=2592000"
+}

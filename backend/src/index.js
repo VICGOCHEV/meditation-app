@@ -4,9 +4,12 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import sensible from '@fastify/sensible'
+import multipart from '@fastify/multipart'
+import fastifyStatic from '@fastify/static'
 import { config } from './config.js'
 import { db } from './db.js'
 import { authenticate } from './middlewares/auth.js'
+import { ensureUploadDir } from './utils/media.js'
 import { healthRoute } from './routes/health.js'
 import { authRoutes } from './routes/auth.js'
 import { progressRoutes } from './routes/progress.js'
@@ -15,6 +18,14 @@ import { checkinRoutes } from './routes/checkin.js'
 import { deepAnalysisRoutes } from './routes/deepAnalysis.js'
 import { subscriptionRoutes } from './routes/subscription.js'
 import { paymentRoutes } from './routes/payments.js'
+import { contentRoutes } from './routes/content.js'
+import { adminAuthRoutes } from './routes/admin/auth.js'
+import { adminMediaRoutes } from './routes/admin/media.js'
+import { adminPracticesRoutes } from './routes/admin/practices.js'
+import { adminVoicesRoutes } from './routes/admin/voices.js'
+import { adminMusicRoutes } from './routes/admin/music.js'
+import { adminDashboardRoutes } from './routes/admin/dashboard.js'
+import { adminSubscriptionsRoutes } from './routes/admin/subscriptions.js'
 
 const app = Fastify({ logger: { level: 'info' }, trustProxy: true })
 
@@ -59,6 +70,18 @@ await app.register(rateLimit, {
 await app.register(jwt, { secret: config.jwtSecret })
 app.decorate('authenticate', authenticate)
 
+// CMS: загрузка аудио (multipart) + статика медиа. На проде статику отдаёт
+// Caddy на /cms-media; локально (и как fallback) отдаёт Fastify.
+await app.register(multipart, {
+  limits: { fileSize: config.maxAudioBytes, files: 1 },
+})
+await ensureUploadDir()
+await app.register(fastifyStatic, {
+  root: config.uploadDir,
+  prefix: `${config.mediaUrlBase}/`,
+  decorateReply: false,
+})
+
 await app.register(healthRoute, { prefix: '/api' })
 await app.register(authRoutes, { prefix: '/api' })
 await app.register(progressRoutes, { prefix: '/api' })
@@ -67,6 +90,18 @@ await app.register(checkinRoutes, { prefix: '/api' })
 await app.register(deepAnalysisRoutes, { prefix: '/api' })
 await app.register(subscriptionRoutes, { prefix: '/api' })
 await app.register(paymentRoutes, { prefix: '/api' })
+
+// Публичный контент для аппки (замена Strapi)
+await app.register(contentRoutes, { prefix: '/api' })
+
+// CMS admin API
+await app.register(adminAuthRoutes, { prefix: '/api' })
+await app.register(adminMediaRoutes, { prefix: '/api' })
+await app.register(adminPracticesRoutes, { prefix: '/api' })
+await app.register(adminVoicesRoutes, { prefix: '/api' })
+await app.register(adminMusicRoutes, { prefix: '/api' })
+await app.register(adminDashboardRoutes, { prefix: '/api' })
+await app.register(adminSubscriptionsRoutes, { prefix: '/api' })
 
 const close = async () => {
   app.log.info('shutting down...')
