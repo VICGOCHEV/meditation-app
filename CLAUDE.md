@@ -4,36 +4,44 @@
 
 ## Структура монорепо
 
-Корень `APP/` — мета-репо. Три независимых под-приложения + общие папки:
+Корень `APP/` — мета-репо. Четыре независимых под-приложения + общие папки:
 
 ```
 APP/
-├── application/        ← Vite-фронт (то что юзер видит)
+├── application/        ← Vite-фронт (то что юзер видит, /)
 │   ├── src/            (роуты в src/app/routes.jsx)
 │   ├── public/         (preloaders, onboarding-voices)
 │   ├── index.html
 │   ├── package.json
 │   └── .env, .env.production, dist/, node_modules/
-├── backend/            ← Fastify + Prisma + PostgreSQL
-│   ├── src/routes/*.js
+├── backend/            ← Fastify + Prisma + PostgreSQL (/api/*)
+│   ├── src/routes/*.js (incl. /admin, /content для CMS)
 │   ├── prisma/schema.prisma
-│   └── .env (с DB-кредами, JWT, TG_BOT_TOKEN, VK_*, YOOKASSA_*)
-├── cms/                ← Кастомная CMS (SPA, замена Strapi'у в разработке)
+│   ├── sql/001_cms_tables.sql (idempotent CMS миграция)
+│   └── .env (с DB-кредами, JWT, TG_BOT_TOKEN, VK_*, YOOKASSA_*, UPLOAD_DIR)
+├── cms/                ← Кастомная CMS SPA (/manage/) — заменит Strapi
 │   ├── src/
 │   └── package.json
-├── cms-stage/          ← Strapi v5 артефакты (применяется на новый сервер)
-├── docs/               ← Хронологический лог: 01-spec → 27-cms-deploy
-├── deploy/             ← security-hardening, pg-backup.sh
+├── landing/            ← Промо-лендинг (/promo/) — WebGL scroll-scrub
+│   ├── src/            (App, components, sections, shaders)
+│   ├── public/         (media, hero-assets)
+│   ├── index.html      (base=/promo/ при build, / в dev)
+│   └── package.json
+├── cms-stage/          ← Strapi v5 артефакты (legacy reference)
+├── docs/               ← Хронологический лог: 01-spec → 28-cms-todo
+├── deploy/             ← cms.Caddyfile, deploy-cms.sh, security-hardening
 ├── AUDIO/              ← Клиентские mp3 (не в git, через .gitignore)
 ├── CLAUDE.md           ← этот файл
-└── package.json        ← orchestrator (cd application && npm run dev и т.п.)
+└── package.json        ← orchestrator (alias-скрипты)
 ```
 
 Из корня работают alias-скрипты:
-- `npm run dev` → `cd application && npm run dev`
-- `npm run build` → `cd application && npm run build`
-- `npm run dev:cms` → `cd cms && npm run dev`
-- `npm run dev:backend` → `cd backend && npm run dev`
+- `npm run dev`           → `cd application && npm run dev`
+- `npm run build`         → `cd application && npm run build`
+- `npm run dev:cms`       → `cd cms && npm run dev`
+- `npm run dev:backend`   → `cd backend && npm run dev`
+- `npm run dev:landing`   → `cd landing && npm run dev` (порт 5190)
+- `npm run build:landing` → `cd landing && npm run build`
 
 ## Git
 
@@ -45,11 +53,20 @@ APP/
 
 **`https://all-relaxme.ru/`** — Selectel `87.228.61.44`, Ubuntu 22.04, Caddy + Let's Encrypt SSL.
 
-**ВНИМАНИЕ** — после реструктуризации 31.05 фронт теперь в `application/dist`. Прод-деплой ТРЕБУЕТ обновления Caddyfile с `root * /opt/meditation-app/application/dist` (вместо `dist`). До этого деплоить опасно.
+Структура на проде:
+- Юзерфронт: `https://all-relaxme.ru/` → `/opt/meditation-app/application/dist`
+- Кастомная CMS: `https://all-relaxme.ru/manage/` → `/opt/meditation-app/cms/dist` (логин `admin@all-relaxme.ru`)
+- Промо-лендинг: `https://all-relaxme.ru/promo/` → `/opt/meditation-app/landing/dist` (после переезда 01.06)
+- API: `https://all-relaxme.ru/api/*` → Fastify :3001
+- Strapi (legacy): `https://all-relaxme.ru/admin` + `/cms/` → :1337, погасим после cutover'а
 
 ```bash
-# Деплой (после обновления Caddyfile)
-ssh root@87.228.61.44 'cd /opt/meditation-app && git pull --ff-only && npm install && npm run build && cd backend && npm install && systemctl restart meditation-api'
+# Деплой
+ssh root@87.228.61.44 'cd /opt/meditation-app && git pull --ff-only && \
+  cd application && npm install && npm run build && cd .. && \
+  cd cms && npm install && npm run build && cd .. && \
+  cd landing && npm install && npm run build && cd .. && \
+  cd backend && npm install && systemctl restart meditation-api'
 ```
 
 SSH пароль и архитектура — в `reference_med_app_infra.md`.

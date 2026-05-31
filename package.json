@@ -1,13 +1,15 @@
 {
   "name": "meditation-app-monorepo",
   "private": true,
-  "description": "Корень монорепо. 3 поддиректории-приложения: application/ (Vite-фронт), backend/ (Fastify), cms/ (кастомная CMS).",
+  "description": "Корень монорепо. 4 поддиректории-приложения: application/ (Vite-фронт), backend/ (Fastify), cms/ (кастомная CMS), landing/ (промо-лендинг /promo/).",
   "scripts": {
     "dev": "cd application && npm run dev",
     "build": "cd application && npm run build",
     "preview": "cd application && npm run preview",
     "dev:cms": "cd cms && npm run dev",
     "dev:backend": "cd backend && npm run dev",
+    "dev:landing": "cd landing && npm run dev",
+    "build:landing": "cd landing && npm run build",
     "lint": "cd application && npm run lint"
   }
 }
