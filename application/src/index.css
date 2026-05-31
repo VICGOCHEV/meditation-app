@@ -194,3 +194,42 @@ html.lenis body {
           mask-composite: exclude;
   animation: liquidCardAngle 5s linear infinite;
 }
+
+/* ── ShinyButton (фирменная CTA в стиле landing-сайта) ─────── */
+@property --shine-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes shineSpin { to { --shine-angle: 360deg; } }
+.shiny-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 1.05rem 2.4rem;
+  border-radius: 360px;
+  border: 1px solid transparent;
+  color: #f4f0ff;
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  font-family: 'Manrope', system-ui, sans-serif;
+  cursor: pointer;
+  background:
+    linear-gradient(#14102a, #14102a) padding-box,
+    conic-gradient(from var(--shine-angle), transparent, #6145c2 12%, #d6c8ff 18%, #6145c2 24%, transparent 40%) border-box;
+  box-shadow: 0 10px 30px -10px oklch(0.55 0.22 295 / 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  animation: shineSpin 4s linear infinite;
+  transition: transform 0.2s ease;
+}
+.shiny-cta:hover  { transform: translateY(-2px); }
+.shiny-cta:active { transform: translateY(1px); }
+.shiny-cta:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+.shiny-cta > span { display: inline-flex; align-items: center; gap: 0.6rem; }
+@media (prefers-reduced-motion: reduce) {
+  .shiny-cta { animation: none !important; }
+  .shiny-cta:hover, .shiny-cta:active { transform: none; }
+}

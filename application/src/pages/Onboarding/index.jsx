@@ -190,19 +190,55 @@ export default function Onboarding() {
   // Файлы: /public/onboarding-voices/male.mp3 (Александр) и female.mp3 (Алёна).
   const [playingVoice, setPlayingVoice] = useState(null)
   const audioRef = useRef(null)
+  const fadeIntervalRef = useRef(null)
+
+  // Плавное затихание + пауза. Дефолт 700мс — комфортно для голоса,
+  // не выглядит как застрял баг. Возвращает Promise, который резолвится
+  // когда fade закончен (можно дождаться перед setState/unmount).
+  const fadeOutAndPause = (audio, durationMs = 700) =>
+    new Promise((resolve) => {
+      if (!audio || audio.paused) {
+        resolve()
+        return
+      }
+      // Отменяем предыдущий fade если был — иначе они подерутся за громкость
+      if (fadeIntervalRef.current) {
+        clearInterval(fadeIntervalRef.current)
+        fadeIntervalRef.current = null
+      }
+      const startVol = audio.volume
+      const steps = 24
+      const stepMs = Math.max(10, durationMs / steps)
+      let i = 0
+      fadeIntervalRef.current = setInterval(() => {
+        i += 1
+        const t = i / steps
+        // ease-in: тише сильнее к концу, чтобы хвост был мягкий
+        audio.volume = Math.max(0, startVol * (1 - t * t))
+        if (i >= steps) {
+          clearInterval(fadeIntervalRef.current)
+          fadeIntervalRef.current = null
+          audio.pause()
+          audio.volume = startVol // вернём громкость на случай нового play
+          resolve()
+        }
+      }, stepMs)
+    })
 
   const togglePreview = (voiceId) => {
-    // Тот же голос — стоп
+    // Тот же голос — fade-out и стоп
     if (playingVoice === voiceId) {
-      audioRef.current?.pause()
+      const a = audioRef.current
       audioRef.current = null
       setPlayingVoice(null)
+      fadeOutAndPause(a, 600)
       return
     }
-    // Иной голос или ничего не играло — стартуем новый, останавливаем старый
+    // Иной голос — затухаем старый (не ждём), запускаем новый сразу
     if (audioRef.current) {
-      audioRef.current.pause()
+      const oldA = audioRef.current
       audioRef.current = null
+      fadeOutAndPause(oldA, 500)
     }
     const audio = new Audio(`/onboarding-voices/${voiceId}.mp3`)
     audio.addEventListener('ended', () => setPlayingVoice(null))
@@ -212,18 +248,39 @@ export default function Onboarding() {
     setPlayingVoice(voiceId)
   }
 
-  // Cleanup на размонтирование / переход с onboarding
+  // Когда уходим со step 2 (выбор голоса) — затихаем превью.
+  // Клиент 01.06.2026: «если играет превью и ты перешёл на след шаг —
+  // голос должен плавно затихать».
+  useEffect(() => {
+    if (step !== 2 && audioRef.current) {
+      const a = audioRef.current
+      audioRef.current = null
+      setPlayingVoice(null)
+      fadeOutAndPause(a, 800)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step])
+
+  // Cleanup на размонтирование (выход с страницы — тоже затихание).
   useEffect(() => {
     return () => {
+      if (fadeIntervalRef.current) {
+        clearInterval(fadeIntervalRef.current)
+        fadeIntervalRef.current = null
+      }
       if (audioRef.current) {
-        audioRef.current.pause()
+        fadeOutAndPause(audioRef.current, 400)
         audioRef.current = null
       }
     }
   }, [])
 
-  const finish = () => {
-    if (audioRef.current) audioRef.current.pause()
+  const finish = async () => {
+    if (audioRef.current) {
+      const a = audioRef.current
+      audioRef.current = null
+      await fadeOutAndPause(a, 500)
+    }
     localStorage.setItem('onboarding_completed', 'true')
     navigate('/auth/login')
   }
