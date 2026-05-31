@@ -1,11 +1,9 @@
-import { useState, useRef, lazy, Suspense } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import { Reveal, Eyebrow } from '../components/primitives'
 import MouseFloat from '../components/MouseFloat'
 
-// сфера — WebGL, грузим лениво (three остаётся в отдельном чанке, не в entry)
-const AmorphSphere = lazy(() => import('../components/AmorphSphere'))
-
+const B = import.meta.env.BASE_URL
 const VOICES = [
   { id: 'female', name: 'Женский' },
   { id: 'male', name: 'Мужской' },
@@ -17,7 +15,7 @@ const MUSIC = [
 ]
 const BARS = 44
 
-function Equalizer({ accent }) {
+function Equalizer({ accent, active }) {
   return (
     <div className="pointer-events-none absolute inset-0">
       {Array.from({ length: BARS }).map((_, i) => {
@@ -26,7 +24,7 @@ function Equalizer({ accent }) {
         return (
           <div key={i} className="absolute inset-0" style={{ transform: `rotate(${deg}deg)` }}>
             <span className="absolute left-1/2 top-[2%] w-[2.5px] -translate-x-1/2 rounded-full"
-              style={{ height: base, transformOrigin: 'top center', background: `linear-gradient(${accent}, transparent)`, opacity: 0.5 + (i % 3) * 0.14, animation: `waveBar ${0.85 + (i % 7) * 0.13}s ease-in-out ${(i % 11) * 0.07}s infinite` }} />
+              style={{ height: base, transformOrigin: 'top center', background: `linear-gradient(${accent}, transparent)`, opacity: active ? 0.5 + (i % 3) * 0.14 : 0.22, animation: `waveBar ${0.85 + (i % 7) * 0.13}s ease-in-out ${(i % 11) * 0.07}s infinite`, animationPlayState: active ? 'running' : 'paused' }} />
           </div>
         )
       })}
@@ -38,25 +36,61 @@ export default function VoiceSound() {
   const ref = useRef(null)
   const [voice, setVoice] = useState('female')
   const [music, setMusic] = useState('clear')
+  const [playing, setPlaying] = useState(false)
   const accent = MUSIC.find((m) => m.id === music)?.accent || '#d6c8ff'
   const vName = VOICES.find((v) => v.id === voice)?.name
   const mName = MUSIC.find((m) => m.id === music)?.name
 
-  // Прогресс входа секции: 0 — только появилась снизу, 1 — центр секции в центре экрана.
-  // ВСЯ связка огонёк→вспышка→сфера привязана к нему → работает в ОБЕ стороны при скролле.
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'center center'] })
+  // превью-звук: голос (выбранный) + музыкальная подложка (тише, в петле)
+  const voiceAudio = useRef(null)
+  const musicAudio = useRef(null)
+  const ensure = () => {
+    if (!voiceAudio.current) {
+      const v = new Audio(); v.preload = 'none'
+      v.addEventListener('ended', () => setPlaying(false))
+      voiceAudio.current = v
+    }
+    if (!musicAudio.current) {
+      const m = new Audio(); m.preload = 'none'; m.loop = true; m.volume = 0.32
+      musicAudio.current = m
+    }
+  }
+  const voiceSrc = `${B}media/audio/voice-${voice}.mp3`
+  const musicSrc = `${B}media/audio/music-${music}.mp3`
 
-  // огонёк прилетает сверху к центру (продолжает полёт с прошлой секции)
+  const toggle = () => {
+    ensure()
+    if (playing) {
+      voiceAudio.current.pause(); musicAudio.current.pause()
+      setPlaying(false)
+    } else {
+      voiceAudio.current.src = voiceSrc; voiceAudio.current.currentTime = 0
+      musicAudio.current.src = musicSrc
+      voiceAudio.current.play().catch(() => {}); musicAudio.current.play().catch(() => {})
+      setPlaying(true)
+    }
+  }
+  // живая смена слоёв при выборе во время проигрывания
+  useEffect(() => {
+    if (!playing || !voiceAudio.current) return
+    voiceAudio.current.src = voiceSrc; voiceAudio.current.currentTime = 0
+    voiceAudio.current.play().catch(() => {})
+  }, [voice]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!playing || !musicAudio.current) return
+    musicAudio.current.src = musicSrc; musicAudio.current.play().catch(() => {})
+  }, [music]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { voiceAudio.current?.pause(); musicAudio.current?.pause() }, [])
+
+  // scroll-driven связка огонёк → вспышка → расцветание (реверс в обе стороны)
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'center center'] })
   const sparkY = useTransform(scrollYProgress, [0.08, 0.5], [-340, 0])
   const sparkOpacity = useTransform(scrollYProgress, [0.08, 0.42, 0.54], [0, 1, 0])
   const sparkScale = useTransform(scrollYProgress, [0.08, 0.5, 0.58], [0.8, 1.15, 2.6])
-  // яркая вспышка в точке прибытия
   const flashScale = useTransform(scrollYProgress, [0.46, 0.64], [0.3, 9])
   const flashOpacity = useTransform(scrollYProgress, [0.46, 0.53, 0.66], [0, 1, 0])
-  // СВЕЧЕНИЕ, которое огонёк «зажигает» на этой секции (гаснет обратно при скролле вверх)
   const igniteOpacity = useTransform(scrollYProgress, [0.42, 0.6, 1], [0, 0.75, 0.6])
   const igniteScale = useTransform(scrollYProgress, [0.42, 0.7], [0.3, 1])
-  // сфера-сцена вырастает из вспышки
   const stageScale = useTransform(scrollYProgress, [0.54, 0.84], [0, 1])
   const stageOpacity = useTransform(scrollYProgress, [0.54, 0.68], [0, 1])
 
@@ -71,61 +105,62 @@ export default function VoiceSound() {
         </Reveal>
       </MouseFloat>
 
-      {/* центральная сцена — огонёк прилетает → вспышка → из неё растёт сфера (поднята выше) */}
+      {/* центральная сцена — огонёк прилетает → вспышка → расцветает орб */}
       <div className="relative mb-10 grid place-items-center">
-        {/* свечение, зажжённое огоньком (за сценой) */}
         <motion.div
           className="pointer-events-none absolute h-[120%] w-[120%] rounded-full"
           style={{ opacity: igniteOpacity, scale: igniteScale, background: `radial-gradient(circle, ${accent}55, ${accent}22 35%, transparent 65%)`, filter: 'blur(20px)' }}
         />
-        {/* огонёк влетает сверху и приходит в центр */}
         <motion.span
           className="absolute z-20 h-4 w-4 rounded-full"
           style={{ y: sparkY, opacity: sparkOpacity, scale: sparkScale, background: 'radial-gradient(circle,#fff,#ffe6b3 40%,#d6c8ff 72%,transparent)', boxShadow: '0 0 26px 8px rgba(255,224,160,0.7), 0 0 60px 18px rgba(97,69,194,0.55)' }}
         />
-        {/* вспышка в точке прибытия */}
         <motion.span
           className="absolute z-10 h-8 w-8 rounded-full"
           style={{ scale: flashScale, opacity: flashOpacity, background: 'radial-gradient(circle,#fff,#ffe6b3 35%,transparent 70%)' }}
         />
 
-        {/* сцена со сферой — растёт из точки прибытия огонька */}
         <motion.div
           className="relative"
           style={{ width: 'min(84vw, 460px)', aspectRatio: '1/1', scale: stageScale, opacity: stageOpacity }}
         >
-          {/* дымчатая подложка — сфера вписана мягко, аморфно */}
-          <div className="pointer-events-none absolute inset-[2%] rounded-full mix-blend-screen" style={{ background: `radial-gradient(circle at 50% 47%, ${accent}66, ${accent}22 45%, transparent 70%)`, filter: 'blur(24px)' }} />
+          {/* мягкий дымчатый орб (вместо WebGL-сферы), screen-бленд, дышит сильнее когда играет */}
+          <motion.div
+            className="absolute inset-[10%] rounded-full mix-blend-screen"
+            style={{ background: `radial-gradient(circle at 50% 44%, #fff 0%, ${accent} 30%, #6145c2 62%, rgba(40,26,90,0) 78%)`, filter: 'blur(2px)' }}
+            animate={{ scale: playing ? [1, 1.07, 1] : [1, 1.03, 1], opacity: [0.85, 1, 0.85] }}
+            transition={{ duration: playing ? 2.4 : 4.2, ease: 'easeInOut', repeat: Infinity }}
+          />
+          {/* дымка-ореол */}
+          <div className="pointer-events-none absolute inset-[4%] rounded-full mix-blend-screen" style={{ background: `radial-gradient(circle at 50% 47%, ${accent}55, ${accent}1f 45%, transparent 70%)`, filter: 'blur(26px)' }} />
 
           {[0, 1, 2].map((i) => (
             <motion.span key={i} className="absolute inset-[12%] rounded-full border" style={{ borderColor: accent }}
               animate={{ scale: [1, 1.5], opacity: [0.4, 0] }} transition={{ duration: 3.6, ease: 'easeOut', delay: i * 1.2, repeat: Infinity }} />
           ))}
-          <Equalizer accent={accent} />
+          <Equalizer accent={accent} active={playing} />
 
-          {/* БОЛЬШАЯ аморфная сфера — screen-бленд сразу (и в fallback), по центру PLAY */}
-          <div className="absolute inset-[5%]">
-            <Suspense fallback={<div className="h-full w-full rounded-full mix-blend-screen" style={{ background: `radial-gradient(circle at 50% 46%, #fff, ${accent} 30%, #6145c2 62%, transparent 78%)`, filter: 'blur(6px)' }} />}>
-              <AmorphSphere size={500} blend="screen" />
-            </Suspense>
-          </div>
-
-          {/* искра бежит по контуру (как везде у нас) */}
+          {/* искра бежит по контуру */}
           <motion.div className="pointer-events-none absolute inset-0 z-10" animate={{ rotate: 360 }} transition={{ duration: 7, ease: 'linear', repeat: Infinity }}>
             <span className="absolute left-1/2 top-[5%] h-2.5 w-2.5 -translate-x-1/2 rounded-full" style={{ background: 'radial-gradient(circle,#fff,#ffe6b3 40%,#d6c8ff 72%,transparent)', boxShadow: '0 0 14px 4px rgba(255,224,160,0.85), 0 0 32px 10px rgba(97,69,194,0.5)' }} />
           </motion.div>
 
-          {/* PLAY — крупнее и наряднее */}
-          <button data-hover className="group absolute left-1/2 top-1/2 z-20 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full transition-transform hover:scale-105">
+          {/* PLAY / PAUSE — играет превью */}
+          <button onClick={toggle} data-hover aria-label={playing ? 'Пауза' : 'Слушать превью'}
+            className="group absolute left-1/2 top-1/2 z-20 grid h-24 w-24 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full transition-transform hover:scale-105">
             <motion.span className="absolute inset-0 rounded-full" style={{ border: `1.5px solid ${accent}`, boxShadow: `0 0 50px -6px ${accent}` }}
-              animate={{ scale: [1, 1.12, 1], opacity: [0.9, 0.4, 0.9] }} transition={{ duration: 2.6, ease: 'easeInOut', repeat: Infinity }} />
+              animate={{ scale: playing ? [1, 1.16, 1] : [1, 1.1, 1], opacity: [0.9, 0.4, 0.9] }} transition={{ duration: playing ? 1.6 : 2.6, ease: 'easeInOut', repeat: Infinity }} />
             <span className="absolute inset-[12%] rounded-full" style={{ background: 'rgba(18,14,38,0.55)', border: `1px solid ${accent}55`, backdropFilter: 'blur(8px)', boxShadow: `inset 0 0 24px -8px ${accent}` }} />
-            <svg className="relative translate-x-[2px]" width="34" height="34" viewBox="0 0 24 24" fill={accent} style={{ filter: `drop-shadow(0 0 6px ${accent})` }}><path d="M8 5v14l11-7z" /></svg>
+            {playing ? (
+              <svg className="relative" width="30" height="30" viewBox="0 0 24 24" fill={accent} style={{ filter: `drop-shadow(0 0 6px ${accent})` }}><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+            ) : (
+              <svg className="relative translate-x-[2px]" width="34" height="34" viewBox="0 0 24 24" fill={accent} style={{ filter: `drop-shadow(0 0 6px ${accent})` }}><path d="M8 5v14l11-7z" /></svg>
+            )}
           </button>
         </motion.div>
       </div>
 
-      {/* управление — компактно, в один экран, с лёгкой привязкой к мыши */}
+      {/* управление */}
       <MouseFloat strength={7} className="w-full max-w-xl">
         <Reveal delay={0.1}>
           <div className="flex flex-col items-center gap-4">
@@ -152,7 +187,7 @@ export default function VoiceSound() {
               })}
             </div>
             <motion.p key={`${voice}-${music}`} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} className="mono text-xs uppercase tracking-[0.18em] text-fg-3">
-              {vName} <span className="text-fg-4">+</span> <span style={{ color: accent }}>{mName}</span>
+              {playing ? '▶ ' : ''}{vName} <span className="text-fg-4">+</span> <span style={{ color: accent }}>{mName}</span>
             </motion.p>
           </div>
         </Reveal>
