@@ -2,13 +2,15 @@
 # Вставлять ВНУТРЬ существующего `all-relaxme.ru { ... }`, ВЫШЕ общего
 # fallback-а статики фронта. Порядок важен: специфичные пути раньше корня.
 #
-# Папка SPA — /opt/meditation-app/cms/dist, путь раздачи — /admin/
-# (НЕ /cms/: /cms занят живым Strapi до cutover, см. docs/27 §C).
-# API (/api/admin/*, /api/content/*) идёт в тот же Fastify :3001, отдельный
-# proxy не нужен — он уже есть для /api.
+# Папка SPA — /opt/meditation-app/cms/dist, путь раздачи — /manage/.
+# НЕ /admin/ и НЕ /cms/: оба заняты живым Strapi до cutover
+# (Strapi 5 хардкодит /admin для своей админки, плюс /cms/api ещё
+# читает аппка). После погашения Strapi можно переименовать.
+# API (/api/admin/*, /api/content/*) идёт в тот же Fastify :3001,
+# отдельный proxy не нужен — он уже есть для /api.
 
 # CMS-админка (SPA — index.html на все вложенные пути)
-handle_path /admin/* {
+handle_path /manage/* {
     root * /opt/meditation-app/cms/dist
     try_files {path} /index.html
     file_server

@@ -1,14 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Папка проекта — cms/, но публичный путь раздачи на проде = /admin/.
-// Почему не /cms/: пока идёт переход, по /cms/* живёт старый Strapi
-// (его /cms/api ещё читает аппка до cutover) — заняли бы один путь дважды.
-// После того как Strapi погасим, путь можно сменить на /cms/ (base +
-// basename в src/main.jsx). В dev проксируем /api и /cms-media на
-// локальный Fastify (порт 3001).
+// Папка проекта — cms/, публичный путь раздачи на проде = /manage/.
+// Почему не /admin/ и не /cms/:
+//   - /cms/* занят живым Strapi (его /cms/api ещё читает аппка до cutover)
+//   - /admin/* тоже занят Strapi (Strapi 5 хардкодит свой admin UI на /admin)
+// Берём /manage/ — нейтральный путь, не конфликтует ни со Strapi ни с
+// нашими /api/* роутами. После погашения Strapi можно переименовать на
+// /admin/ или /cms/ (одна правка base + basename + редиректы).
+// В dev проксируем /api и /cms-media на локальный Fastify (порт 3001).
 export default defineConfig({
-  base: '/admin/',
+  base: '/manage/',
   plugins: [react()],
   server: {
     port: 5174,
