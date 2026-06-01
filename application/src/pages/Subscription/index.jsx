@@ -178,10 +178,19 @@ export default function Subscription() {
 
       // 3. Создаём виджет. БЕЗ modal:true — рендерим inline в div #yukassa-widget,
       // чтобы юзер видел форму прямо на странице, а не в всплывающем окне.
+      // Полная dark-кастомизация: control_primary + background + text + border
+      // + control_primary_content. Без них ЮКасса рисует свой дефолтный
+      // светлый фон вокруг dark-карточек выбора способа оплаты.
       const widget = new window.YooMoneyCheckoutWidget({
         confirmation_token: data.confirmationToken,
         customization: {
-          colors: { control_primary: '#6145c2', background: '#11101a' },
+          colors: {
+            control_primary:         '#6145c2', // фиолетовая CTA
+            control_primary_content: '#f4f0ff', // текст на CTA
+            background:              '#11101a', // фон формы (вся подложка)
+            text:                    '#f4f0ff', // основной текст внутри виджета
+            border:                  '#2a1f4d', // обводки полей/карточек
+          },
         },
         error_callback: (err) => {
           // eslint-disable-next-line no-console
@@ -302,12 +311,16 @@ export default function Subscription() {
             </span>
           </div>
 
-          {/* ВЫЖНО: контейнер всегда в DOM с фиксированным ID, чтобы
+          {/* ВЖНО: контейнер всегда в DOM с фиксированным ID, чтобы
               widget.render('yukassa-widget') нашёл элемент. min-height
-              ~480 чтобы форма карты помещалась без скачка лейаута. */}
+              ~480 чтобы форма карты помещалась без скачка лейаута.
+              bg-bg-0 (НЕ /40) — чтобы белый фон ЮКассы не просвечивал
+              если кастомизация не сработает 100%; overflow-hidden — чтобы
+              iframe ровно заполнил контейнер без полей. */}
           <div
             id="yukassa-widget"
-            className="mt-6 min-h-[480px] rounded-lg border border-line-2 bg-bg-1/40 p-2"
+            className="mt-6 min-h-[480px] overflow-hidden rounded-lg border border-line-2 bg-bg-0"
+            style={{ colorScheme: 'dark' }}
           />
 
           <button
