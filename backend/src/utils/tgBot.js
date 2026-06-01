@@ -19,9 +19,15 @@ function token() {
 }
 
 async function call(method, body) {
+  const headers = { 'Content-Type': 'application/json' }
+  // Если ходим через relay (CF Worker) — добавляем shared secret для отсева
+  // случайных сканеров URL'а. См. docs/30-tg-relay-2026-06-01.md.
+  if (process.env.TG_RELAY_SECRET) {
+    headers['X-Relay-Auth'] = process.env.TG_RELAY_SECRET
+  }
   const res = await fetch(`${API_BASE}/bot${token()}/${method}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   })
   const data = await res.json()

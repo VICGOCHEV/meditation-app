@@ -1,0 +1,10 @@
+# Wrangler config для CLI-деплоя (если выбираешь путь B в README.md).
+# Web UI деплой этот файл не использует.
+
+name = "tg-relay-meditation"
+main = "worker.js"
+compatibility_date = "2026-06-01"
+
+# RELAY_SECRET добавляется отдельно одной командой:
+#   wrangler secret put RELAY_SECRET
+# (или через Web UI: Settings → Variables and Secrets)
