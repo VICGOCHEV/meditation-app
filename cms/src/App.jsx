@@ -7,6 +7,7 @@ import PracticeEditor from './pages/PracticeEditor.jsx'
 import Voices from './pages/Voices.jsx'
 import Music from './pages/Music.jsx'
 import Users from './pages/Users.jsx'
+import Feedback from './pages/Feedback.jsx'
 
 export default function App() {
   const token = useAuth((s) => s.token)
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/voices" element={<Voices />} />
         <Route path="/music" element={<Music />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/feedback" element={<Feedback />} />
         <Route path="*" element={<Navigate to="/practices" replace />} />
       </Routes>
     </Shell>

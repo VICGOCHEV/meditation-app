@@ -6,6 +6,7 @@ import {
   IconMusic,
   IconUsers,
   IconLogout,
+  IconMessage,
 } from '../ui/icons.jsx'
 
 const NAV = [
@@ -16,6 +17,7 @@ const NAV = [
   ] },
   { group: 'Данные', items: [
     { to: '/users', label: 'Юзеры и подписки', icon: IconUsers },
+    { to: '/feedback', label: 'Обратная связь', icon: IconMessage },
   ] },
 ]
 
@@ -26,6 +28,7 @@ function crumb(pathname) {
   if (pathname.startsWith('/voices')) return 'Голоса'
   if (pathname.startsWith('/music')) return 'Музыка'
   if (pathname.startsWith('/users')) return 'Юзеры и подписки'
+  if (pathname.startsWith('/feedback')) return 'Обратная связь'
   return ''
 }
 

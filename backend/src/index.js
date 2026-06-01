@@ -18,6 +18,8 @@ import { checkinRoutes } from './routes/checkin.js'
 import { deepAnalysisRoutes } from './routes/deepAnalysis.js'
 import { subscriptionRoutes } from './routes/subscription.js'
 import { paymentRoutes } from './routes/payments.js'
+import { tgRoutes } from './routes/tg.js'
+import { feedbackRoutes } from './routes/feedback.js'
 import { contentRoutes } from './routes/content.js'
 import { adminAuthRoutes } from './routes/admin/auth.js'
 import { adminMediaRoutes } from './routes/admin/media.js'
@@ -26,6 +28,7 @@ import { adminVoicesRoutes } from './routes/admin/voices.js'
 import { adminMusicRoutes } from './routes/admin/music.js'
 import { adminDashboardRoutes } from './routes/admin/dashboard.js'
 import { adminSubscriptionsRoutes } from './routes/admin/subscriptions.js'
+import { adminFeedbackRoutes } from './routes/admin/feedback.js'
 
 const app = Fastify({ logger: { level: 'info' }, trustProxy: true })
 
@@ -90,6 +93,8 @@ await app.register(checkinRoutes, { prefix: '/api' })
 await app.register(deepAnalysisRoutes, { prefix: '/api' })
 await app.register(subscriptionRoutes, { prefix: '/api' })
 await app.register(paymentRoutes, { prefix: '/api' })
+await app.register(tgRoutes, { prefix: '/api' })
+await app.register(feedbackRoutes, { prefix: '/api' })
 
 // Публичный контент для аппки (замена Strapi)
 await app.register(contentRoutes, { prefix: '/api' })
@@ -102,6 +107,7 @@ await app.register(adminVoicesRoutes, { prefix: '/api' })
 await app.register(adminMusicRoutes, { prefix: '/api' })
 await app.register(adminDashboardRoutes, { prefix: '/api' })
 await app.register(adminSubscriptionsRoutes, { prefix: '/api' })
+await app.register(adminFeedbackRoutes, { prefix: '/api' })
 
 const close = async () => {
   app.log.info('shutting down...')

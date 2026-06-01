@@ -26,6 +26,26 @@ model User {
   ktEntries         KtEntry[]
   bonusUnlocks      BonusUnlock[]
   unlockedAwareness UnlockedAwareness[]
+  feedback          Feedback[]
+}
+
+// Обратная связь от юзера: форма в Profile («Связаться / отзыв / вопрос»).
+// Куда отправлять (email клиента / TG-чат / TG-личка) — ещё не решено,
+// поэтому пока просто складываем в БД + дублируем в SMTP-outbox через
+// mailer.js. Когда клиент решит — добавим транспорт.
+model Feedback {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  // 'review' | 'question' | 'bug' | 'other'
+  type      String   @default("other")
+  message   String
+  // Анонимная связь — на случай если форма закрыта без аутентификации (TODO)
+  email     String?
+  name      String?
+  // status: 'new' | 'read' | 'replied' — пока только new (читать в /manage/)
+  status    String   @default("new")
+  createdAt DateTime @default(now())
 }
 
 model Subscription {

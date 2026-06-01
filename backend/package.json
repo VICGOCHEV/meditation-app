@@ -22,7 +22,8 @@
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
     "fastify": "^5.8.5",
-    "music-metadata": "^11.12.3"
+    "music-metadata": "^11.12.3",
+    "nodemailer": "^8.0.10"
   },
   "devDependencies": {
     "prisma": "^6.19.3"

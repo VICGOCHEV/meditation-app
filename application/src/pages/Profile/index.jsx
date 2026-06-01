@@ -43,6 +43,7 @@ function plural(n) {
 }
 import { useProgression } from '../../hooks/useProgression'
 import { deleteAccount } from '../../api/auth'
+import { sendFeedback } from '../../api/feedback'
 
 function Section({ title, children, trailing }) {
   return (
@@ -101,6 +102,32 @@ export default function Profile() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
+
+  // Форма обратной связи: отзыв / вопрос / баг.
+  const [fbType, setFbType] = useState('review')
+  const [fbMessage, setFbMessage] = useState('')
+  const [fbSending, setFbSending] = useState(false)
+  const [fbStatus, setFbStatus] = useState(null) // 'ok' | 'err' | null
+  const [fbError, setFbError] = useState('')
+
+  async function onSubmitFeedback(e) {
+    e.preventDefault()
+    if (!fbMessage.trim() || fbSending) return
+    setFbSending(true)
+    setFbStatus(null)
+    setFbError('')
+    try {
+      await sendFeedback({ type: fbType, message: fbMessage.trim() })
+      setFbMessage('')
+      setFbStatus('ok')
+      setTimeout(() => setFbStatus(null), 4000)
+    } catch (err) {
+      setFbStatus('err')
+      setFbError(err?.response?.data?.error || err?.message || 'Не получилось отправить')
+    } finally {
+      setFbSending(false)
+    }
+  }
   const onDelete = async () => {
     setDeleting(true)
     try {
@@ -289,6 +316,65 @@ export default function Profile() {
             </div>
           )}
         </div>
+      </Section>
+
+      <Section title="Связаться">
+        <form onSubmit={onSubmitFeedback} className="panel">
+          <div className="label-mono">Напиши автору</div>
+          <p className="mt-1 text-[14px] text-fg-1">
+            Отзыв о практике, вопрос или баг — прочитаем все.
+          </p>
+
+          <div className="mt-3 flex gap-2">
+            {[
+              { v: 'review',   l: 'Отзыв' },
+              { v: 'question', l: 'Вопрос' },
+              { v: 'bug',      l: 'Баг' },
+            ].map((opt) => (
+              <button
+                key={opt.v}
+                type="button"
+                onClick={() => setFbType(opt.v)}
+                className={
+                  'rounded-full px-3 py-1 text-[13px] transition ' +
+                  (fbType === opt.v
+                    ? 'bg-accent-2 text-white'
+                    : 'bg-bg-1 text-fg-2 hover:text-fg-0')
+                }
+              >
+                {opt.l}
+              </button>
+            ))}
+          </div>
+
+          <textarea
+            value={fbMessage}
+            onChange={(e) => setFbMessage(e.target.value)}
+            placeholder="Здесь твоё сообщение…"
+            rows={5}
+            maxLength={5000}
+            className="mt-3 w-full rounded-xl border border-fg-3/15 bg-bg-1 px-3 py-2 text-[14px] text-fg-0 placeholder:text-fg-3 focus:border-accent-2 focus:outline-none"
+          />
+
+          {fbStatus === 'ok' && (
+            <div className="mt-2 text-[13px] text-emerald-400">
+              Отправлено. Спасибо!
+            </div>
+          )}
+          {fbStatus === 'err' && (
+            <div className="mt-2 text-[13px] text-rose-400">{fbError}</div>
+          )}
+
+          <div className="mt-4">
+            <Button
+              type="submit"
+              fullWidth
+              disabled={!fbMessage.trim() || fbSending}
+            >
+              {fbSending ? 'Отправляем…' : 'Отправить'}
+            </Button>
+          </div>
+        </form>
       </Section>
 
       <div className="mt-10 flex flex-col gap-3">

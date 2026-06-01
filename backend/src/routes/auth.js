@@ -1,6 +1,7 @@
 import { db } from '../db.js'
 import { hashPassword, verifyPassword, toPublicUser } from '../utils/auth.js'
 import { verifyTgInitData, verifyVkSign } from '../utils/platformAuth.js'
+import { sendMail } from '../utils/mailer.js'
 
 // RFC 5322 (simplified) — good enough for "is this an email at all".
 // Backend validation is a sanity check; deep validation belongs in client UX.
@@ -101,7 +102,10 @@ export async function authRoutes(app) {
   })
 
   // POST /api/auth/reset {identifier} — silent OK regardless of email existence
-  // (anti-enumeration). When email provider lands, dispatch the recovery here.
+  // (anti-enumeration). Если email есть в БД и SMTP настроен — отправим
+  // письмо с инструкцией. Если SMTP не настроен — пишем в outbox-файл
+  // (см. mailer.js). Отказ от отправки никогда не выливается в 5xx —
+  // юзер всегда получает 200 чтобы атакующий не отличил «email есть» vs «нет».
   app.post('/auth/reset', {
     ...authLimit,
     schema: {
@@ -111,7 +115,32 @@ export async function authRoutes(app) {
         properties: { identifier: { type: 'string', maxLength: 254 } },
       },
     },
-  }, async (req, reply) => {
+  }, async (req) => {
+    const identifier = String(req.body.identifier || '').trim().toLowerCase()
+    if (identifier.includes('@')) {
+      const user = await db.user.findUnique({ where: { email: identifier } })
+      if (user) {
+        // Минимальная заглушка пока recovery-логика не доделана. Шлём ссылку
+        // на главную (на главной можно залогиниться). Когда подключим полный
+        // reset-flow с одноразовым токеном — заменим тело письма.
+        await sendMail({
+          to: user.email,
+          subject: 'Восстановление доступа · Meditation',
+          text:
+            'Привет!\n\n' +
+            'Кто-то запросил восстановление доступа к твоему аккаунту в Meditation.\n' +
+            'Если это ты — открой приложение и попробуй войти снова:\n' +
+            'https://all-relaxme.ru/auth/login\n\n' +
+            'Если это не ты — просто проигнорируй это письмо.',
+          html:
+            '<p>Привет!</p>' +
+            '<p>Кто-то запросил восстановление доступа к твоему аккаунту в Meditation.</p>' +
+            '<p>Если это ты — <a href="https://all-relaxme.ru/auth/login">открой приложение и попробуй войти снова</a>.</p>' +
+            '<p style="color:#888;font-size:13px">Если это не ты — просто проигнорируй это письмо.</p>',
+        })
+      }
+    }
+    // Всегда возвращаем 200 — anti-enumeration
     return { ok: true }
   })
 
