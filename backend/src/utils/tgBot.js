@@ -6,7 +6,11 @@
 //
 // Документация: https://core.telegram.org/bots/api
 
-const API_BASE = 'https://api.telegram.org'
+// На прод-сервере (РФ) исходящие на api.telegram.org режутся DPI/TSPU,
+// поэтому ходим через relay (Cloudflare Worker / VPS-прокси вне РФ).
+// См. docs/30-tg-relay-2026-06-01.md. В dev и в .env без переменной —
+// прямой адрес.
+const API_BASE = process.env.TG_API_BASE || 'https://api.telegram.org'
 
 function token() {
   const t = process.env.TG_BOT_TOKEN
