@@ -220,8 +220,17 @@ export default function Subscription() {
       // Переводим в stage='widget' СНАЧАЛА, чтобы React отрендерил
       // контейнер, ПОТОМ дёргаем render. Иначе element ещё не в DOM.
       setStage('widget')
-      // Ждём один кадр чтобы React commit'нул новый DOM
-      await new Promise((r) => requestAnimationFrame(r))
+      // React 18 concurrent: один rAF не гарантирует commit (rAF может
+      // отстреляться до flush). Полл-чек ждём пока контейнер реально
+      // появится в DOM — максимум ~500мс (30 кадров).
+      let tries = 0
+      while (!document.getElementById('yukassa-widget') && tries < 30) {
+        await new Promise((r) => requestAnimationFrame(r))
+        tries++
+      }
+      if (!document.getElementById('yukassa-widget')) {
+        throw new Error('Форма не успела загрузиться, попробуй ещё раз')
+      }
       widget.render('yukassa-widget')
     } catch (err) {
       setStage('error')
@@ -275,7 +284,7 @@ export default function Subscription() {
             </svg>
           </div>
           <h1 className="font-serif text-3xl text-fg-0">
-            {selectedTier?.name} активирован
+            Пакет «{selectedTier?.name}» активирован
           </h1>
           <p className="mt-4 max-w-xs text-[15px] text-fg-2">
             Первая практика уже ждёт тебя.

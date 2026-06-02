@@ -104,6 +104,15 @@ function ResultScreen({ result, historyAtMount, onContinue }) {
   return (
     <ScreenShell fixed>
       <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto no-scrollbar">
+        <div className="mb-4 shrink-0">
+          <button
+            onClick={onContinue}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-line-2 bg-white/5 text-fg-0 hover:bg-white/10"
+            aria-label="На главную"
+          >
+            ←
+          </button>
+        </div>
         <motion.div {...reveal(0)}>
           <div className="label-mono">Результат</div>
           <h1 className="mt-1 font-serif text-3xl text-fg-0">Прогресс за 4 дня</h1>
@@ -168,6 +177,16 @@ function ResultScreen({ result, historyAtMount, onContinue }) {
                   style={{ background: 'linear-gradient(90deg, #9eb5ff, #e6a878)' }}
                 />
               </div>
+              {stage === 'narrative' && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5, ease: EASE }}
+                  className="mt-3 text-[12px] leading-snug text-fg-3"
+                >
+                  {interpretIT(result.IT)}
+                </motion.p>
+              )}
             </div>
           </PulseOnSettle>
 
@@ -187,6 +206,16 @@ function ResultScreen({ result, historyAtMount, onContinue }) {
                   style={{ background: 'linear-gradient(90deg, #9eb5ff, #7be1a3)' }}
                 />
               </div>
+              {stage === 'narrative' && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.5, ease: EASE }}
+                  className="mt-3 text-[12px] leading-snug text-fg-3"
+                >
+                  {interpretIO(result.IO)}
+                </motion.p>
+              )}
             </div>
           </PulseOnSettle>
         </motion.div>
@@ -210,20 +239,6 @@ function ResultScreen({ result, historyAtMount, onContinue }) {
               >
                 {result.emoji} {result.text}
               </motion.p>
-
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
-                className="mt-3 grid grid-cols-2 gap-3"
-              >
-                <p className="text-[12px] leading-snug text-fg-3">
-                  {interpretIT(result.IT)}
-                </p>
-                <p className="text-[12px] leading-snug text-fg-3">
-                  {interpretIO(result.IO)}
-                </p>
-              </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
@@ -329,9 +344,25 @@ export default function DeepAnalysis() {
         <div className="flex h-full flex-1 flex-col items-center justify-center text-center">
           <div className="label-mono mb-4">Глубокий анализ</div>
           <h1 className="font-serif text-3xl text-fg-0">Сейчас не время</h1>
-          <p className="mt-3 max-w-xs text-[15px] text-fg-2">
-            Замер откроется в ключевые точки курса — на старте,
-            на половине и в финале. Продолжай практиковать.
+          <p className="mt-3 max-w-sm text-[15px] text-fg-2">
+            Замер проходит трижды за курс:
+          </p>
+          <ul className="mt-3 max-w-sm space-y-2 text-left text-[14px] text-fg-1">
+            <li className="flex gap-2">
+              <span className="font-mono text-fg-3">01</span>
+              <span>В начале — при открытии блока «Осознанность», вместе с первой практикой.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-mono text-fg-3">02</span>
+              <span>На половине — после 3-й практики, чтобы открыть 4-ю.</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="font-mono text-fg-3">03</span>
+              <span>В финале — после всех 6 практик. Сравнение «было» и «стало».</span>
+            </li>
+          </ul>
+          <p className="mt-4 max-w-sm text-[14px] text-fg-2">
+            Продолжай практиковать.
           </p>
           <div className="mt-8 w-full max-w-xs">
             <Button size="lg" fullWidth variant="secondary" onClick={() => navigate('/')}>

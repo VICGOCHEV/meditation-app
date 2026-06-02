@@ -250,7 +250,7 @@ export default function Home() {
           eyebrow="02 · СИСТЕМА"
           title="Архитектура состояний"
           sub="ПЕРЕХОД В ОСОЗНАННОСТЬ · ПАРОЛЬ ОТ ЖИЗНИ"
-          chip="По подписке · 6/мес"
+          chip="По подписке · 6 практик/мес"
         />
 
         {!subscription.active && (

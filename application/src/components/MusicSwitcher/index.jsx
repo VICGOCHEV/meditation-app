@@ -55,10 +55,15 @@ export default function MusicSwitcher({ practiceId, available }) {
 
   const current = musicByPractice[practiceId] ?? selectedMusic
   const allowedSet = available && available.length ? new Set(available) : null
+  const currentLabel = MUSICS.find((m) => m.id === current)?.label
 
   return (
-    <div className="flex items-center justify-center gap-3">
-      {MUSICS.map((m) => {
+    <div className="flex flex-col items-center gap-1">
+      <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-fg-3">
+        Звучание
+      </span>
+      <div className="flex items-center justify-center gap-3">
+        {MUSICS.map((m) => {
         const isAllowed = !allowedSet || allowedSet.has(m.id)
         const isActive = isAllowed && current === m.id
         return (
@@ -95,6 +100,10 @@ export default function MusicSwitcher({ practiceId, available }) {
           </button>
         )
       })}
+      </div>
+      {currentLabel && (
+        <span className="text-[11px] text-fg-2">{currentLabel}</span>
+      )}
     </div>
   )
 }
