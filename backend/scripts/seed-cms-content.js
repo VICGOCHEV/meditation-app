@@ -115,15 +115,17 @@ async function ensureMusic({ title, fullPath, previewPath, order }) {
   const preview = previewPath === fullPath
     ? full
     : await uploadAudio(previewPath)
-  const { music } = await api('POST', '/admin/music', {
+  const res = await api('POST', '/admin/music', {
     title,
     audioFullId: full.id,
     audioPreviewId: preview.id,
     active: true,
     order,
   })
-  console.log(`✓ music "${title}" → #${music.id}`)
-  return music
+  // Бэк возвращает { track: ... } (не { music }).
+  const track = res.track || res.music
+  console.log(`✓ music "${title}" → #${track.id}`)
+  return track
 }
 
 // Идемпотентно создать практику по (title, block) — если такая есть, пропустить.
