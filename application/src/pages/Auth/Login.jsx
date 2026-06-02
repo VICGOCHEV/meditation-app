@@ -84,13 +84,20 @@ function PlatformDebug({ platform }) {
   const hasTelegram = !!window.Telegram
   const hasWebApp = !!window.Telegram?.WebApp
   const initLen = window.Telegram?.WebApp?.initData?.length || 0
+  const platformName = window.Telegram?.WebApp?.platform || '?'
+  const tgVersion = window.Telegram?.WebApp?.version || '?'
+  const hash = window.location.hash || '(empty)'
+  const search = window.location.search || '(empty)'
+  const tgInUrl = /tgWebAppData/.test(hash) || /tgWebAppData/.test(search)
   return (
-    <div className="mt-6 rounded border border-fg-3/15 bg-bg-1 px-3 py-2 text-[10px] font-mono leading-relaxed text-fg-3">
-      build v3 · checked={String(platform.checked)}
+    <div className="mt-6 rounded border border-fg-3/15 bg-bg-1 px-3 py-2 text-[10px] font-mono leading-relaxed text-fg-3 break-all">
+      build v4 · checked={String(platform.checked)}
       <br />
       detected: tg={platform.tg ? `len=${platform.tg.length}` : 'null'} · vk={platform.vk ? 'yes' : 'null'}
       <br />
-      window: Telegram={hasTelegram ? 'y' : 'n'} · WebApp={hasWebApp ? 'y' : 'n'} · initData={initLen}b
+      WebApp: v={tgVersion} · platform={platformName} · initData={initLen}b
+      <br />
+      url: search={search.length}c · hash={hash.length}c · tgWebAppData={tgInUrl ? 'y' : 'n'}
     </div>
   )
 }
