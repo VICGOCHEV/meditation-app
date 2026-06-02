@@ -72,11 +72,21 @@ function usePlatform() {
         await new Promise((r) => setTimeout(r, 100))
       }
 
-      // 4. Не дождались — возвращаем что есть. tgCtx=true если WebApp
-      //    хоть как-то определился (значит юзер в TG, но клиент не
-      //    отдаёт initData).
+      // 4. Не дождались — возвращаем что есть. tgCtx=true ТОЛЬКО если
+      //    Telegram реально инжектил WebApp (window.Telegram есть И
+      //    platform не 'unknown'). Иначе SDK всегда даёт нам stub
+      //    WebApp.platform='unknown', и мы показывали бы TG-кнопку
+      //    в обычном Safari/in-app браузере где она не работает.
       const finalWa = window.Telegram?.WebApp || sdkWa
-      return { tgCtx: !!finalWa, tgData: finalWa?.initData || null }
+      const realTg =
+        !!window.Telegram?.WebApp &&
+        !!window.Telegram.WebApp.platform &&
+        window.Telegram.WebApp.platform !== 'unknown'
+      const hasData = !!finalWa?.initData
+      return {
+        tgCtx: realTg || hasData,
+        tgData: finalWa?.initData || null,
+      }
     }
 
     detect().then(({ tgCtx, tgData }) => {
