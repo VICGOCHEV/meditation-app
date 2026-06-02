@@ -26,16 +26,19 @@ export default function ScrollScrub({ progress, dir = 'frames', count = 121 }) {
     }
     // первый кадр — приоритетно
     const first = load(0)
-    if (first.decode) first.decode().catch(() => {})
+    if (first.decode) first.decode().then(() => { first._ready = true }).catch(() => { first._ready = true })
+    else first._ready = true
 
-    const CONC = 4
+    const CONC = 6
     let next = 1
     let active = 0
     const pump = () => {
       while (!cancelled && active < CONC && next < FRAME_COUNT) {
         const img = load(next++)
         active++
-        const done = () => { active--; if (!cancelled) pump() }
+        // помечаем кадр готовым ТОЛЬКО после декода → в draw не будет
+        // синхронного decode-on-draw (главная причина дёрганья при скролле)
+        const done = () => { img._ready = true; active--; if (!cancelled) pump() }
         if (img.decode) img.decode().then(done).catch(done)
         else { img.onload = done; img.onerror = done }
       }
@@ -63,17 +66,21 @@ export default function ScrollScrub({ progress, dir = 'frames', count = 121 }) {
       const p = progress?.get ? progress.get() : 0
       const idx = Math.min(FRAME_COUNT - 1, Math.max(0, Math.round(p * (FRAME_COUNT - 1))))
       if (idx === lastIdx && !force) return
-      lastIdx = idx
       const img = imagesRef.current[idx]
       const cw = canvas.clientWidth, ch = canvas.clientHeight
-      if (img && img.complete && img.naturalWidth) {
+      // рисуем только декодированный кадр; иначе оставляем предыдущий (lastIdx не двигаем),
+      // poll/следующий скролл дорисует, когда кадр будет готов — без синхронного декода
+      if (img && img._ready && img.naturalWidth) {
         const [x, y, w, h] = cover(img)
         ctx.clearRect(0, 0, cw, ch)
         ctx.drawImage(img, x, y, w, h)
+        lastIdx = idx
       }
     }
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2)
+      // DPR ≤ 1.5: исходники кадров ~1824px, при DPR 2 канва только апскейлит
+      // (лишние пиксели в drawImage каждый кадр = тормоза на retina)
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
       canvas.width = Math.floor(canvas.clientWidth * dpr)
       canvas.height = Math.floor(canvas.clientHeight * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
