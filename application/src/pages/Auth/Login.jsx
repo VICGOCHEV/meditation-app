@@ -24,12 +24,16 @@ function VkIcon({ className = '' }) {
   )
 }
 
-// Детект платформы при mount. Возвращает {tg: initData?, vk: searchParams?}.
-// Telegram WebView инжектит window.Telegram.WebApp АСИНХРОННО — поэтому
-// поллим до 2 секунд прежде чем сдаться (React монтировал Login раньше
-// чем Telegram успевал инжектить SDK → гонка).
+// Детект платформы при mount.
+// Возвращает {tgCtx, tgData, vk, checked}:
+//   tgCtx  — есть ли в принципе TG-контекст (window.Telegram.WebApp заинжектен)
+//   tgData — реальный initData для авто-входа. Может быть пустым даже в TG
+//            (старые macOS клиенты дают tgCtx=true но tgData=null)
+//   vk     — VK Mini App search params
+// Если tgCtx=true но tgData=null — мы всё равно показываем кнопку TG,
+// при клике объясняем юзеру что не так и просим открыть в другом клиенте.
 function usePlatform() {
-  const [state, setState] = useState({ tg: null, vk: null, checked: false })
+  const [state, setState] = useState({ tgCtx: false, tgData: null, vk: null, checked: false })
 
   useEffect(() => {
     let cancelled = false
@@ -43,28 +47,33 @@ function usePlatform() {
     } catch { /* ignore */ }
 
     async function pollTg() {
+      // Поллим 2 секунды: window.Telegram.WebApp иногда инжектится
+      // асинхронно (особенно при первом запуске).
       for (let i = 0; i < 20; i++) {
-        if (cancelled) return null
+        if (cancelled) return { tgCtx: false, tgData: null }
         const wa = window.Telegram?.WebApp
-        if (wa?.initData) {
+        if (wa) {
           try { wa.ready?.(); wa.expand?.() } catch { /* noop */ }
-          return wa.initData
+          if (wa.initData) return { tgCtx: true, tgData: wa.initData }
+          // Контекст есть, данных нет — подождём ещё пару тиков
+          if (i >= 15) return { tgCtx: true, tgData: null }
         }
         await new Promise((r) => setTimeout(r, 100))
       }
+      // Fallback через SDK lazy import
       try {
         const mod = await import('@twa-dev/sdk').catch(() => null)
         const wa = mod?.default
-        if (wa?.initData) {
+        if (wa) {
           try { wa.ready?.(); wa.expand?.() } catch { /* noop */ }
-          return wa.initData
+          return { tgCtx: true, tgData: wa.initData || null }
         }
       } catch { /* not in TG */ }
-      return null
+      return { tgCtx: false, tgData: null }
     }
 
-    pollTg().then((tg) => {
-      if (!cancelled) setState({ tg, vk: vkSearch, checked: true })
+    pollTg().then(({ tgCtx, tgData }) => {
+      if (!cancelled) setState({ tgCtx, tgData, vk: vkSearch, checked: true })
     })
 
     return () => { cancelled = true }
@@ -86,24 +95,56 @@ export default function Login() {
   // 'email'    — юзер кликнул «или войти по почте», раскрылась форма
   const [mode, setMode] = useState('platform')
 
-  async function platformLogin(kind, payload) {
+  async function onTgClick() {
     setErr('')
+    // Если initData в этом клиенте не пришла (например, Mac App Store TG ≤ v6.0)
+    // — объясняем юзеру что не так, не дёргаем бэк впустую.
+    if (!platform.tgData) {
+      setErr(
+        'Этот Telegram-клиент не передаёт данные сессии. Открой бота на телефоне ' +
+        'или в Telegram Desktop — там вход через TG сработает в один клик.'
+      )
+      return
+    }
     setLoading(true)
     try {
-      const res = kind === 'tg' ? await tgInit(payload) : await vkInit(payload)
+      const res = await tgInit(platform.tgData)
       if (!res?.token) throw new Error('Сервер не вернул токен')
       authLogin(res.token, res.user)
       navigate('/')
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.warn('platform login failed', e)
-      const msg =
+      console.warn('TG login failed', e)
+      setErr(
         e?.response?.data?.error ||
         e?.message ||
-        (kind === 'tg'
-          ? 'Не получилось войти через Telegram. Попробуй с почтой.'
-          : 'Не получилось войти через VK. Попробуй с почтой.')
-      setErr(msg)
+        'Не получилось войти через Telegram. Попробуй с почтой.'
+      )
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function onVkClick() {
+    if (!platform.vk) {
+      setErr('Не получилось получить данные сессии VK. Войди через почту.')
+      return
+    }
+    setErr('')
+    setLoading(true)
+    try {
+      const res = await vkInit(platform.vk)
+      if (!res?.token) throw new Error('Сервер не вернул токен')
+      authLogin(res.token, res.user)
+      navigate('/')
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('VK login failed', e)
+      setErr(
+        e?.response?.data?.error ||
+        e?.message ||
+        'Не получилось войти через VK. Попробуй с почтой.'
+      )
     } finally {
       setLoading(false)
     }
@@ -131,10 +172,15 @@ export default function Login() {
     }
   }
 
-  const showTgButton = platform.checked && !!platform.tg && mode === 'platform'
+  // Показываем TG/VK кнопку если есть хоть какой-то контекст платформы:
+  // - TG-кнопку → если window.Telegram.WebApp заинжектен (tgCtx=true), даже
+  //   если initData пустая. Юзер не должен «теряться» в email-форме когда
+  //   зашёл из TG — пусть видит кнопку, при клике объясним проблему.
+  // - VK-кнопку → только если есть валидные params (sign+vk_user_id).
+  const showTgButton = platform.checked && platform.tgCtx && mode === 'platform'
   const showVkButton = platform.checked && !!platform.vk && mode === 'platform'
   const showEmailForm =
-    mode === 'email' || (platform.checked && !platform.tg && !platform.vk)
+    mode === 'email' || (platform.checked && !platform.tgCtx && !platform.vk)
 
   return (
     <AuthShell title="Войти">
@@ -142,12 +188,7 @@ export default function Login() {
           с бегущим блеском по контуру, как везде в аппке). Иконка
           платформы слева в кнопке для узнаваемости. */}
       {showTgButton && (
-        <Button
-          size="lg"
-          fullWidth
-          loading={loading}
-          onClick={() => platformLogin('tg', platform.tg)}
-        >
+        <Button size="lg" fullWidth loading={loading} onClick={onTgClick}>
           <span className="inline-flex items-center justify-center gap-2">
             <TgIcon className="h-5 w-5" />
             Войти через Telegram
@@ -156,12 +197,7 @@ export default function Login() {
       )}
 
       {showVkButton && (
-        <Button
-          size="lg"
-          fullWidth
-          loading={loading}
-          onClick={() => platformLogin('vk', platform.vk)}
-        >
+        <Button size="lg" fullWidth loading={loading} onClick={onVkClick}>
           <span className="inline-flex items-center justify-center gap-2">
             <VkIcon className="h-5 w-5" />
             Войти через VK
