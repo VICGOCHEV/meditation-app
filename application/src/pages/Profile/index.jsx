@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
@@ -44,6 +44,7 @@ function plural(n) {
 import { useProgression } from '../../hooks/useProgression'
 import { deleteAccount } from '../../api/auth'
 import { sendFeedback } from '../../api/feedback'
+import { getNotifyPrefs, updateNotifyPrefs, sendTestPush } from '../../api/notify'
 
 function Section({ title, children, trailing }) {
   return (
@@ -103,7 +104,68 @@ export default function Profile() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
 
-  // Форма обратной связи: отзыв / вопрос / баг.
+  // Уведомления: тумблер enabled + IANA-таймзона. Прогружаем с сервера
+  // на mount и пишем PATCH'ем при изменении.
+  const [notify, setNotify] = useState(null) // null = ещё грузим
+  const [notifySaving, setNotifySaving] = useState(false)
+  const [notifyTestSending, setNotifyTestSending] = useState(false)
+  const [notifyTestStatus, setNotifyTestStatus] = useState(null) // 'ok'|'err'|null
+  const [notifyTestMsg, setNotifyTestMsg] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    getNotifyPrefs()
+      .then((p) => { if (!cancelled) setNotify(p) })
+      .catch(() => { if (!cancelled) setNotify({ enabled: true, timezone: 'Europe/Moscow', hasTg: false }) })
+    return () => { cancelled = true }
+  }, [])
+
+  async function toggleNotify(nextEnabled) {
+    if (notifySaving || !notify) return
+    setNotifySaving(true)
+    const prev = notify
+    setNotify({ ...notify, enabled: nextEnabled }) // optimistic
+    try {
+      await updateNotifyPrefs({ enabled: nextEnabled })
+    } catch {
+      setNotify(prev)
+    } finally {
+      setNotifySaving(false)
+    }
+  }
+
+  async function changeTimezone(tz) {
+    if (notifySaving || !notify) return
+    setNotifySaving(true)
+    const prev = notify
+    setNotify({ ...notify, timezone: tz })
+    try {
+      await updateNotifyPrefs({ timezone: tz })
+    } catch {
+      setNotify(prev)
+    } finally {
+      setNotifySaving(false)
+    }
+  }
+
+  async function onTestPush() {
+    if (notifyTestSending) return
+    setNotifyTestSending(true)
+    setNotifyTestStatus(null)
+    setNotifyTestMsg('')
+    try {
+      await sendTestPush()
+      setNotifyTestStatus('ok')
+      setTimeout(() => setNotifyTestStatus(null), 4000)
+    } catch (err) {
+      setNotifyTestStatus('err')
+      setNotifyTestMsg(err?.response?.data?.error || 'Не получилось отправить')
+    } finally {
+      setNotifyTestSending(false)
+    }
+  }
+
+  // Форма обратной связи: благодарность / вопрос.
   const [fbType, setFbType] = useState('review')
   const [fbMessage, setFbMessage] = useState('')
   const [fbSending, setFbSending] = useState(false)
@@ -318,18 +380,107 @@ export default function Profile() {
         </div>
       </Section>
 
+      <Section title="Напоминания">
+        <div className="panel">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="label-mono">Пуши в Telegram</div>
+              <p className="mt-1 text-[14px] text-fg-1">
+                Мягкие напоминания вернуться к практике в 08:00, 12:00,
+                16:00 и 20:00. Тексты подобраны под время дня.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!notify?.enabled}
+              disabled={!notify || notifySaving}
+              onClick={() => toggleNotify(!notify.enabled)}
+              className={
+                'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ' +
+                (notify?.enabled
+                  ? 'bg-accent-2'
+                  : 'bg-bg-1 border border-fg-3/20')
+              }
+            >
+              <span
+                className={
+                  'inline-block h-4 w-4 transform rounded-full bg-white transition ' +
+                  (notify?.enabled ? 'translate-x-6' : 'translate-x-1')
+                }
+              />
+            </button>
+          </div>
+
+          {notify && !notify.hasTg && (
+            <div className="mt-3 rounded-md border border-fg-3/15 bg-bg-1 px-3 py-2 text-[12px] text-fg-2">
+              Зайди в приложение через Telegram-бота, чтобы пуши доходили.
+              Сейчас твой аккаунт не связан с Telegram.
+            </div>
+          )}
+
+          {notify?.enabled && notify.hasTg && (
+            <>
+              <div className="mt-4">
+                <div className="label-mono mb-1">Часовой пояс</div>
+                <select
+                  value={notify.timezone}
+                  onChange={(e) => changeTimezone(e.target.value)}
+                  disabled={notifySaving}
+                  className="w-full rounded-xl border border-fg-3/15 bg-bg-1 px-3 py-2 text-[14px] text-fg-0 focus:border-accent-2 focus:outline-none"
+                >
+                  <option value="Europe/Kaliningrad">Калининград · UTC+2</option>
+                  <option value="Europe/Moscow">Москва, Питер · UTC+3</option>
+                  <option value="Europe/Samara">Самара · UTC+4</option>
+                  <option value="Asia/Yekaterinburg">Екатеринбург · UTC+5</option>
+                  <option value="Asia/Omsk">Омск · UTC+6</option>
+                  <option value="Asia/Krasnoyarsk">Красноярск · UTC+7</option>
+                  <option value="Asia/Irkutsk">Иркутск · UTC+8</option>
+                  <option value="Asia/Yakutsk">Якутск · UTC+9</option>
+                  <option value="Asia/Vladivostok">Владивосток · UTC+10</option>
+                  <option value="Asia/Magadan">Магадан · UTC+11</option>
+                  <option value="Asia/Kamchatka">Камчатка · UTC+12</option>
+                  <option value="Asia/Almaty">Алматы · UTC+5</option>
+                  <option value="Asia/Tbilisi">Тбилиси · UTC+4</option>
+                </select>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={onTestPush}
+                  disabled={notifyTestSending}
+                  className="w-full rounded-xl border border-fg-3/20 bg-bg-1 px-4 py-2 text-[13px] text-fg-1 hover:text-fg-0 transition disabled:opacity-50"
+                >
+                  {notifyTestSending ? 'Отправляем…' : 'Прислать тестовый пуш'}
+                </button>
+                {notifyTestStatus === 'ok' && (
+                  <div className="mt-2 text-[12px] text-emerald-400">
+                    Отправлено — проверь Telegram.
+                  </div>
+                )}
+                {notifyTestStatus === 'err' && (
+                  <div className="mt-2 text-[12px] text-rose-400">{notifyTestMsg}</div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </Section>
+
       <Section title="Связаться">
         <form onSubmit={onSubmitFeedback} className="panel">
           <div className="label-mono">Напиши автору</div>
           <p className="mt-1 text-[14px] text-fg-1">
-            Отзыв о практике, вопрос или баг — прочитаем все.
+            Поделиться инсайтом, задать вопрос или оставить благодарность —
+            бережно прочтём всё.
           </p>
 
           <div className="mt-3 flex gap-2">
             {[
-              { v: 'review',   l: 'Отзыв' },
-              { v: 'question', l: 'Вопрос' },
-              { v: 'bug',      l: 'Баг' },
+              { v: 'review',   l: 'Оставить благодарность' },
+              { v: 'question', l: 'Задать вопрос' },
             ].map((opt) => (
               <button
                 key={opt.v}
@@ -350,7 +501,7 @@ export default function Profile() {
           <textarea
             value={fbMessage}
             onChange={(e) => setFbMessage(e.target.value)}
-            placeholder="Здесь твоё сообщение…"
+            placeholder="Здесь твои мысли…"
             rows={5}
             maxLength={5000}
             className="mt-3 w-full rounded-xl border border-fg-3/15 bg-bg-1 px-3 py-2 text-[14px] text-fg-0 placeholder:text-fg-3 focus:border-accent-2 focus:outline-none"

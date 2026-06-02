@@ -20,6 +20,8 @@ import { subscriptionRoutes } from './routes/subscription.js'
 import { paymentRoutes } from './routes/payments.js'
 import { tgRoutes } from './routes/tg.js'
 import { feedbackRoutes } from './routes/feedback.js'
+import { notifyRoutes } from './routes/notify.js'
+import { startNotifier } from './jobs/notifier.js'
 import { contentRoutes } from './routes/content.js'
 import { adminAuthRoutes } from './routes/admin/auth.js'
 import { adminMediaRoutes } from './routes/admin/media.js'
@@ -95,6 +97,7 @@ await app.register(subscriptionRoutes, { prefix: '/api' })
 await app.register(paymentRoutes, { prefix: '/api' })
 await app.register(tgRoutes, { prefix: '/api' })
 await app.register(feedbackRoutes, { prefix: '/api' })
+await app.register(notifyRoutes, { prefix: '/api' })
 
 // Публичный контент для аппки (замена Strapi)
 await app.register(contentRoutes, { prefix: '/api' })
@@ -120,4 +123,6 @@ process.on('SIGTERM', close)
 
 app.listen({ host: config.host, port: config.port }).then(() => {
   app.log.info({ host: config.host, port: config.port }, 'meditation-api up')
+  // Cron-воркер пушей. Стартует после успешного listen, чтобы не блокировать.
+  startNotifier(app)
 })

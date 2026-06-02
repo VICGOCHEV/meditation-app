@@ -4,7 +4,7 @@ import { useToast } from '../ui/Toast.jsx'
 import { fmtDate } from '../lib/format.js'
 
 const TYPE_LABEL = {
-  review:   'отзыв',
+  review:   'благодарность',
   question: 'вопрос',
   bug:      'баг',
   other:    'другое',

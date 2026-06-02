@@ -27,6 +27,40 @@ model User {
   bonusUnlocks      BonusUnlock[]
   unlockedAwareness UnlockedAwareness[]
   feedback          Feedback[]
+  notifyPrefs       NotifyPrefs?
+}
+
+// Настройки пуш-уведомлений юзера. Один тумблер вкл/выкл + IANA-таймзона.
+// Кулдаун от дублей: lastSlotKey хранит последний «YYYY-MM-DD-HH:MM», для
+// которого мы юзеру что-то отправили. Cron'у дёргается каждую минуту,
+// но один slot за день отстреливает не более раза.
+model NotifyPrefs {
+  userId      Int      @id
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  enabled     Boolean  @default(true)
+  timezone    String   @default("Europe/Moscow")
+  lastSlotKey String?  @map("last_slot_key")
+  updatedAt   DateTime @updatedAt
+}
+
+// Тексты пушей. Слот — окно дня (08:00 / 12:00 / 16:00 / 20:00).
+// Аудитория — 'paid' для подписчиков Осознанности, 'free' для остальных.
+// Для каждой пары (slot, audience) хранится один или несколько вариантов
+// текста, ротация выбирает случайный из active=true. Через CMS клиент
+// сможет редактировать тексты без деплоя.
+model PushPhrase {
+  id        Int      @id @default(autoincrement())
+  // '08:00' | '12:00' | '16:00' | '20:00'
+  slot      String
+  // 'paid' | 'free'
+  audience  String
+  text      String
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slot, audience, active])
 }
 
 // Обратная связь от юзера: форма в Profile («Связаться / отзыв / вопрос»).
