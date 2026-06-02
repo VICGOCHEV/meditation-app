@@ -31,6 +31,7 @@ import { adminMusicRoutes } from './routes/admin/music.js'
 import { adminDashboardRoutes } from './routes/admin/dashboard.js'
 import { adminSubscriptionsRoutes } from './routes/admin/subscriptions.js'
 import { adminFeedbackRoutes } from './routes/admin/feedback.js'
+import { adminPushPhrasesRoutes } from './routes/admin/pushPhrases.js'
 
 const app = Fastify({ logger: { level: 'info' }, trustProxy: true })
 
@@ -111,6 +112,7 @@ await app.register(adminMusicRoutes, { prefix: '/api' })
 await app.register(adminDashboardRoutes, { prefix: '/api' })
 await app.register(adminSubscriptionsRoutes, { prefix: '/api' })
 await app.register(adminFeedbackRoutes, { prefix: '/api' })
+await app.register(adminPushPhrasesRoutes, { prefix: '/api' })
 
 const close = async () => {
   app.log.info('shutting down...')

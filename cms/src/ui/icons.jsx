@@ -33,3 +33,4 @@ export const IconUsers = (p) => <S {...p}><circle cx="9" cy="8" r="3.5" /><path 
 export const IconCrown = (p) => <S {...p}><path d="M3 7l4 4 5-7 5 7 4-4-2 12H5L3 7Z" /></S>
 export const IconLogout = (p) => <S {...p}><path d="M15 12H4M11 8l-4 4 4 4M9 4h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9" /></S>
 export const IconMessage = (p) => <S {...p}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5Z" /></S>
+export const IconBell = (p) => <S {...p}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></S>
