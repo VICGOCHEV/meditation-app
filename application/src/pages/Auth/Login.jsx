@@ -16,7 +16,6 @@ function TgIcon({ className = '' }) {
   )
 }
 
-// Иконка-VK. Аналогично — встроенный SVG.
 function VkIcon({ className = '' }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
@@ -27,15 +26,14 @@ function VkIcon({ className = '' }) {
 
 // Детект платформы при mount. Возвращает {tg: initData?, vk: searchParams?}.
 // Telegram WebView инжектит window.Telegram.WebApp АСИНХРОННО — поэтому
-// поллим до 2 секунд прежде чем сдаться. Без polling'а у нас была гонка:
-// React монтировал Login раньше чем Telegram успевал инжектить SDK.
+// поллим до 2 секунд прежде чем сдаться (React монтировал Login раньше
+// чем Telegram успевал инжектить SDK → гонка).
 function usePlatform() {
   const [state, setState] = useState({ tg: null, vk: null, checked: false })
 
   useEffect(() => {
     let cancelled = false
 
-    // VK: синхронно из URL
     let vkSearch = null
     try {
       const params = new URLSearchParams(window.location.search)
@@ -45,7 +43,6 @@ function usePlatform() {
     } catch { /* ignore */ }
 
     async function pollTg() {
-      // 20 попыток × 100ms = 2с
       for (let i = 0; i < 20; i++) {
         if (cancelled) return null
         const wa = window.Telegram?.WebApp
@@ -55,7 +52,6 @@ function usePlatform() {
         }
         await new Promise((r) => setTimeout(r, 100))
       }
-      // Fallback: SDK lazy import (для случаев когда Telegram не инжектит)
       try {
         const mod = await import('@twa-dev/sdk').catch(() => null)
         const wa = mod?.default
@@ -77,31 +73,6 @@ function usePlatform() {
   return state
 }
 
-// Видимый диагностический индикатор — пока ловим issues с initData.
-// Удалим когда логин стабилизируется на проде.
-function PlatformDebug({ platform }) {
-  if (typeof window === 'undefined') return null
-  const hasTelegram = !!window.Telegram
-  const hasWebApp = !!window.Telegram?.WebApp
-  const initLen = window.Telegram?.WebApp?.initData?.length || 0
-  const platformName = window.Telegram?.WebApp?.platform || '?'
-  const tgVersion = window.Telegram?.WebApp?.version || '?'
-  const hash = window.location.hash || '(empty)'
-  const search = window.location.search || '(empty)'
-  const tgInUrl = /tgWebAppData/.test(hash) || /tgWebAppData/.test(search)
-  return (
-    <div className="mt-6 rounded border border-fg-3/15 bg-bg-1 px-3 py-2 text-[10px] font-mono leading-relaxed text-fg-3 break-all">
-      build v4 · checked={String(platform.checked)}
-      <br />
-      detected: tg={platform.tg ? `len=${platform.tg.length}` : 'null'} · vk={platform.vk ? 'yes' : 'null'}
-      <br />
-      WebApp: v={tgVersion} · platform={platformName} · initData={initLen}b
-      <br />
-      url: search={search.length}c · hash={hash.length}c · tgWebAppData={tgInUrl ? 'y' : 'n'}
-    </div>
-  )
-}
-
 export default function Login() {
   const navigate = useNavigate()
   const authLogin = useAuthStore((s) => s.login)
@@ -111,24 +82,9 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
-  // 'auto' (по умолчанию: показываем платформенную кнопку если есть)
-  // | 'email' (юзер кликнул «войти с почтой»)
-  const [mode, setMode] = useState('auto')
-
-  // Если платформа найдена — пытаемся сразу авто-логин (это same path как
-  // usePlatformAuth, но дублируем здесь для надёжности — на случай если
-  // юзер пришёл прямо на /auth/login). Ошибки выводим юзеру явно вместо
-  // молчания.
-  useEffect(() => {
-    if (!platform.checked || loading) return
-    if (mode !== 'auto') return
-    if (platform.tg) {
-      void platformLogin('tg', platform.tg)
-    } else if (platform.vk) {
-      void platformLogin('vk', platform.vk)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platform.checked])
+  // 'platform' — показываем большую кнопку TG/VK + ссылку на email
+  // 'email'    — юзер кликнул «или войти по почте», раскрылась форма
+  const [mode, setMode] = useState('platform')
 
   async function platformLogin(kind, payload) {
     setErr('')
@@ -175,53 +131,67 @@ export default function Login() {
     }
   }
 
-  const showTgButton = platform.checked && !!platform.tg
-  const showVkButton = platform.checked && !!platform.vk
-  const showEmailForm = mode === 'email' || (!showTgButton && !showVkButton)
+  const showTgButton = platform.checked && !!platform.tg && mode === 'platform'
+  const showVkButton = platform.checked && !!platform.vk && mode === 'platform'
+  const showEmailForm =
+    mode === 'email' || (platform.checked && !platform.tg && !platform.vk)
 
   return (
     <AuthShell title="Войти">
-      {/* Telegram CTA — лиловая брендовая, иконка слева */}
+      {/* TG / VK CTA в нашем стиле (ShinyButton — фирменная фиолетовая
+          с бегущим блеском по контуру, как везде в аппке). Иконка
+          платформы слева в кнопке для узнаваемости. */}
       {showTgButton && (
-        <button
-          type="button"
+        <Button
+          size="lg"
+          fullWidth
+          loading={loading}
           onClick={() => platformLogin('tg', platform.tg)}
-          disabled={loading}
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#229ED9] px-4 py-3 text-[15px] font-medium text-white shadow-lg transition hover:bg-[#1d8dc4] active:scale-[0.98] disabled:opacity-60"
         >
-          <TgIcon className="h-5 w-5" />
-          {loading ? 'Входим…' : 'Войти через Telegram'}
-        </button>
+          <span className="inline-flex items-center justify-center gap-2">
+            <TgIcon className="h-5 w-5" />
+            Войти через Telegram
+          </span>
+        </Button>
       )}
 
-      {/* VK CTA */}
       {showVkButton && (
-        <button
-          type="button"
+        <Button
+          size="lg"
+          fullWidth
+          loading={loading}
           onClick={() => platformLogin('vk', platform.vk)}
-          disabled={loading}
-          className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#0077FF] px-4 py-3 text-[15px] font-medium text-white shadow-lg transition hover:bg-[#0066dd] active:scale-[0.98] disabled:opacity-60"
         >
-          <VkIcon className="h-5 w-5" />
-          {loading ? 'Входим…' : 'Войти через VK'}
-        </button>
+          <span className="inline-flex items-center justify-center gap-2">
+            <VkIcon className="h-5 w-5" />
+            Войти через VK
+          </span>
+        </Button>
       )}
 
       {err && (showTgButton || showVkButton) && (
-        <div className="mb-3 rounded-md border border-err/30 bg-err/10 px-3 py-2 text-[13px] text-err">
+        <div className="mt-3 rounded-md border border-err/30 bg-err/10 px-3 py-2 text-[13px] text-err">
           {err}
         </div>
       )}
 
-      {/* Switch на email, если на платформе */}
-      {(showTgButton || showVkButton) && mode === 'auto' && (
+      {(showTgButton || showVkButton) && (
         <button
           type="button"
           onClick={() => { setErr(''); setMode('email') }}
-          className="mb-2 w-full text-center text-[13px] text-fg-3 hover:text-fg-1 transition"
+          className="mt-4 w-full text-center text-[13px] text-fg-3 hover:text-fg-1 transition"
         >
-          или войти с почтой
+          или войти по почте
         </button>
+      )}
+
+      {/* Лоадер пока детект ещё не закончился — чтобы юзер не видел
+          email-форму на долю секунды если auto-detect вот-вот придёт. */}
+      {!platform.checked && (
+        <div className="flex flex-col items-center gap-3 py-6 text-fg-3">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-fg-3/40 border-t-lilac" />
+          <span className="text-[12px]">Проверяем способ входа…</span>
+        </div>
       )}
 
       {showEmailForm && (
@@ -259,8 +229,6 @@ export default function Login() {
           </div>
         </form>
       )}
-
-      <PlatformDebug platform={platform} />
     </AuthShell>
   )
 }
