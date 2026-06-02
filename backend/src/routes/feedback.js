@@ -1,5 +1,6 @@
 import { db } from '../db.js'
 import { sendMail } from '../utils/mailer.js'
+import { feedbackNotification } from '../utils/emailTemplates.js'
 
 const VALID_TYPES = ['review', 'question', 'bug', 'other']
 const FEEDBACK_TO = process.env.FEEDBACK_EMAIL || process.env.SMTP_USER || 'noreply@all-relaxme.ru'
@@ -64,25 +65,15 @@ export async function feedbackRoutes(app) {
       })
 
       // Отправка письма — не блокируем ответ юзеру если SMTP не работает
-      const fromBlock = userName
-        ? `${userName}${userEmail ? ` &lt;${userEmail}&gt;` : ''}`
-        : (userEmail || 'аноним')
-      sendMail({
-        to: FEEDBACK_TO,
-        subject: `Meditation · фидбек (${type}) от ${userName || userEmail || 'аноним'}`,
-        text:
-          `Тип: ${type}\n` +
-          `От: ${fromBlock}\n` +
-          (userId ? `User ID: ${userId}\n` : '') +
-          `Время: ${new Date().toISOString()}\n\n` +
-          `Сообщение:\n${message}`,
-        html:
-          `<p><b>Тип:</b> ${type}</p>` +
-          `<p><b>От:</b> ${fromBlock}</p>` +
-          (userId ? `<p><b>User ID:</b> ${userId}</p>` : '') +
-          `<p><b>Время:</b> ${new Date().toISOString()}</p>` +
-          `<hr><div style="white-space:pre-wrap">${message.replace(/</g, '&lt;')}</div>`,
-      }).catch((e) => app.log.warn({ err: e?.message }, 'feedback mail send failed'))
+      const tmpl = feedbackNotification({
+        type,
+        message,
+        fromName: userName,
+        fromEmail: userEmail,
+        userId,
+      })
+      sendMail({ to: FEEDBACK_TO, ...tmpl })
+        .catch((e) => app.log.warn({ err: e?.message }, 'feedback mail send failed'))
 
       return { ok: true, id: row.id }
     }

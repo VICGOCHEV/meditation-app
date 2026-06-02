@@ -2,6 +2,7 @@ import { db } from '../db.js'
 import { hashPassword, verifyPassword, toPublicUser } from '../utils/auth.js'
 import { verifyTgInitData, verifyVkSign } from '../utils/platformAuth.js'
 import { sendMail } from '../utils/mailer.js'
+import { passwordReset as passwordResetEmail } from '../utils/emailTemplates.js'
 
 // RFC 5322 (simplified) — good enough for "is this an email at all".
 // Backend validation is a sanity check; deep validation belongs in client UX.
@@ -120,24 +121,8 @@ export async function authRoutes(app) {
     if (identifier.includes('@')) {
       const user = await db.user.findUnique({ where: { email: identifier } })
       if (user) {
-        // Минимальная заглушка пока recovery-логика не доделана. Шлём ссылку
-        // на главную (на главной можно залогиниться). Когда подключим полный
-        // reset-flow с одноразовым токеном — заменим тело письма.
-        await sendMail({
-          to: user.email,
-          subject: 'Восстановление доступа · Meditation',
-          text:
-            'Привет!\n\n' +
-            'Кто-то запросил восстановление доступа к твоему аккаунту в Meditation.\n' +
-            'Если это ты — открой приложение и попробуй войти снова:\n' +
-            'https://all-relaxme.ru/auth/login\n\n' +
-            'Если это не ты — просто проигнорируй это письмо.',
-          html:
-            '<p>Привет!</p>' +
-            '<p>Кто-то запросил восстановление доступа к твоему аккаунту в Meditation.</p>' +
-            '<p>Если это ты — <a href="https://all-relaxme.ru/auth/login">открой приложение и попробуй войти снова</a>.</p>' +
-            '<p style="color:#888;font-size:13px">Если это не ты — просто проигнорируй это письмо.</p>',
-        })
+        const tmpl = passwordResetEmail({ name: user.name })
+        await sendMail({ to: user.email, ...tmpl })
       }
     }
     // Всегда возвращаем 200 — anti-enumeration
