@@ -128,7 +128,10 @@ async function ensureMusic({ title, fullPath, previewPath, order }) {
 
 // Идемпотентно создать практику по (title, block) — если такая есть, пропустить.
 // audioByVariant — карта {male_music1: '/path/to/file.mp3', female_music2: ...}
-async function ensurePractice({ title, block, description, order, audioByVariant, price }) {
+// published — по умолчанию true; для заглушек (без аудио) передаём false.
+async function ensurePractice({
+  title, block, description, order, audioByVariant, price, published = true,
+}) {
   const { items } = await api('GET', '/admin/practices')
   const existing = items.find((p) => p.title === title && p.block === block)
   if (existing) {
@@ -137,7 +140,7 @@ async function ensurePractice({ title, block, description, order, audioByVariant
   }
   // Загружаем все файлы и собираем audio matrix
   const audio = {}
-  for (const [key, filePath] of Object.entries(audioByVariant)) {
+  for (const [key, filePath] of Object.entries(audioByVariant || {})) {
     if (!filePath) continue
     if (!fs.existsSync(filePath)) {
       console.warn(`  ⚠ файл не найден для ${key}: ${filePath}`)
@@ -151,10 +154,10 @@ async function ensurePractice({ title, block, description, order, audioByVariant
     description: description || null,
     price: price ?? null,
     order: order ?? 0,
-    published: true,
+    published,
     audio,
   })
-  console.log(`✓ practice "${title}" (${block}) → #${practice.id}`)
+  console.log(`✓ practice "${title}" (${block}) ${published ? '' : '[draft] '}→ #${practice.id}`)
   return practice
 }
 
@@ -303,6 +306,39 @@ const AWARENESS_PRACTICES = [
   ),
 ]
 
+// Заглушки «Авторские» — клиент аудио не прислал, ставим черновики
+// (published=false). Когда клиент пришлёт mp3 — он зальёт их через
+// /manage/practices и нажмёт Publish. CSV-задание клиента: «ГОЛОСА И
+// МУЗЫКА НЕ ВЫБИРАЮТСЯ В БЛОКЕ АВТОРСКИЕ».
+const AUTHOR_STUBS = [
+  {
+    title: 'Подкаст «Эволюция сознания»',
+    description:
+      'Подкаст с основателем и создателем приложения об эволюции сознания человечества. ' +
+      'Длительность ~26 минут.',
+    order: 0,
+    price: 99,
+    audioByVariant: {}, // пусто — клиент дозальёт через CMS
+    published: false,
+  },
+  {
+    title: 'Знакомство с автором',
+    description: 'Авторский трек — знакомство с создателем приложения.',
+    order: 1,
+    price: 99,
+    audioByVariant: {},
+    published: false,
+  },
+  {
+    title: 'Поток',
+    description: 'Авторская практика — погружение в состояние потока.',
+    order: 2,
+    price: 99,
+    audioByVariant: {},
+    published: false,
+  },
+]
+
 // ─── main ───────────────────────────────────────────────────────────────
 async function main() {
   console.log(`API_BASE: ${API_BASE}`)
@@ -329,6 +365,11 @@ async function main() {
   console.log('\n── Practices · Пароль от жизни ───────')
   for (const p of AWARENESS_PRACTICES) {
     await ensurePractice({ ...p, block: 'awareness' })
+  }
+
+  console.log('\n── Practices · Авторские (заглушки, draft) ────')
+  for (const p of AUTHOR_STUBS) {
+    await ensurePractice({ ...p, block: 'author' })
   }
 
   console.log('\n✓ Готово. Открой /manage/practices и проверь.')
