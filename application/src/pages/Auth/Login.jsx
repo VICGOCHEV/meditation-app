@@ -46,33 +46,40 @@ function usePlatform() {
       }
     } catch { /* ignore */ }
 
-    async function pollTg() {
-      // Поллим 2 секунды: window.Telegram.WebApp иногда инжектится
-      // асинхронно (особенно при первом запуске).
-      for (let i = 0; i < 20; i++) {
-        if (cancelled) return { tgCtx: false, tgData: null }
-        const wa = window.Telegram?.WebApp
-        if (wa) {
-          try { wa.ready?.(); wa.expand?.() } catch { /* noop */ }
-          if (wa.initData) return { tgCtx: true, tgData: wa.initData }
-          // Контекст есть, данных нет — подождём ещё пару тиков
-          if (i >= 15) return { tgCtx: true, tgData: null }
-        }
-        await new Promise((r) => setTimeout(r, 100))
-      }
-      // Fallback через SDK lazy import
+    async function detect() {
+      // 1. Подгружаем SDK ПЕРВЫМ — он инициализирует window.Telegram и
+      //    парсит initData из URL hash. На некоторых клиентах без import
+      //    SDK initData остаётся пустой даже если WebApp существует.
+      let sdkWa = null
       try {
         const mod = await import('@twa-dev/sdk').catch(() => null)
-        const wa = mod?.default
-        if (wa) {
-          try { wa.ready?.(); wa.expand?.() } catch { /* noop */ }
-          return { tgCtx: true, tgData: wa.initData || null }
-        }
-      } catch { /* not in TG */ }
-      return { tgCtx: false, tgData: null }
+        sdkWa = mod?.default || null
+      } catch { /* ignore */ }
+
+      // 2. Дёргаем ready/expand чтобы Telegram «отдал» нам контроль над
+      //    UI и initData стала доступной.
+      const wa = window.Telegram?.WebApp || sdkWa
+      if (wa) {
+        try { wa.ready?.(); wa.expand?.() } catch { /* noop */ }
+      }
+
+      // 3. Поллим до 3 секунд — initData в некоторых клиентах появляется
+      //    с задержкой. Если нашли — сразу возвращаем.
+      for (let i = 0; i < 30; i++) {
+        if (cancelled) return { tgCtx: false, tgData: null }
+        const w = window.Telegram?.WebApp || sdkWa
+        if (w?.initData) return { tgCtx: true, tgData: w.initData }
+        await new Promise((r) => setTimeout(r, 100))
+      }
+
+      // 4. Не дождались — возвращаем что есть. tgCtx=true если WebApp
+      //    хоть как-то определился (значит юзер в TG, но клиент не
+      //    отдаёт initData).
+      const finalWa = window.Telegram?.WebApp || sdkWa
+      return { tgCtx: !!finalWa, tgData: finalWa?.initData || null }
     }
 
-    pollTg().then(({ tgCtx, tgData }) => {
+    detect().then(({ tgCtx, tgData }) => {
       if (!cancelled) setState({ tgCtx, tgData, vk: vkSearch, checked: true })
     })
 
@@ -80,6 +87,28 @@ function usePlatform() {
   }, [])
 
   return state
+}
+
+// Диагностический блок — показывается с ?debug=1 в URL, на проде
+// помогает понять что Telegram реально передал нам.
+function PlatformDebug({ platform }) {
+  if (typeof window === 'undefined') return null
+  const debug = /[?&]debug=1/.test(window.location.search) ||
+                /[?&]debug=1/.test(window.location.hash)
+  if (!debug) return null
+  const wa = window.Telegram?.WebApp
+  const hash = window.location.hash || '(empty)'
+  return (
+    <div className="mt-6 rounded border border-fg-3/15 bg-bg-1 px-3 py-2 text-[10px] font-mono leading-relaxed text-fg-3 break-all">
+      checked={String(platform.checked)} · tgCtx={String(platform.tgCtx)}
+      <br />
+      tgData: {platform.tgData ? `len=${platform.tgData.length}` : 'null'}
+      <br />
+      WebApp: v={wa?.version || '?'} · platform={wa?.platform || '?'} · initData={wa?.initData?.length || 0}b
+      <br />
+      hash: {hash.length}c · {hash.slice(0, 80)}
+    </div>
+  )
 }
 
 export default function Login() {
@@ -265,6 +294,8 @@ export default function Login() {
           </div>
         </form>
       )}
+
+      <PlatformDebug platform={platform} />
     </AuthShell>
   )
 }
