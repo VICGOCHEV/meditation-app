@@ -180,11 +180,10 @@ export default function IntroJourney() {
     else if (v < prev && prev > MANI_START && v <= MANI_START) fire(P_SCRUB, 1.2, easeInOutCubic) // вверх → к скрабу
   })
 
-  // текст hero — поверх начала скраба
+  // текст hero — поверх начала скраба. БЕЗ blur по скроллу: анимация filter:blur()
+  // на крупном заголовке форсит repaint каждый кадр = тормоз. Fade+scale (GPU) хватает.
   const textOpacity = useTransform(scrollYProgress, [0, 0.12], [1, 0])
-  const textScale = useTransform(scrollYProgress, [0, 0.2], [1, 1.15])
-  const textBlur = useTransform(scrollYProgress, [0, 0.12], [0, 10])
-  const textFilter = useTransform(textBlur, (b) => `blur(${b}px)`)
+  const textScale = useTransform(scrollYProgress, [0, 0.2], [1, 1.12])
   const hintOpacity = useTransform(scrollYProgress, [0, 0.05], [1, 0])
 
   // фаза 3 — манифест. Прогресс сглажен пружиной → фразы скользят плавно,
@@ -224,7 +223,7 @@ export default function IntroJourney() {
         {/* текст hero — онбординг-типографика, горизонтальная лесенка, влево */}
         <motion.div
           className="relative z-[70] mx-auto flex h-full w-full max-w-6xl flex-col items-center justify-between px-6 py-[13vh] sm:px-10"
-          style={{ opacity: textOpacity, scale: textScale, filter: textFilter }}
+          style={{ opacity: textOpacity, scale: textScale, willChange: 'transform, opacity' }}
         >
           <motion.h1
             variants={slideVar}

@@ -43,8 +43,20 @@ export default function ScrollScrub({ progress, dir = 'frames', count = 121 }) {
         else { img.onload = done; img.onerror = done }
       }
     }
-    pump()
-    return () => { cancelled = true }
+    // старт пула откладываем — даём hero-входу отрисоваться на свободном
+    // главном потоке (декод 100+ AVIF иначе душит анимацию появления).
+    // Но если юзер скроллит раньше — стартуем немедленно по первому скроллу.
+    let started = false
+    const startPump = () => { if (!started && !cancelled) { started = true; pump() } }
+    const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 500))
+    ric(startPump, { timeout: 1200 })
+    window.addEventListener('wheel', startPump, { once: true, passive: true })
+    window.addEventListener('touchstart', startPump, { once: true, passive: true })
+    return () => {
+      cancelled = true
+      window.removeEventListener('wheel', startPump)
+      window.removeEventListener('touchstart', startPump)
+    }
   }, [dir, count])
 
   useEffect(() => {
