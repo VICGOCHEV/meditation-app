@@ -14,8 +14,9 @@ export default function AppBackground() {
         pointerEvents: 'none',
       }}
     >
-      {/* низкий dpr: фон размытый, в полном разрешении смысла нет — экономим GPU */}
-      <ShaderCanvas fragmentShader={haloFragment} dpr={[0.5, 0.75]} />
+      {/* низкий dpr: фон размытый, в полном разрешении смысла нет — экономим GPU
+          (halo — низкочастотный fbm-шум, на retina лишние пиксели не видны) */}
+      <ShaderCanvas fragmentShader={haloFragment} dpr={[0.45, 0.6]} />
       {/* затемняющий градиент к низу, чтобы текст всегда читался */}
       <div
         style={{

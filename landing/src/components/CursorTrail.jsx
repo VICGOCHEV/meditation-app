@@ -23,12 +23,16 @@ export default function CursorTrail() {
     const mouse = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
     let prev = { x: mouse.x, y: mouse.y }
     let hovering = false
+    let running = false
+    let idle = 0
 
+    const kick = () => { if (!running) { running = true; idle = 0; raf.current = requestAnimationFrame(loop) } }
     const onMove = (e) => {
       mouse.x = e.clientX
       mouse.y = e.clientY
       const el = e.target
       hovering = !!(el && el.closest('a, button, .shiny-cta, [data-hover]'))
+      kick() // проснуться, если цикл спал
     }
     window.addEventListener('mousemove', onMove, { passive: true })
 
@@ -67,9 +71,12 @@ export default function CursorTrail() {
           `rotate(${angle}rad) scaleX(${stretch})`
       })
 
+      // покой: голова дошла до мыши и шлейф схлопнулся → усыпляем цикл (просыпается на mousemove)
+      const settled = speed < 0.1 && Math.hypot(mouse.x - pts[0].x, mouse.y - pts[0].y) < 0.4
+      if (settled) { if (++idle > 24) { running = false; return } } else { idle = 0 }
       raf.current = requestAnimationFrame(loop)
     }
-    raf.current = requestAnimationFrame(loop)
+    kick()
 
     return () => {
       cancelAnimationFrame(raf.current)

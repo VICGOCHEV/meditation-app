@@ -36,7 +36,9 @@ export default function Embers({ count = 48 }) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ps = Array.from({ length: count }, () => mk(false))
     }
+    let visible = true
     const loop = () => {
+      if (!visible) { raf = 0; return } // секция за экраном → не жжём rAF
       t += 0.016
       ctx.clearRect(0, 0, W, H)
       ctx.globalCompositeOperation = 'lighter'
@@ -55,7 +57,13 @@ export default function Embers({ count = 48 }) {
     }
     resize(); loop()
     window.addEventListener('resize', resize)
-    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', resize) }
+    // пауза, когда секция вне вьюпорта (rootMargin — заранее «прогреть»)
+    const io = new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting
+      if (visible && !raf) raf = requestAnimationFrame(loop)
+    }, { rootMargin: '150px' })
+    io.observe(cv)
+    return () => { cancelAnimationFrame(raf); io.disconnect(); window.removeEventListener('resize', resize) }
   }, [count])
   return <canvas ref={ref} className="absolute inset-0 block h-full w-full" />
 }
