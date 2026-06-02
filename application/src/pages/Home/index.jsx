@@ -110,25 +110,38 @@ function CompanionsCounter() {
 //
 // Справа — один компактный chip с условием доступа: "ПО ПОДПИСКЕ · 6/мес"
 // (вместо двух конкурирующих мини-строк).
+// Шапка секции на главной — крупная, с лиловой обводкой акцент-точкой,
+// читаемым sub'ом. eyebrow + chip на топ-строке, заголовок крупно, sub
+// чуть мельче но достаточно контрастный.
 function SectionHead({ eyebrow, title, sub, chip }) {
   return (
-    <div className="mb-4 border-b border-line pb-3">
-      {/* Топ-строка: eyebrow слева, chip справа — на одной горизонтальной
-          линии, выровнены по baseline. Заголовок ниже занимает всю ширину. */}
+    <div className="mb-5 pb-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="label-mono text-fg-3">{eyebrow}</div>
+        <div className="flex items-center gap-2">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-lilac shadow-[0_0_10px_rgba(180,160,255,0.7)]" />
+          <div className="label-mono text-lilac/80">{eyebrow}</div>
+        </div>
         {chip && (
-          <span className="shrink-0 rounded-full border border-line-2 bg-white/5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-lilac/90">
+          <span className="shrink-0 rounded-full border border-lilac/30 bg-lilac/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-lilac">
             {chip}
           </span>
         )}
       </div>
-      <h2 className="mt-2 font-serif text-[24px] leading-tight text-fg-0">{title}</h2>
+      <h2 className="mt-3 font-serif text-[30px] leading-[1.1] text-fg-0">
+        {title}
+      </h2>
       {sub && (
-        <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.18em] text-fg-3">
+        <div className="mt-2 text-[13px] leading-snug text-fg-2">
           {sub}
         </div>
       )}
+      <div
+        className="mt-4 h-px w-full"
+        style={{
+          background:
+            'linear-gradient(90deg, rgba(180,160,255,0.5) 0%, rgba(180,160,255,0.1) 40%, transparent 100%)',
+        }}
+      />
     </div>
   )
 }
@@ -224,7 +237,7 @@ export default function Home() {
         <SectionHead
           eyebrow="01 · СТАРТ"
           title="Точка тишины"
-          sub="ВХОД В РАССЛАБЛЕНИЕ"
+          sub="Бесплатные практики расслабления — мягкий вход в тело."
           chip="Бесплатно · 3"
         />
         <motion.div
@@ -248,8 +261,8 @@ export default function Home() {
       <section className="mt-10">
         <SectionHead
           eyebrow="02 · СИСТЕМА"
-          title="Архитектура состояний"
-          sub="ПЕРЕХОД В ОСОЗНАННОСТЬ · ПАРОЛЬ ОТ ЖИЗНИ"
+          title="Пароль от жизни"
+          sub="Шесть практик осознанности — переход из тревоги в присутствие."
           chip="По подписке · 6 практик/мес"
         />
 
@@ -293,7 +306,7 @@ export default function Home() {
         <SectionHead
           eyebrow="03 · ГЛУБИНА"
           title="Поток из пространства"
-          sub="ПОГРУЖЕНИЕ В АВТОРСКИЕ"
+          sub="Авторские медитации и подкасты — погружение в авторскую систему."
           chip="2 бесплатные · 99 ₽"
         />
         <motion.div

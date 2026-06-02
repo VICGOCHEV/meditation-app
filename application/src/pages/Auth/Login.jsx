@@ -60,7 +60,7 @@ export default function Login() {
         {err && <div className="text-sm text-err">{err}</div>}
 
         <Button type="submit" size="lg" fullWidth loading={loading}>
-          Присоединиться
+          Войти
         </Button>
 
         <div className="flex flex-col items-center gap-2 pt-4 text-[13px]">

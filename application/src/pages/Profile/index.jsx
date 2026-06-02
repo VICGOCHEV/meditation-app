@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import Sparkline from '../../components/ui/Sparkline'
@@ -92,7 +92,18 @@ export default function Profile() {
     .map((s) => s[0]?.toUpperCase())
     .join('')
 
-  const onLogout = () => {
+  // Logout — двухшаговый «прощальный» флоу:
+  //   1. Юзер жмёт «Выйти» → стейт `logoutPending` поднимает оверлей,
+  //      сцена за ним желейно тускнеет до серого, цвет уходит из меню.
+  //   2. Сверху появляется единственная цветная фиолетовая кнопка
+  //      «Вернуться в тишину» — это «отмена», возвращает обратно
+  //      (анимация прощания, но без необратимости).
+  //   3. Через ~3.2с (или по клику «Выйти всё равно») — реальный
+  //      logout + navigate.
+  const [logoutPending, setLogoutPending] = useState(false)
+  const openLogoutFarewell = () => setLogoutPending(true)
+  const cancelLogout = () => setLogoutPending(false)
+  const confirmLogout = () => {
     logout()
     navigate('/auth/login')
   }
@@ -204,6 +215,19 @@ export default function Profile() {
   }
 
   return (
+    <>
+    <motion.div
+      animate={{
+        // Когда юзер запустил logout-флоу — сцена тускнеет до серого
+        // и приглушается. Bottom-nav уходит под фильтр (становится ч/б),
+        // а прощальная плашка сверху живёт ВНЕ фильтра — остаётся цветной.
+        filter: logoutPending
+          ? 'grayscale(1) brightness(0.45) saturate(0.6)'
+          : 'grayscale(0) brightness(1) saturate(1)',
+      }}
+      transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+      style={{ willChange: 'filter' }}
+    >
     <ScreenShell withBottomNav>
       <header className="flex flex-col items-center text-center">
         <div className="flex h-20 w-20 items-center justify-center rounded-full border border-line-2 bg-white/5 font-serif text-2xl text-fg-0">
@@ -529,7 +553,7 @@ export default function Profile() {
       </Section>
 
       <div className="mt-10 flex flex-col gap-3">
-        <Button variant="destructive" fullWidth onClick={onLogout}>
+        <Button variant="destructive" fullWidth onClick={openLogoutFarewell}>
           Выйти из аккаунта
         </Button>
         <button
@@ -590,5 +614,49 @@ export default function Profile() {
         </div>
       </Modal>
     </ScreenShell>
+    </motion.div>
+
+    {/* Прощальный оверлей — единственное цветное пятно на потухшем мире.
+        Лиловая CTA возвращает обратно. Под ней — мелкая «всё равно выйти». */}
+    <AnimatePresence>
+      {logoutPending && (
+        <motion.div
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -16 }}
+          transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+          className="fixed inset-x-0 top-0 z-[60] px-5 pt-[max(env(safe-area-inset-top),24px)] pb-6 pointer-events-none"
+        >
+          <div className="mx-auto max-w-md text-center">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.6 }}
+              className="font-mono text-[10px] uppercase tracking-[0.32em] text-lilac/70 mb-3"
+            >
+              мир потух
+            </motion.div>
+            <button
+              type="button"
+              onClick={cancelLogout}
+              className="pointer-events-auto inline-flex items-center justify-center rounded-full bg-[#6145c2] px-7 py-3.5 text-[15px] font-medium text-white transition hover:bg-[#7155d6] active:scale-[0.98]"
+              style={{ boxShadow: '0 0 48px rgba(180,160,255,0.55), 0 4px 18px rgba(0,0,0,0.4)' }}
+            >
+              ← Вернуться в тишину
+            </button>
+            <div className="mt-4 pointer-events-auto">
+              <button
+                type="button"
+                onClick={confirmLogout}
+                className="text-[12px] text-fg-3 hover:text-fg-1 transition"
+              >
+                всё равно выйти
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+    </>
   )
 }
