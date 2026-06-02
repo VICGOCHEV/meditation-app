@@ -26,57 +26,73 @@ function VkIcon({ className = '' }) {
 }
 
 // Детект платформы при mount. Возвращает {tg: initData?, vk: searchParams?}.
-// Лениво грузим @twa-dev/sdk чтобы не тащить его юзерам в браузере.
+// Telegram WebView инжектит window.Telegram.WebApp АСИНХРОННО — поэтому
+// поллим до 2 секунд прежде чем сдаться. Без polling'а у нас была гонка:
+// React монтировал Login раньше чем Telegram успевал инжектить SDK.
 function usePlatform() {
   const [state, setState] = useState({ tg: null, vk: null, checked: false })
 
   useEffect(() => {
     let cancelled = false
 
-    async function detect() {
-      // TG: смотрим сначала на встроенный window.Telegram, иначе пробуем sdk
-      let tgInitDataStr = null
-      try {
-        const builtin = window.Telegram?.WebApp
-        if (builtin) {
-          builtin.ready?.()
-          builtin.expand?.()
-          if (builtin.initData) tgInitDataStr = builtin.initData
-        }
-        if (!tgInitDataStr) {
-          const mod = await import('@twa-dev/sdk').catch(() => null)
-          const WebApp = mod?.default
-          if (WebApp?.initData) {
-            WebApp.ready?.()
-            WebApp.expand?.()
-            tgInitDataStr = WebApp.initData
-          }
-        }
-      } catch {
-        /* not in TG — ok */
+    // VK: синхронно из URL
+    let vkSearch = null
+    try {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('vk_user_id') && params.get('sign')) {
+        vkSearch = window.location.search.replace(/^\?/, '')
       }
+    } catch { /* ignore */ }
 
-      // VK: ищем sign + vk_user_id в query string
-      let vkSearch = null
-      try {
-        const params = new URLSearchParams(window.location.search)
-        if (params.get('vk_user_id') && params.get('sign')) {
-          vkSearch = window.location.search.replace(/^\?/, '')
+    async function pollTg() {
+      // 20 попыток × 100ms = 2с
+      for (let i = 0; i < 20; i++) {
+        if (cancelled) return null
+        const wa = window.Telegram?.WebApp
+        if (wa?.initData) {
+          try { wa.ready?.(); wa.expand?.() } catch { /* noop */ }
+          return wa.initData
         }
-      } catch {
-        /* ignore */
+        await new Promise((r) => setTimeout(r, 100))
       }
-
-      if (!cancelled) {
-        setState({ tg: tgInitDataStr, vk: vkSearch, checked: true })
-      }
+      // Fallback: SDK lazy import (для случаев когда Telegram не инжектит)
+      try {
+        const mod = await import('@twa-dev/sdk').catch(() => null)
+        const wa = mod?.default
+        if (wa?.initData) {
+          try { wa.ready?.(); wa.expand?.() } catch { /* noop */ }
+          return wa.initData
+        }
+      } catch { /* not in TG */ }
+      return null
     }
 
-    detect()
+    pollTg().then((tg) => {
+      if (!cancelled) setState({ tg, vk: vkSearch, checked: true })
+    })
+
     return () => { cancelled = true }
   }, [])
 
   return state
+}
+
+// Видимый диагностический индикатор — пока ловим issues с initData.
+// Удалим когда логин стабилизируется на проде.
+function PlatformDebug({ platform }) {
+  if (typeof window === 'undefined') return null
+  const hasTelegram = !!window.Telegram
+  const hasWebApp = !!window.Telegram?.WebApp
+  const initLen = window.Telegram?.WebApp?.initData?.length || 0
+  return (
+    <div className="mt-6 rounded border border-fg-3/15 bg-bg-1 px-3 py-2 text-[10px] font-mono leading-relaxed text-fg-3">
+      build v3 · checked={String(platform.checked)}
+      <br />
+      detected: tg={platform.tg ? `len=${platform.tg.length}` : 'null'} · vk={platform.vk ? 'yes' : 'null'}
+      <br />
+      window: Telegram={hasTelegram ? 'y' : 'n'} · WebApp={hasWebApp ? 'y' : 'n'} · initData={initLen}b
+    </div>
+  )
 }
 
 export default function Login() {
@@ -236,6 +252,8 @@ export default function Login() {
           </div>
         </form>
       )}
+
+      <PlatformDebug platform={platform} />
     </AuthShell>
   )
 }
