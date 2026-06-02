@@ -68,16 +68,46 @@ async function login() {
   console.log('✓ admin login OK')
 }
 
+// macOS использует NFD-нормализацию для имён файлов с диакритикой,
+// Linux/Caddy — NFC. При scp с Mac → Linux иногда сохраняются NFD-байты,
+// поэтому fs.existsSync(NFC-путь) фейлится. Тут — рекурсивный поиск по
+// имени файла внутри AUDIO_DIR, который матчит обе формы.
+function resolvePath(wantedPath) {
+  if (fs.existsSync(wantedPath)) return wantedPath
+  // Попробуем NFD-форму
+  const nfd = wantedPath.normalize('NFD')
+  if (fs.existsSync(nfd)) return nfd
+  // Последняя попытка — найти файл в директории, сравнить normalized basenames
+  const dir = path.dirname(wantedPath)
+  const wantedBase = path.basename(wantedPath).normalize('NFC')
+  if (!fs.existsSync(dir)) {
+    // Попробуем директорию в NFD
+    const dirNfd = dir.normalize('NFD')
+    if (!fs.existsSync(dirNfd)) {
+      throw new Error(`directory not found: ${dir}`)
+    }
+    return resolvePath(path.join(dirNfd, path.basename(wantedPath)))
+  }
+  const candidates = fs.readdirSync(dir)
+  for (const c of candidates) {
+    if (c.normalize('NFC') === wantedBase) {
+      return path.join(dir, c)
+    }
+  }
+  throw new Error(`file not found in ${dir}: ${wantedBase}`)
+}
+
 // Загружает один файл, возвращает {id, url, durationSec, ...}
 async function uploadAudio(filePath) {
-  const stat = fs.statSync(filePath)
-  if (!stat.isFile()) throw new Error(`not a file: ${filePath}`)
-  const buf = fs.readFileSync(filePath)
+  const real = resolvePath(filePath)
+  const stat = fs.statSync(real)
+  if (!stat.isFile()) throw new Error(`not a file: ${real}`)
+  const buf = fs.readFileSync(real)
   const blob = new Blob([buf], { type: 'audio/mpeg' })
   const fd = new FormData()
-  fd.append('file', blob, path.basename(filePath))
+  fd.append('file', blob, path.basename(real))
   const { media } = await api('POST', '/admin/media', fd)
-  console.log(`  ↑ ${path.basename(filePath)} → media #${media.id} (${media.durationSec}s)`)
+  console.log(`  ↑ ${path.basename(real)} → media #${media.id} (${media.durationSec}s)`)
   return media
 }
 
@@ -144,12 +174,12 @@ async function ensurePractice({
   const audio = {}
   for (const [key, filePath] of Object.entries(audioByVariant || {})) {
     if (!filePath) continue
-    if (!fs.existsSync(filePath)) {
-      console.warn(`  ⚠ файл не найден для ${key}: ${filePath}`)
-      continue
+    try {
+      const media = await uploadAudio(filePath)
+      audio[key] = media.id
+    } catch (e) {
+      console.warn(`  ⚠ файл не загружен для ${key}: ${e.message}`)
     }
-    const media = await uploadAudio(filePath)
-    audio[key] = media.id
   }
   const { practice } = await api('POST', '/admin/practices', {
     title, block,
