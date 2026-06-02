@@ -61,11 +61,23 @@ export async function getWebhookInfo() {
 }
 
 // Клавиатура с inline-кнопкой, открывающей Mini App.
-// `web_app.url` обязательно HTTPS (Telegram требование).
-export function webAppKeyboard(url, label = 'Открыть приложение') {
+//
+// ВАЖНО: используем **t.me deep link** (`url: ...`), а НЕ `web_app: { url }`.
+// Telegram гарантированно открывает t.me/<bot>/<MiniAppShortName> как
+// Mini App с полным initData. У `web_app: { url }` есть кейсы (старые
+// клиенты, не-конфигурированные боты), когда Telegram открывает URL
+// как простой WebView с пустой initData (platform=unknown).
+// См. обсуждение 2026-06-02 — у юзера именно этот кейс.
+//
+// Mini App short name задаётся через BotFather /newapp. У нас — `Relaxme`.
+// Override через env: TG_MINI_APP_DEEP_LINK=https://t.me/<bot>/<slug>
+const DEFAULT_MINI_APP_DEEP_LINK = 'https://t.me/Pause_relax_bot/Relaxme'
+
+export function webAppKeyboard(_url, label = 'Открыть приложение') {
+  const link = process.env.TG_MINI_APP_DEEP_LINK || DEFAULT_MINI_APP_DEEP_LINK
   return {
     inline_keyboard: [
-      [{ text: label, web_app: { url } }],
+      [{ text: label, url: link }],
     ],
   }
 }
