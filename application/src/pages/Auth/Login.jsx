@@ -93,9 +93,8 @@ function usePlatform() {
 // помогает понять что Telegram реально передал нам.
 function PlatformDebug({ platform }) {
   if (typeof window === 'undefined') return null
-  const debug = /[?&]debug=1/.test(window.location.search) ||
-                /[?&]debug=1/.test(window.location.hash)
-  if (!debug) return null
+  // TEMP: always show until TG login stabilises on user's iPhone
+  const debug = true
   const wa = window.Telegram?.WebApp
   const hash = window.location.hash || '(empty)'
   return (
