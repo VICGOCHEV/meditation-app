@@ -57,14 +57,19 @@ export default function usePlatformAuth() {
               if (!cancelled && res?.token && res?.user) {
                 login(res.token, res.user)
               }
-            } catch {
-              /* network / signature error — fall back to email-login */
+            } catch (e) {
+              // НЕ молчим — если фронт молча fallback'ает на email,
+              // юзер не понимает что произошло. Login.jsx тоже пытается
+              // авто-логин и покажет внятную ошибку.
+              // eslint-disable-next-line no-console
+              console.warn('TG auto-login failed', e?.response?.data || e?.message || e)
             }
           }
           return
         }
-      } catch {
-        /* @twa-dev/sdk не загрузился — не в TG */
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('TG SDK load failed', e?.message || e)
       }
 
       // ───────── VK ─────────
@@ -79,8 +84,9 @@ export default function usePlatformAuth() {
               if (!cancelled && res?.token && res?.user) {
                 login(res.token, res.user)
               }
-            } catch {
-              /* signature error or VK_SECURE_KEY missing on server */
+            } catch (e) {
+              // eslint-disable-next-line no-console
+              console.warn('VK auto-login failed', e?.response?.data || e?.message || e)
             }
           }
         }
