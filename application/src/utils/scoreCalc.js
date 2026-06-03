@@ -56,12 +56,12 @@ export function interpretKT(kt) {
   if (kt > 0)
     return {
       text: 'Твоя осознанность растёт. Мысли о будущем стали тише',
-      emoji: '🌱',
+      emoji: '',
       tone: 'progress',
     }
   return {
     text: 'Сейчас время заземления. Практика поможет стабилизировать состояние',
-    emoji: '🌿',
+    emoji: '',
     tone: 'grounding',
   }
 }

@@ -7,8 +7,8 @@ import AudioCell from '../ui/AudioCell.jsx'
 import { IconBack } from '../ui/icons.jsx'
 
 const VOICES = [
-  { code: 'male', label: '♂ Мужской' },
-  { code: 'female', label: '♀ Женский' },
+  { code: 'male', label: 'Мужской' },
+  { code: 'female', label: 'Женский' },
 ]
 const MUSICS = [1, 2, 3]
 const cellKey = (voice, m) => `${voice}_music${m}`

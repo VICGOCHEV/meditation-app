@@ -105,7 +105,7 @@ export async function notifyRoutes(app) {
 
     try {
       const { sendMessage } = await import('../utils/tgBot.js')
-      await sendMessage(Number(u.tgUserId), `🧪 Тест-пуш\n\n${phrase.text}`, {
+      await sendMessage(Number(u.tgUserId), `Тест-пуш\n\n${phrase.text}`, {
         reply_markup: {
           inline_keyboard: [
             [{ text: 'Открыть приложение', web_app: { url: MINI_APP_URL } }],

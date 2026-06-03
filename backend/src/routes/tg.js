@@ -18,7 +18,7 @@ import { sendMessage, webAppKeyboard } from '../utils/tgBot.js'
 const MINI_APP_URL = process.env.TG_MINI_APP_URL || 'https://all-relaxme.ru/'
 const WEBHOOK_SECRET = process.env.TG_WEBHOOK_SECRET || ''
 
-const WELCOME_TEXT = `<b>Привет 👋</b>
+const WELCOME_TEXT = `<b>Привет</b>
 
 Это <b>Meditation</b> — твой путь к внутренней тишине. Мягкие практики
 расслабления и осознанности, дыхание, ежедневный трекер состояния.

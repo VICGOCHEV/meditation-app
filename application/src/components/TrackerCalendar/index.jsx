@@ -27,7 +27,7 @@ export default function TrackerCalendar({ trackerDays = [], streak = 0 }) {
               color: 'oklch(0.78 0.14 60)',
             }}
           >
-            🔥 {streak} дн. подряд
+            {streak} дн. подряд
           </div>
         )}
       </div>

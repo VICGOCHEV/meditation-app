@@ -101,7 +101,9 @@ function TierCard({ tier, selected, onSelect }) {
       <ul className="mt-4 flex flex-col gap-2">
         {tier.benefits.map((b) => (
           <li key={b} className="flex items-start gap-2 text-[13px] text-fg-1">
-            <span className="mt-[2px] text-lilac">✓</span>
+            <svg viewBox="0 0 24 24" className="mt-[3px] h-3.5 w-3.5 shrink-0 text-lilac" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12l5 5L20 7" />
+            </svg>
             <span>{b}</span>
           </li>
         ))}

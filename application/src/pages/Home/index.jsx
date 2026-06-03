@@ -347,7 +347,7 @@ export default function Home() {
             const accessible = p.free === true || inAllInclusive
             const isPodcast = /^Подкаст/i.test(p.title)
             const badge = isPodcast
-              ? '🎙 Подкаст'
+              ? 'Подкаст'
               : p.free
               ? 'Бесплатно'
               : inAllInclusive

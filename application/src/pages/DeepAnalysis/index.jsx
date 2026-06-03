@@ -272,7 +272,7 @@ function ResultScreen({ result, historyAtMount, onContinue }) {
                         border: '1px solid rgba(123,225,163,.28)',
                       }}
                     >
-                      🔓 Открыта практика «{newPractice.title}»
+                      Открыта практика «{newPractice.title}»
                     </div>
                   )}
                   {newBonusPractices.map((p) => (
@@ -284,7 +284,7 @@ function ResultScreen({ result, historyAtMount, onContinue }) {
                         border: '1px solid rgba(180,160,255,.28)',
                       }}
                     >
-                      🎁 Бонус: «{p.title}» теперь бесплатно
+                      Бонус: «{p.title}» теперь бесплатно
                     </div>
                   ))}
                 </motion.div>

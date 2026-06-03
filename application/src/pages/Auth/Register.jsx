@@ -27,11 +27,17 @@ function PasswordHints({ pwd, show }) {
     <li className="flex items-center gap-2">
       <span
         className={
-          'inline-flex h-3.5 w-3.5 items-center justify-center rounded-full text-[9px] font-bold ' +
+          'inline-flex h-3.5 w-3.5 items-center justify-center rounded-full ' +
           (ok ? 'bg-emerald-500/20 text-emerald-300' : 'bg-fg-3/20 text-fg-3')
         }
       >
-        {ok ? '✓' : '·'}
+        {ok ? (
+          <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12l5 5L20 7" />
+          </svg>
+        ) : (
+          <span className="h-1 w-1 rounded-full bg-current opacity-60" />
+        )}
       </span>
       <span className={ok ? 'text-fg-1' : 'text-fg-3'}>{label}</span>
     </li>

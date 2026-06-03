@@ -217,7 +217,7 @@ export default function Player() {
       <Modal
         open={completed}
         onClose={() => exit('/')}
-        title="Практика завершена ✓"
+        title="Практика завершена"
       >
         <p className="text-[14px] text-fg-1">
           Отмечено в трекере. Путь продолжается.

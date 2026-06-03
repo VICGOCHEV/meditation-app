@@ -37,10 +37,12 @@ function CardContent({ title, duration, locked, badge, completed, price, onPlay,
       )}
       {completed && (
         <span
-          className="absolute right-3 top-3 z-20 inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-white"
+          className="absolute right-3 top-3 z-20 inline-flex h-5 w-5 items-center justify-center rounded-full"
           style={{ background: 'oklch(0.55 0.2 160 / 0.35)', border: '1px solid oklch(0.72 0.13 160 / 0.3)' }}
         >
-          ✓
+          <svg viewBox="0 0 24 24" className="h-3 w-3 text-white" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12l5 5L20 7" />
+          </svg>
         </span>
       )}
 
