@@ -104,8 +104,12 @@ export default function Profile() {
   const openLogoutFarewell = () => setLogoutPending(true)
   const cancelLogout = () => setLogoutPending(false)
   const confirmLogout = () => {
-    logout()
-    navigate('/auth/login')
+    // navigate СНАЧАЛА (replace, чтобы back-кнопка не вернула на пустой profile),
+    // потом clear store — иначе ProtectedRoute может промежуточно отрендерить
+    // нелогичное состояние пока store обновляется.
+    navigate('/auth/login', { replace: true })
+    setTimeout(() => logout(), 50)
+    setLogoutPending(false)
   }
 
   // Two-step delete: user has to type «УДАЛИТЬ» (mirrors GitHub /
@@ -616,8 +620,9 @@ export default function Profile() {
     </ScreenShell>
     </motion.div>
 
-    {/* Прощальный оверлей — единственное цветное пятно на потухшем мире.
-        Лиловая CTA возвращает обратно. Под ней — мелкая «всё равно выйти». */}
+    {/* Прощальный оверлей — два явных выбора. Лиловая CTA «Вернуться»
+        как primary (визуально доминантная), под ней outlined «Выйти» —
+        тоже хорошо видна, не мелкий текст. */}
     <AnimatePresence>
       {logoutPending && (
         <motion.div
@@ -627,12 +632,12 @@ export default function Profile() {
           transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           className="fixed inset-x-0 top-0 z-[60] px-5 pt-[max(env(safe-area-inset-top),24px)] pb-6 pointer-events-none"
         >
-          <div className="mx-auto max-w-md text-center">
+          <div className="mx-auto flex max-w-md flex-col items-center gap-4 text-center">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.4, duration: 0.6 }}
-              className="font-mono text-[10px] uppercase tracking-[0.32em] text-lilac/70 mb-3"
+              className="font-mono text-[10px] uppercase tracking-[0.32em] text-lilac/70"
             >
               мир потух
             </motion.div>
@@ -644,15 +649,13 @@ export default function Profile() {
             >
               ← Вернуться в тишину
             </button>
-            <div className="mt-4 pointer-events-auto">
-              <button
-                type="button"
-                onClick={confirmLogout}
-                className="text-[12px] text-fg-3 hover:text-fg-1 transition"
-              >
-                всё равно выйти
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={confirmLogout}
+              className="pointer-events-auto inline-flex items-center justify-center rounded-full border border-fg-3/40 bg-bg-1/80 px-6 py-3 text-[14px] text-fg-1 backdrop-blur-sm transition hover:bg-bg-1 hover:text-fg-0 active:scale-[0.98]"
+            >
+              Выйти из аккаунта
+            </button>
           </div>
         </motion.div>
       )}

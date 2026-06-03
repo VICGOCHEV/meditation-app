@@ -283,7 +283,9 @@ export default function Checkin() {
               <h1 className="mt-3 font-serif text-[26px] leading-tight text-fg-0">
                 {q.question}
               </h1>
-              <p className="mt-2 text-[14px] text-fg-2">Займёт меньше минуты</p>
+              {step === 0 && (
+                <p className="mt-2 text-[14px] text-fg-2">Займёт меньше минуты</p>
+              )}
 
               {/* Dial fills the remaining vertical space and is locked
                   to the centre regardless of how the question text

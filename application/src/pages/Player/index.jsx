@@ -11,6 +11,31 @@ import { usePlayerStore } from '../../store/usePlayerStore'
 import { useProgressStore } from '../../store/useProgressStore'
 import { formatTime } from '../../hooks/useAudio'
 
+// Карта (voice + musicId) → ключ в practice.audioByVariant. Та же
+// нотация что использует CMS (см. backend/utils/contentShape.js).
+function variantKey(voice, music) {
+  return `${voice || 'male'}_music${music || 1}`
+}
+// Возвращает URL дорожки для выбранной пары (голос, музыка), с фолбэком
+// на любую непустую — на случай если у практики нет матрицы (например,
+// «авторские», где только одна дорожка в male_music1).
+function resolveAudioUrl(practice, voice, music) {
+  const av = practice?.audioByVariant
+  if (av && typeof av === 'object') {
+    const exact = av[variantKey(voice, music)]
+    if (exact) return exact
+    // фолбэк — для голос выбранный, любая музыка
+    for (const m of [1, 2, 3]) {
+      const v = av[variantKey(voice, m)]
+      if (v) return v
+    }
+    // следующий фолбэк — любая дорожка вообще
+    const any = Object.values(av).find(Boolean)
+    if (any) return any
+  }
+  return practice?.audioUrl
+}
+
 const BLOCK_LABEL = {
   relaxation: 'Расслабление',
   awareness: 'Осознанность',
@@ -24,6 +49,12 @@ export default function Player() {
   const loadPosition = usePlayerStore((s) => s.loadPosition)
   const clearPosition = usePlayerStore((s) => s.clearPosition)
   const markComplete = useProgressStore((s) => s.markPracticeComplete)
+  // Подписываемся на выбор голоса и музыки — при смене audioUrl пересчитается
+  // и useAudio запустит crossfade.
+  const selectedVoice = usePlayerStore((s) => s.selectedVoice)
+  const musicByPractice = usePlayerStore((s) => s.musicByPractice)
+  const fallbackMusic = usePlayerStore((s) => s.selectedMusic)
+  const currentMusic = musicByPractice[id] ?? fallbackMusic
 
   // Start from the synchronous mock match so the page renders
   // immediately; if the CMS/backend returns a richer record, swap.
@@ -110,7 +141,7 @@ export default function Player() {
 
       <AudioPlayer
         practiceId={id}
-        audioUrl={practice?.audioUrl || mockAudioUrl}
+        audioUrl={resolveAudioUrl(practice, selectedVoice, currentMusic) || mockAudioUrl}
         title={practice?.title || '…'}
         blockLabel={BLOCK_LABEL[practice?.block]?.toUpperCase()}
         durationLabel={practice?.duration || ''}

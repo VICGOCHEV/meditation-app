@@ -221,7 +221,8 @@ export default function Home() {
 
   return (
     <ScreenShell withBottomNav>
-      <OnboardingFog density={1.2} />
+      {/* Дым на Home — клиент 03.06: «слишком дохуя». Снижаю density 1.2 → 0.45. */}
+      <OnboardingFog density={0.45} />
       <header className="mb-6 flex items-center justify-between">
         <IconButton onClick={() => setSettingsOpen(true)} label="Настройки">
           <SettingsIcon />
@@ -238,7 +239,7 @@ export default function Home() {
           eyebrow="01 · СТАРТ"
           title="Точка тишины"
           sub="Бесплатные практики расслабления — мягкий вход в тело."
-          chip="Бесплатно · 3"
+          chip="Бесплатно · 4"
         />
         <motion.div
           className="grid grid-cols-2 gap-3"

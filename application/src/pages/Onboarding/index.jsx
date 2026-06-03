@@ -285,15 +285,17 @@ export default function Onboarding() {
     navigate('/auth/login')
   }
 
-  const skip = () => setStep(3)
+  // «Пропустить» — выходим полностью из онбординга (не только до последнего шага).
+  // Клиент 03.06: «если жмёшь — то весь онбординг пропускаем, а не первые 3».
+  const skip = () => { void finish() }
 
   return (
     <ScreenShell>
       <OnboardingFog />
       <div className="flex min-h-[90dvh] flex-col">
         <div className="flex items-center justify-between">
-          <Dots count={4} active={step} />
-          {step < 3 && (
+          <Dots count={5} active={step} />
+          {step < 4 && (
             <button
               type="button"
               onClick={skip}
@@ -474,6 +476,133 @@ export default function Onboarding() {
             </div>
           )}
 
+          {step === 4 && (
+            <div className="flex flex-col">
+              <motion.div className="label-mono text-lilac/80" variants={eyebrowVar}>
+                Прогресс · 05
+              </motion.div>
+
+              <h1 className="mt-5 font-serif text-[40px] leading-[1.05] tracking-tight text-fg-0">
+                <motion.span className="block font-extralight" variants={lineLeft}>
+                  Оцифруй
+                </motion.span>
+                <motion.span className="block font-medium text-fg-0" variants={lineRight}>
+                  изменения.
+                </motion.span>
+              </h1>
+
+              <motion.p
+                className="mt-6 max-w-[34ch] text-[14px] leading-relaxed text-fg-2"
+                variants={paraVar}
+              >
+                Свой прогресс увидишь в цифрах. Три коротких среза за курс — и наглядное «было / стало».
+              </motion.p>
+
+              {/* Три карточки-блока — не полотном, а ритмом. Клиент 03.06. */}
+              <motion.div className="mt-7 flex flex-col gap-3" variants={cardItemVar}>
+                {/* 1. Трекер */}
+                <div
+                  className="relative isolate overflow-hidden rounded-lg p-4"
+                  style={{
+                    boxShadow:
+                      '0 0 24px -10px rgba(97,69,194,.45), inset 0 0 0 1px rgba(180,160,255,.06)',
+                  }}
+                >
+                  <span className="liquid-card-glow" style={{ animationDuration: '16s' }} />
+                  <span className="liquid-card-border" />
+                  <div className="relative z-10 flex items-start gap-3">
+                    <span
+                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lilac"
+                      style={{
+                        border: '1.5px solid #6145c2',
+                        boxShadow: '0 0 12px rgba(97,69,194,.7), inset 0 0 6px rgba(97,69,194,.25)',
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                        <rect x="3" y="4" width="18" height="17" rx="2" strokeLinecap="round" />
+                        <path d="M3 9h18M8 2v4M16 2v4M8 13h2M14 13h2M8 17h2M14 17h2" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-lilac/80">
+                        Трекер прослушивания
+                      </div>
+                      <p className="mt-1 text-[13.5px] leading-snug text-fg-1">
+                        В личном кабинете развернётся трекер дней — увидишь свою последовательность практик.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Deep Analysis */}
+                <div
+                  className="relative isolate overflow-hidden rounded-lg p-4"
+                  style={{
+                    boxShadow:
+                      '0 0 24px -10px rgba(97,69,194,.45), inset 0 0 0 1px rgba(180,160,255,.06)',
+                  }}
+                >
+                  <span className="liquid-card-glow" style={{ animationDuration: '18s' }} />
+                  <span className="liquid-card-border" />
+                  <div className="relative z-10 flex items-start gap-3">
+                    <span
+                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lilac"
+                      style={{
+                        border: '1.5px solid #6145c2',
+                        boxShadow: '0 0 12px rgba(97,69,194,.7), inset 0 0 6px rgba(97,69,194,.25)',
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                        <path d="M3 12a9 9 0 1 0 18 0M3 12a9 9 0 0 1 18 0M12 3v18M3 12h18" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-lilac/80">
+                        Глубокий анализ · 3 этапа
+                      </div>
+                      <p className="mt-1 text-[13.5px] leading-snug text-fg-1">
+                        При переходе на «Пароль от жизни» — короткий замер на старте, после половины курса и в финале.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Сравнение */}
+                <div
+                  className="relative isolate overflow-hidden rounded-lg p-4"
+                  style={{
+                    boxShadow:
+                      '0 0 24px -10px rgba(97,69,194,.45), inset 0 0 0 1px rgba(180,160,255,.06)',
+                  }}
+                >
+                  <span className="liquid-card-glow" style={{ animationDuration: '20s' }} />
+                  <span className="liquid-card-border" />
+                  <div className="relative z-10 flex items-start gap-3">
+                    <span
+                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lilac"
+                      style={{
+                        border: '1.5px solid #6145c2',
+                        boxShadow: '0 0 12px rgba(97,69,194,.7), inset 0 0 6px rgba(97,69,194,.25)',
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                        <path d="M4 19V5M20 19V11M12 19V8" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-lilac/80">
+                        Сравнение «было / стало»
+                      </div>
+                      <p className="mt-1 text-[13.5px] leading-snug text-fg-1">
+                        В финале увидишь честные цифры — как изменилась тревожность и подросла осознанность.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+
         </motion.div>
         </AnimatePresence>
 
@@ -513,6 +642,11 @@ export default function Onboarding() {
               </ShinyButton>
             )}
             {step === 3 && (
+              <ShinyButton fullWidth onClick={() => setStep(4)}>
+                Далее
+              </ShinyButton>
+            )}
+            {step === 4 && (
               <ShinyButton fullWidth onClick={finish}>
                 Начать
               </ShinyButton>

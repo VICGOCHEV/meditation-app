@@ -72,13 +72,36 @@ export default function AudioPlayer({
     }
   }, [loaded, practiceId, savePosition, getCurrent])
 
-  const pct = duration ? (position / duration) * 100 : 0
+  // Локальный override во время drag'а — даёт мгновенный визуальный отклик,
+  // даже до того как Howler реально проматывает (html5 mode иногда отстаёт).
+  const [dragPos, setDragPos] = useState(null)
+  const displayedPos = dragPos != null ? dragPos : position
+  const pct = duration ? (displayedPos / duration) * 100 : 0
 
-  const onBarClick = (e) => {
+  const ratioFromEvent = (e, rect) => {
+    const clientX = e.touches?.[0]?.clientX ?? e.clientX
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+  }
+
+  const onBarPointerDown = (e) => {
     if (!duration) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const ratio = (e.clientX - rect.left) / rect.width
-    seek(Math.max(0, Math.min(1, ratio)) * duration)
+    e.preventDefault()
+    const target = e.currentTarget
+    const rect = target.getBoundingClientRect()
+    const update = (ev) => setDragPos(ratioFromEvent(ev, rect) * duration)
+    update(e.nativeEvent)
+    const onMove = (ev) => update(ev)
+    const onUp = (ev) => {
+      const finalSec = ratioFromEvent(ev, rect) * duration
+      seek(finalSec)
+      setDragPos(null)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
   }
 
   const stopAnd = (fn) => (e) => {
@@ -174,23 +197,42 @@ export default function AudioPlayer({
       </div>
 
       <div className="mt-4 shrink-0">
-        <button
-          type="button"
-          onClick={onBarClick}
-          className="block h-[2px] w-full cursor-pointer bg-white/15"
+        {/* Тач-область толще (16px) — пальцем удобно. Видимая дорожка
+            тоньше (4px). Thumb-кружок показывает текущую позицию.
+            Поддерживает drag (pointer events + window-уровень handlers). */}
+        <div
+          onPointerDown={onBarPointerDown}
+          className="relative h-4 w-full cursor-pointer touch-none select-none"
+          role="slider"
           aria-label="Перемотка"
+          aria-valuemin={0}
+          aria-valuemax={duration || 0}
+          aria-valuenow={displayedPos}
         >
+          <div className="absolute left-0 right-0 top-1/2 h-[4px] -translate-y-1/2 overflow-hidden rounded-full bg-white/12">
+            <div
+              className="h-full"
+              style={{
+                width: `${pct}%`,
+                background:
+                  'linear-gradient(90deg, oklch(0.55 0.2 290), oklch(0.78 0.14 310))',
+                transition: dragPos != null ? 'none' : 'width 0.2s linear',
+              }}
+            />
+          </div>
+          {/* Thumb */}
           <div
-            className="pointer-events-none h-full"
+            className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
             style={{
-              width: `${pct}%`,
-              background:
-                'linear-gradient(90deg, oklch(0.55 0.2 290), oklch(0.78 0.14 310))',
+              left: `${pct}%`,
+              boxShadow: '0 0 14px rgba(180,160,255,.8), 0 0 24px rgba(97,69,194,.5)',
+              transition: dragPos != null ? 'none' : 'left 0.2s linear',
+              opacity: duration ? 1 : 0,
             }}
           />
-        </button>
+        </div>
         <div className="mt-2 flex justify-between font-mono text-[11px] text-fg-3">
-          <span>{formatTime(position)}</span>
+          <span>{formatTime(displayedPos)}</span>
           <span>{duration ? formatTime(duration) : durationLabel}</span>
         </div>
       </div>
