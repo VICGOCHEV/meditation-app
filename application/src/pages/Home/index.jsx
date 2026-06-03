@@ -340,11 +340,15 @@ export default function Home() {
             //   1. flag `free` — «Знакомство» + «Подкаст», бесплатны всем
             //   2. tier='all-inclusive' (299₽) — все авторские включены
             //   3. иначе — поштучно за 99₽, клик ведёт на /subscription
-            // Бонусная механика убрана в правках клиента 2026-05-20.
+            // Подкаст («Подкаст «Эволюция сознания»») имеет свою маркировку
+            // вместо общего «Включено» — клиент 03.06.
             const inAllInclusive =
               subscription.active && subscription.tier === 'all-inclusive'
             const accessible = p.free === true || inAllInclusive
-            const badge = p.free
+            const isPodcast = /^Подкаст/i.test(p.title)
+            const badge = isPodcast
+              ? '🎙 Подкаст'
+              : p.free
               ? 'Бесплатно'
               : inAllInclusive
               ? 'Включено'
