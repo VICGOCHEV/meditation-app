@@ -16,6 +16,20 @@ import { formatTime } from '../../hooks/useAudio'
 function variantKey(voice, music) {
   return `${voice || 'male'}_music${music || 1}`
 }
+
+// Какие музыки реально загружены у практики (1/2/3) — для MusicSwitcher,
+// чтобы не показывать активными те которых нет в БД. Если у практики только
+// male_music1 / female_music1 (CSV «нет, одна музыка») — вернёт [1].
+function availableMusicsOf(practice) {
+  const av = practice?.audioByVariant
+  if (!av || typeof av !== 'object') return [1, 2, 3]
+  const set = new Set()
+  for (const m of [1, 2, 3]) {
+    if (av[`male_music${m}`] || av[`female_music${m}`]) set.add(m)
+  }
+  if (!set.size) return [1, 2, 3]
+  return Array.from(set).sort()
+}
 // Возвращает URL дорожки для выбранной пары (голос, музыка), с фолбэком
 // на любую непустую — на случай если у практики нет матрицы (например,
 // «авторские», где только одна дорожка в male_music1).
@@ -52,6 +66,7 @@ export default function Player() {
   // Подписываемся на выбор голоса и музыки — при смене audioUrl пересчитается
   // и useAudio запустит crossfade.
   const selectedVoice = usePlayerStore((s) => s.selectedVoice)
+  const setVoice = usePlayerStore((s) => s.setVoice)
   const musicByPractice = usePlayerStore((s) => s.musicByPractice)
   const fallbackMusic = usePlayerStore((s) => s.selectedMusic)
   const currentMusic = musicByPractice[id] ?? fallbackMusic
@@ -62,6 +77,17 @@ export default function Player() {
   const [practiceLoaded, setPracticeLoaded] = useState(false)
   const [resumePrompt, setResumePrompt] = useState(null)
   const [completed, setCompleted] = useState(false)
+  const [finishConfirm, setFinishConfirm] = useState(false)
+  // Intro-модалка показывается только при первом открытии плеера (за всё
+  // время). После закрытия — кладём флаг в localStorage и больше не дёргаем.
+  const [introOpen, setIntroOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('player_intro_seen') !== '1'
+  })
+  const dismissIntro = () => {
+    try { localStorage.setItem('player_intro_seen', '1') } catch { /* noop */ }
+    setIntroOpen(false)
+  }
   // `leaving` flips on intent-to-navigate. AudioPlayer reads it as
   // `shaderHidden` and runs an AnimatePresence exit on the sphere
   // BEFORE the route's own opacity fade kicks in. Without this the
@@ -122,9 +148,13 @@ export default function Player() {
     setCompleted(true)
   }
 
+  const availableMusics = availableMusicsOf(practice)
+  const showMusicSwitcher = availableMusics.length > 1
+
   return (
     <ScreenShell fixed>
-      <header className="mb-4 flex shrink-0 items-center justify-between gap-3">
+      {/* Только кнопка «назад» сверху. Voice + Music ушли вниз — клиент 03.06. */}
+      <header className="mb-2 flex shrink-0 items-center justify-between gap-3">
         <button
           onClick={() => exit(-1)}
           className="flex h-10 w-10 items-center justify-center rounded-full border border-line-2 bg-white/5 text-fg-0 hover:bg-white/10"
@@ -132,11 +162,6 @@ export default function Player() {
         >
           ←
         </button>
-        {/* Music switcher — клиент 27.05: выбор фоновой энергии живёт
-            внутри практики, запоминается per-practice. Если у практики
-            ограничен набор фонов — передаём available={[1,2]} и т.п.
-            Пока CMS не отдаёт это поле — все 3 доступны для всех. */}
-        <MusicSwitcher practiceId={id} available={practice?.availableMusics} />
       </header>
 
       <AudioPlayer
@@ -146,8 +171,48 @@ export default function Player() {
         blockLabel={BLOCK_LABEL[practice?.block]?.toUpperCase()}
         durationLabel={practice?.duration || ''}
         onEnd={onEnd}
+        onRequestFinish={() => setFinishConfirm(true)}
         shaderHidden={leaving}
       />
+
+      {/* Bottom row: voice toggle слева, MusicSwitcher справа.
+          Music switcher скрываем если у практики только одна музыка
+          (CSV: «Утреннее погружение» и «Обращение к себе» без выбора). */}
+      <div className="mt-3 flex shrink-0 items-end justify-between gap-3">
+        <div className="flex flex-col items-start gap-1">
+          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-fg-3">
+            Голос
+          </span>
+          <div className="flex rounded-full border border-line-2 bg-white/5 p-1">
+            {[{ id: 'male', label: 'М' }, { id: 'female', label: 'Ж' }].map((v) => {
+              const on = selectedVoice === v.id
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setVoice(v.id)}
+                  className={[
+                    'h-8 w-8 rounded-full text-[13px] font-medium transition',
+                    on ? 'bg-lilac/30 text-fg-0' : 'text-fg-2 hover:text-fg-0',
+                  ].join(' ')}
+                  aria-label={v.id === 'male' ? 'Мужской голос' : 'Женский голос'}
+                  aria-pressed={on}
+                >
+                  {v.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {showMusicSwitcher ? (
+          <div className="flex flex-col items-end">
+            <MusicSwitcher practiceId={id} available={availableMusics} />
+          </div>
+        ) : (
+          <div /> /* placeholder для flex-выравнивания */
+        )}
+      </div>
 
       <Modal
         open={resumePrompt !== null}
@@ -185,6 +250,99 @@ export default function Player() {
         <div className="mt-5">
           <Button fullWidth onClick={() => exit('/')}>
             На главную
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Confirm «остановить практику» — клиент 03.06: при клике на ×
+          посреди плеера юзер должен явно подтвердить. */}
+      <Modal
+        open={finishConfirm}
+        onClose={() => setFinishConfirm(false)}
+        title="Завершить практику?"
+      >
+        <p className="text-[14px] text-fg-1">
+          Ты действительно хочешь остановить практику? Прогресс этого сеанса
+          сохранится, но завершённой не отметим.
+        </p>
+        <div className="mt-5 flex gap-3">
+          <Button variant="secondary" fullWidth onClick={() => setFinishConfirm(false)}>
+            Продолжить
+          </Button>
+          <Button
+            fullWidth
+            onClick={() => {
+              setFinishConfirm(false)
+              // Тот же путь что и завершение «по концу аудио» — просто
+              // выход без mark complete (юзер не дослушал).
+              clearPosition(id)
+              exit('/')
+            }}
+          >
+            Да, остановить
+          </Button>
+        </div>
+      </Modal>
+
+      {/* Intro-модалка — показывается ровно один раз для всех практик. */}
+      <Modal
+        open={introOpen}
+        onClose={dismissIntro}
+        title="Практика — это поток"
+      >
+        <div className="flex flex-col gap-4 text-[14px] text-fg-1">
+          <p className="text-fg-2">
+            Чтобы голос проводника действительно вёл — мы убрали возможность
+            ставить на паузу и перематывать.
+          </p>
+          <ul className="flex flex-col gap-3 text-[13.5px]">
+            <li className="flex items-start gap-3">
+              <span
+                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lilac"
+                style={{
+                  border: '1.5px solid #6145c2',
+                  boxShadow: '0 0 12px rgba(97,69,194,.7), inset 0 0 6px rgba(97,69,194,.25)',
+                }}
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </span>
+              <span>Жмёшь play — и просто слушаешь. До конца.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span
+                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lilac"
+                style={{
+                  border: '1.5px solid #6145c2',
+                  boxShadow: '0 0 12px rgba(97,69,194,.7), inset 0 0 6px rgba(97,69,194,.25)',
+                }}
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </span>
+              <span>Если нужно остановить — кнопка завершения в центре, с подтверждением.</span>
+            </li>
+            <li className="flex items-start gap-3">
+              <span
+                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lilac"
+                style={{
+                  border: '1.5px solid #6145c2',
+                  boxShadow: '0 0 12px rgba(97,69,194,.7), inset 0 0 6px rgba(97,69,194,.25)',
+                }}
+              >
+                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                  <path d="M3 12h2M19 12h2M7 6v12M11 3v18M15 6v12" />
+                </svg>
+              </span>
+              <span>Внизу можно сменить голос проводника и фоновое звучание — это да.</span>
+            </li>
+          </ul>
+        </div>
+        <div className="mt-5">
+          <Button fullWidth onClick={dismissIntro}>
+            Готов
           </Button>
         </div>
       </Modal>

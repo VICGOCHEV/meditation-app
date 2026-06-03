@@ -1,16 +1,21 @@
+import { useEffect, useState } from 'react'
 import Modal from '../ui/Modal'
 import Button from '../ui/Button'
 import { usePlayerStore } from '../../store/usePlayerStore'
+import { fetchMusicFromCMS } from '../../api/cms'
 
 const VOICES = [
   { id: 'male', label: 'Мужской' },
   { id: 'female', label: 'Женский' },
 ]
 
-const MUSIC = [
-  { id: 1, label: 'Спокойствие' },
-  { id: 2, label: 'Природа' },
-  { id: 3, label: 'Космос' },
+// Дефолтные названия — используются как fallback пока CMS не подгрузилась,
+// чтобы юзер не видел пустой список. После загрузки заменяются настоящими
+// названиями из БД (Лёгкость — энергия созидания и т.д.).
+const FALLBACK_MUSIC = [
+  { id: 1, title: 'Лёгкость' },
+  { id: 2, title: 'Покой' },
+  { id: 3, title: 'Заземление' },
 ]
 
 export default function VoiceMusicModal({ open, onClose }) {
@@ -18,6 +23,18 @@ export default function VoiceMusicModal({ open, onClose }) {
   const selectedMusic = usePlayerStore((s) => s.selectedMusic)
   const setVoice = usePlayerStore((s) => s.setVoice)
   const setMusic = usePlayerStore((s) => s.setMusic)
+
+  const [musicList, setMusicList] = useState(FALLBACK_MUSIC)
+  useEffect(() => {
+    let alive = true
+    fetchMusicFromCMS()
+      .then((list) => {
+        if (!alive || !Array.isArray(list) || list.length === 0) return
+        setMusicList(list.map((m) => ({ id: m.id, title: m.title })))
+      })
+      .catch(() => { /* fallback остаётся */ })
+    return () => { alive = false }
+  }, [])
 
   return (
     <Modal open={open} onClose={onClose} title="Настройки">
@@ -46,7 +63,7 @@ export default function VoiceMusicModal({ open, onClose }) {
         <div>
           <div className="label-mono mb-2">Музыка</div>
           <div className="flex flex-col gap-2">
-            {MUSIC.map((m) => {
+            {musicList.map((m) => {
               const on = selectedMusic === m.id
               return (
                 <button
@@ -59,7 +76,7 @@ export default function VoiceMusicModal({ open, onClose }) {
                       : 'border-line-2 bg-white/5 hover:bg-white/10',
                   ].join(' ')}
                 >
-                  <span className="text-fg-0">{m.label}</span>
+                  <span className="text-fg-0">{m.title}</span>
                   <span className="text-[12px] text-fg-3">▶</span>
                 </button>
               )

@@ -45,6 +45,7 @@ import { useProgression } from '../../hooks/useProgression'
 import { deleteAccount } from '../../api/auth'
 import { sendFeedback } from '../../api/feedback'
 import { getNotifyPrefs, updateNotifyPrefs, sendTestPush } from '../../api/notify'
+import { fetchMusicFromCMS } from '../../api/cms'
 
 function Section({ title, children, trailing }) {
   return (
@@ -118,6 +119,24 @@ export default function Profile() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
+
+  // Музыка для секции «Настройки» — берём из CMS (раньше был хардкод
+  // Спокойствие / Природа / Космос, который никогда не обновлялся).
+  const [musicList, setMusicList] = useState([
+    { id: 1, title: 'Лёгкость' },
+    { id: 2, title: 'Покой' },
+    { id: 3, title: 'Заземление' },
+  ])
+  useEffect(() => {
+    let alive = true
+    fetchMusicFromCMS()
+      .then((list) => {
+        if (!alive || !Array.isArray(list) || list.length === 0) return
+        setMusicList(list.map((m) => ({ id: m.id, title: m.title })))
+      })
+      .catch(() => { /* fallback остаётся */ })
+    return () => { alive = false }
+  }, [])
 
   // Уведомления: тумблер enabled + IANA-таймзона. Прогружаем с сервера
   // на mount и пишем PATCH'ем при изменении.
@@ -319,7 +338,7 @@ export default function Profile() {
           <div>
             <div className="label-mono mb-2">Музыка</div>
             <div className="flex flex-col gap-2">
-              {[{ id: 1, label: 'Спокойствие' }, { id: 2, label: 'Природа' }, { id: 3, label: 'Космос' }].map((m) => {
+              {musicList.map((m) => {
                 const on = selectedMusic === m.id
                 return (
                   <button
@@ -330,7 +349,7 @@ export default function Profile() {
                       on ? 'border-lilac bg-white/10' : 'border-line-2 bg-white/5 hover:bg-white/10',
                     ].join(' ')}
                   >
-                    <span className="text-fg-0">{m.label}</span>
+                    <span className="text-fg-0">{m.title}</span>
                     <span className="text-[12px] text-fg-3">▶</span>
                   </button>
                 )
