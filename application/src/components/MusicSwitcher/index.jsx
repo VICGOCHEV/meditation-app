@@ -58,9 +58,9 @@ export default function MusicSwitcher({ practiceId, available }) {
   const currentLabel = MUSICS.find((m) => m.id === current)?.label
 
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-[11px] text-fg-2">
-        Выбери фон звучания
+    <div className="flex flex-col items-center gap-1.5">
+      <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-fg-3">
+        Звучание
       </span>
       <div className="flex items-center justify-center gap-3">
         {MUSICS.map((m) => {
@@ -101,9 +101,6 @@ export default function MusicSwitcher({ practiceId, available }) {
         )
       })}
       </div>
-      {currentLabel && (
-        <span className="text-[11px] text-fg-2">{currentLabel}</span>
-      )}
     </div>
   )
 }

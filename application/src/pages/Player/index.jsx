@@ -75,7 +75,6 @@ export default function Player() {
   // immediately; if the CMS/backend returns a richer record, swap.
   const [practice, setPractice] = useState(() => findFromMock(id))
   const [practiceLoaded, setPracticeLoaded] = useState(false)
-  const [resumePrompt, setResumePrompt] = useState(null)
   const [completed, setCompleted] = useState(false)
   const [finishConfirm, setFinishConfirm] = useState(false)
   // Intro-модалка показывается только при первом открытии плеера (за всё
@@ -118,10 +117,10 @@ export default function Player() {
     }
   }, [id])
 
-  useEffect(() => {
-    const savedPos = loadPosition(id)
-    if (savedPos > 10) setResumePrompt(savedPos)
-  }, [id, loadPosition])
+  // Раньше при сохранённой позиции > 10c показывалась модалка «Продолжить?»
+  // Клиент 04.06: убрать — практика всегда начинается с начала.
+  // savePosition в фоне продолжает писать (используем как трекинг сколько
+  // прослушано), но resume больше не предлагается.
 
   if (!practice && practiceLoaded) {
     return (
@@ -176,14 +175,15 @@ export default function Player() {
       />
 
       {/* Bottom row: voice toggle слева, MusicSwitcher справа.
-          Music switcher скрываем если у практики только одна музыка
-          (CSV: «Утреннее погружение» и «Обращение к себе» без выбора). */}
-      <div className="mt-3 flex shrink-0 items-end justify-between gap-3">
-        <div className="flex flex-col items-start gap-1">
+          Сетка 2 колонки — равные ширины, выровнены по top baseline лейбла.
+          Высоты совпадают (label-mono сверху + 44px buttons-row снизу).
+          Music switcher скрываем если у практики только одна музыка. */}
+      <div className="mt-3 grid shrink-0 grid-cols-2 items-start gap-4">
+        <div className="flex flex-col items-start gap-1.5">
           <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-fg-3">
             Голос
           </span>
-          <div className="flex rounded-full border border-line-2 bg-white/5 p-1">
+          <div className="flex h-11 items-center rounded-full border border-line-2 bg-white/5 p-1">
             {[{ id: 'male', label: 'М' }, { id: 'female', label: 'Ж' }].map((v) => {
               const on = selectedVoice === v.id
               return (
@@ -192,8 +192,8 @@ export default function Player() {
                   type="button"
                   onClick={() => setVoice(v.id)}
                   className={[
-                    'h-8 w-8 rounded-full text-[13px] font-medium transition',
-                    on ? 'bg-lilac/30 text-fg-0' : 'text-fg-2 hover:text-fg-0',
+                    'h-9 w-10 rounded-full text-[13px] font-medium transition',
+                    on ? 'bg-lilac/25 text-fg-0' : 'text-fg-2 hover:text-fg-0',
                   ].join(' ')}
                   aria-label={v.id === 'male' ? 'Мужской голос' : 'Женский голос'}
                   aria-pressed={on}
@@ -205,39 +205,14 @@ export default function Player() {
           </div>
         </div>
 
-        {showMusicSwitcher ? (
-          <div className="flex flex-col items-end">
+        <div className="flex flex-col items-end">
+          {showMusicSwitcher ? (
             <MusicSwitcher practiceId={id} available={availableMusics} />
-          </div>
-        ) : (
-          <div /> /* placeholder для flex-выравнивания */
-        )}
-      </div>
-
-      <Modal
-        open={resumePrompt !== null}
-        onClose={() => setResumePrompt(null)}
-        title="Продолжить?"
-      >
-        <p className="text-[14px] text-fg-1">
-          В прошлый раз ты остановился на {formatTime(resumePrompt || 0)}. Продолжить с этого места?
-        </p>
-        <div className="mt-5 flex gap-3">
-          <Button
-            variant="secondary"
-            fullWidth
-            onClick={() => {
-              clearPosition(id)
-              setResumePrompt(null)
-            }}
-          >
-            Сначала
-          </Button>
-          <Button fullWidth onClick={() => setResumePrompt(null)}>
-            Да, продолжить
-          </Button>
+          ) : (
+            <div /> /* placeholder если у практики 1 музыка */
+          )}
         </div>
-      </Modal>
+      </div>
 
       <Modal
         open={completed}
@@ -284,66 +259,78 @@ export default function Player() {
         </div>
       </Modal>
 
-      {/* Intro-модалка — показывается ровно один раз для всех практик. */}
+      {/* Intro — показывается один раз. Стиль: serif заголовок,
+          eyebrow «ВВЕДЕНИЕ», три строки с тонкими иконками без жирных
+          обводок, разделённые hairline-линиями. */}
       <Modal
         open={introOpen}
         onClose={dismissIntro}
-        title="Практика — это поток"
+        title=""
       >
-        <div className="flex flex-col gap-4 text-[14px] text-fg-1">
-          <p className="text-fg-2">
+        <div className="flex flex-col items-center text-center">
+          <div className="font-mono text-[9px] uppercase tracking-[0.32em] text-lilac/70">
+            Введение
+          </div>
+          <h2 className="mt-3 font-serif text-[28px] leading-tight text-fg-0">
+            Практика — <span className="text-lilac">это поток</span>
+          </h2>
+          <p className="mt-4 max-w-[34ch] text-[13.5px] leading-relaxed text-fg-2">
             Чтобы голос проводника действительно вёл — мы убрали возможность
             ставить на паузу и перематывать.
           </p>
-          <ul className="flex flex-col gap-3 text-[13.5px]">
-            <li className="flex items-start gap-3">
-              <span
-                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lilac"
-                style={{
-                  border: '1.5px solid #6145c2',
-                  boxShadow: '0 0 12px rgba(97,69,194,.7), inset 0 0 6px rgba(97,69,194,.25)',
-                }}
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-              </span>
-              <span>Жмёшь play — и просто слушаешь. До конца.</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span
-                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lilac"
-                style={{
-                  border: '1.5px solid #6145c2',
-                  boxShadow: '0 0 12px rgba(97,69,194,.7), inset 0 0 6px rgba(97,69,194,.25)',
-                }}
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </span>
-              <span>Если нужно остановить — кнопка завершения в центре, с подтверждением.</span>
-            </li>
-            <li className="flex items-start gap-3">
-              <span
-                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-lilac"
-                style={{
-                  border: '1.5px solid #6145c2',
-                  boxShadow: '0 0 12px rgba(97,69,194,.7), inset 0 0 6px rgba(97,69,194,.25)',
-                }}
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-                  <path d="M3 12h2M19 12h2M7 6v12M11 3v18M15 6v12" />
-                </svg>
-              </span>
-              <span>Внизу можно сменить голос проводника и фоновое звучание — это да.</span>
-            </li>
-          </ul>
-        </div>
-        <div className="mt-5">
-          <Button fullWidth onClick={dismissIntro}>
-            Готов
-          </Button>
+
+          <div className="mt-7 w-full max-w-sm">
+            {[
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                ),
+                text: 'Жмёшь play — и слушаешь до конца.',
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                ),
+                text: 'Чтобы остановить — кнопка завершения в центре, с подтверждением.',
+              },
+              {
+                icon: (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
+                    <path d="M3 12h2M19 12h2M7 6v12M11 3v18M15 6v12" />
+                  </svg>
+                ),
+                text: 'Голос и фон меняй внизу плеера — это да.',
+              },
+            ].map((row, i, arr) => (
+              <div key={i}>
+                <div className="flex items-start gap-4 py-3 text-left">
+                  <span className="mt-[2px] shrink-0 text-lilac">{row.icon}</span>
+                  <span className="text-[13.5px] leading-relaxed text-fg-1">
+                    {row.text}
+                  </span>
+                </div>
+                {i < arr.length - 1 && (
+                  <div
+                    className="h-px w-full"
+                    style={{
+                      background:
+                        'linear-gradient(90deg, transparent, rgba(180,160,255,0.18), transparent)',
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-7 w-full max-w-sm">
+            <Button fullWidth onClick={dismissIntro}>
+              Готов
+            </Button>
+          </div>
         </div>
       </Modal>
     </ScreenShell>

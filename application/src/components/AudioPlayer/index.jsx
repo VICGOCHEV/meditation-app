@@ -47,7 +47,11 @@ export default function AudioPlayer({
     return () => clearTimeout(t)
   }, [])
 
-  const initialPos = loadPosition(practiceId)
+  // Клиент 04.06: «Продолжить?» модалку убрали — практика всегда с нуля.
+  // savePosition в фоне продолжает писать для возможной аналитики
+  // (сколько юзер прослушал в этом сеансе), но при mount всегда стартуем
+  // с 0. loadPosition оставлен импортом на будущее.
+  void loadPosition
 
   const {
     isPlaying,
@@ -56,7 +60,7 @@ export default function AudioPlayer({
     loaded,
     toggle,
     getCurrent,
-  } = useAudio(audioUrl, { initialPosition: initialPos, onEnd })
+  } = useAudio(audioUrl, { initialPosition: 0, onEnd })
 
   useEffect(() => {
     if (!loaded) return
