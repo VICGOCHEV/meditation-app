@@ -6,15 +6,17 @@ import PasswordInput from './PasswordInput'
 import { register, verifyCode } from '../../api/auth'
 import { useAuthStore } from '../../store/useAuthStore'
 
-// Те же правила что и на бэке (см. backend/src/routes/auth.js):
-// 8+ символов, хотя бы одна буква и одна цифра.
-const PASSWORD_RE = /^(?=.*[A-Za-zА-Яа-яЁё])(?=.*\d).{8,}$/
+// Те же правила что и на бэке (backend/src/routes/auth.js):
+// 8+ символов, хотя бы одна буква и хотя бы одна цифра ИЛИ символ.
+// Раньше фронт требовал именно цифру — backend пропускал «Password!»,
+// фронт нет → юзер думал что правильный пароль отвергают.
+const PASSWORD_RE = /^(?=.*[A-Za-zА-Яа-яЁё])(?=.*[\d\W_]).{8,}$/
 
 function passwordChecks(pwd) {
   return {
     long: pwd.length >= 8,
     letter: /[A-Za-zА-Яа-яЁё]/.test(pwd),
-    digit: /\d/.test(pwd),
+    nonAlpha: /[\d\W_]/.test(pwd), // цифра или любой не-буквенный символ
   }
 }
 
@@ -38,7 +40,7 @@ function PasswordHints({ pwd, show }) {
     <ul className="mt-2 flex flex-col gap-1 text-[12px]">
       {row(c.long, 'минимум 8 символов')}
       {row(c.letter, 'хотя бы одна буква')}
-      {row(c.digit, 'хотя бы одна цифра')}
+      {row(c.nonAlpha, 'хотя бы одна цифра или символ')}
     </ul>
   )
 }
@@ -65,7 +67,7 @@ export default function Register() {
     e.preventDefault()
     setErr('')
     if (!identifier.trim()) return setErr('Введи email или телефон')
-    if (!pwdOk) return setErr('Пароль слишком слабый: нужны 8+ символов, буква и цифра')
+    if (!pwdOk) return setErr('Пароль слишком слабый: нужны 8+ символов, хотя бы одна буква и одна цифра или символ')
     if (!matchOk) return setErr('Пароли не совпадают')
     setLoading(true)
     try {

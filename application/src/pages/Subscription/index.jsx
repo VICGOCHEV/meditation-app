@@ -202,12 +202,29 @@ export default function Subscription() {
       widget.on('success', async () => {
         try { widget.destroy() } catch { /* ignore */ }
         widgetRef.current = null
-        try {
-          await loadFromServer()
-        } catch {
-          /* webhook на сервере всё равно активировал подписку */
+        // YooKassa webhook прилетает к нам после success'а виджета — но
+        // с лагом (обычно 1-3 сек, иногда до 10). Раньше мы показывали
+        // success мгновенно, даже если loadFromServer падал или ещё не
+        // активировал подписку. Юзер мог увидеть «оплачено» и ничего
+        // в Profile.
+        // Теперь: показываем «проверяем оплату» и пуллим subscription
+        // до 12 секунд. Если active=true — успех. Если нет — даём retry.
+        setStage('verifying')
+        const deadline = Date.now() + 12000
+        let confirmed = false
+        while (Date.now() < deadline) {
+          try {
+            await loadFromServer()
+            const sub = useProgressStore.getState().subscription
+            if (sub?.active) { confirmed = true; break }
+          } catch { /* пробуем ещё */ }
+          await new Promise((r) => setTimeout(r, 1200))
         }
-        setStage('success')
+        if (confirmed) {
+          setStage('success')
+        } else {
+          setStage('verifying-timeout')
+        }
       })
       widget.on('fail', () => {
         try { widget.destroy() } catch { /* ignore */ }
@@ -262,6 +279,61 @@ export default function Subscription() {
           ←
         </button>
       </div>
+
+      {/* ─── 0. VERIFYING — пуллим subscription пока webhook долетает ─── */}
+      {stage === 'verifying' && (
+        <div className="flex min-h-[70dvh] flex-col items-center justify-center text-center animate-fade-in">
+          <div className="mb-6 h-10 w-10 animate-spin rounded-full border-2 border-lilac/30 border-t-lilac" />
+          <h1 className="font-serif text-3xl text-fg-0">Проверяем оплату…</h1>
+          <p className="mt-3 max-w-xs text-[14px] text-fg-2">
+            Банк подтверждает платёж. Это займёт несколько секунд.
+          </p>
+        </div>
+      )}
+
+      {/* ─── 0b. VERIFYING TIMEOUT — оплата прошла, но статус ещё не докатился ─── */}
+      {stage === 'verifying-timeout' && (
+        <div className="flex min-h-[70dvh] flex-col items-center justify-center text-center animate-fade-in">
+          <div
+            className="mb-6 flex h-20 w-20 items-center justify-center rounded-full"
+            style={{
+              background: 'oklch(0.72 0.13 80 / 0.18)',
+              border: '1px solid oklch(0.72 0.13 80 / 0.4)',
+            }}
+          >
+            <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none" stroke="oklch(0.82 0.13 80)" strokeWidth="2">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v6l4 2" strokeLinecap="round" />
+            </svg>
+          </div>
+          <h1 className="font-serif text-3xl text-fg-0">Оплата в обработке</h1>
+          <p className="mt-3 max-w-sm text-[14px] text-fg-2">
+            Банк уже подтвердил платёж, но мы пока не получили окончательное
+            уведомление. Подписка активируется в течение пары минут — обнови
+            страницу или зайди заново.
+          </p>
+          <div className="mt-8 flex w-full max-w-sm flex-col gap-3">
+            <Button
+              size="lg"
+              fullWidth
+              onClick={async () => {
+                setStage('verifying')
+                try {
+                  await loadFromServer()
+                  const sub = useProgressStore.getState().subscription
+                  if (sub?.active) { setStage('success'); return }
+                } catch { /* ignore */ }
+                setStage('verifying-timeout')
+              }}
+            >
+              Проверить ещё раз
+            </Button>
+            <Button size="lg" fullWidth variant="secondary" onClick={() => navigate('/')}>
+              На главную
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ─── 1. SUCCESS — полноэкранный финал, без выбора ─── */}
       {stage === 'success' && (
@@ -343,7 +415,8 @@ export default function Subscription() {
       )}
 
       {/* ─── 3. IDLE / LOADING / ERROR — выбор тарифа + CTA ─── */}
-      {stage !== 'success' && stage !== 'widget' && (
+      {stage !== 'success' && stage !== 'widget' &&
+       stage !== 'verifying' && stage !== 'verifying-timeout' && (
         <>
           <div className="label-mono text-lilac">Подписка</div>
           <h1 className="mt-2 font-serif text-[34px] leading-tight text-fg-0">

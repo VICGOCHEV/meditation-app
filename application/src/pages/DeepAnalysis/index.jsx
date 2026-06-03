@@ -327,6 +327,8 @@ export default function DeepAnalysis() {
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState(Array(10).fill(5))
   const [result, setResult] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitErr, setSubmitErr] = useState('')
   const prevStepRef = useRef(0)
   const direction = step >= prevStepRef.current ? 'forward' : 'backward'
   prevStepRef.current = step
@@ -385,25 +387,44 @@ export default function DeepAnalysis() {
       setStep(step + 1)
       return
     }
+    if (submitting) return
+    setSubmitErr('')
+    setSubmitting(true)
     const IT = calcIT(answers[0], answers[1], answers[2], answers[3], answers[4])
     const IO = calcIO(answers[5], answers[6], answers[7], answers[8], answers[9])
     const KT = calcKT(IO, IT)
     const delta = ktDelta(KT, historyAtMount)
-    // recordDeepAnalysis is now the single source of truth — in
-    // real-backend mode the server unlocks the next awareness practice
-    // and re-evaluates the bonus inside this one call, and returns the
-    // ids. unlockNext() / unlockBonus() are kept on the store for the
-    // mock-mode path inside recordDeepAnalysis.
-    const r = await recordAnalysis({ answers, IT, IO, KT })
-    setResult({
-      IT,
-      IO,
-      KT,
-      delta,
-      ...interpretKT(KT),
-      newlyUnlockedId: r?.newlyUnlockedId ?? null,
-      newlyUnlockedBonus: r?.newlyUnlockedBonus ?? [],
-    })
+    try {
+      // recordDeepAnalysis is the single source of truth — в real-backend
+      // mode сервер открывает следующую awareness и переоценивает бонус
+      // в одном вызове, возвращая ids.
+      const r = await recordAnalysis({ answers, IT, IO, KT })
+      setResult({
+        IT,
+        IO,
+        KT,
+        delta,
+        ...interpretKT(KT),
+        newlyUnlockedId: r?.newlyUnlockedId ?? null,
+        newlyUnlockedBonus: r?.newlyUnlockedBonus ?? [],
+      })
+    } catch (e) {
+      // Раньше exception распространялся выше и юзер тупо застревал на
+      // последнем вопросе без объяснения. Теперь показываем inline-текст
+      // с возможностью повторить.
+      // eslint-disable-next-line no-console
+      console.warn('DeepAnalysis submit failed', e)
+      const msg =
+        e?.response?.data?.error ||
+        (e?.response?.status >= 500
+          ? 'Сервер замедлился. Попробуй ещё раз через минуту.'
+          : null) ||
+        e?.message ||
+        'Не удалось сохранить замер. Попробуй ещё раз.'
+      setSubmitErr(msg)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (result) {
@@ -520,10 +541,21 @@ export default function DeepAnalysis() {
               Назад
             </Button>
           )}
-          <Button fullWidth size="lg" onClick={onNext}>
+          <Button
+            fullWidth
+            size="lg"
+            onClick={onNext}
+            loading={submitting}
+            disabled={submitting}
+          >
             {step === 9 ? 'Завершить' : 'Далее'}
           </Button>
         </div>
+        {step === 9 && submitErr && (
+          <div className="mt-3 rounded-md border border-err/30 bg-err/10 px-3 py-2 text-[13px] text-err">
+            {submitErr}
+          </div>
+        )}
       </div>
     </ScreenShell>
   )

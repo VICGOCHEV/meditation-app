@@ -199,6 +199,7 @@ export default function Home() {
     }
   }, [todayDone, redirecting, navigate])
 
+  const [contentError, setContentError] = useState(false)
   useEffect(() => {
     let alive = true
     fetchPractices()
@@ -209,9 +210,20 @@ export default function Home() {
             (p.awareness?.length || 0) +
             (p.author?.length || 0) >
           0
-        if (hasContent) setPractices(p)
+        if (hasContent) {
+          setPractices(p)
+          setContentError(false)
+        }
       })
-      .catch(() => {})
+      .catch((e) => {
+        // Раньше ошибка тихо проглатывалась и юзер видел mock-практики
+        // как настоящие. Теперь логируем + поднимаем флаг для лёгкого
+        // info-баннера (без блокировки UI).
+        if (!alive) return
+        // eslint-disable-next-line no-console
+        console.warn('fetchPractices failed, using cached/mock list', e?.message || e)
+        setContentError(true)
+      })
     return () => {
       alive = false
     }
@@ -233,6 +245,13 @@ export default function Home() {
       </header>
 
       <CompanionsCounter />
+
+      {contentError && (
+        <div className="mb-4 mt-2 rounded-md border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-[12px] text-amber-200/90">
+          Не удалось обновить список практик. Показаны последние сохранённые
+          данные — потяни вниз или обнови страницу.
+        </div>
+      )}
 
       <section className="mt-8">
         <SectionHead

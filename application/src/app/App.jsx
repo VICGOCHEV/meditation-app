@@ -7,6 +7,8 @@ import Preloader from '../components/Preloader'
 import BottomNav from '../components/ui/BottomNav'
 import { LiquidGlassFilter } from '../components/ui/LiquidGlass'
 import { useAuthStore } from '../store/useAuthStore'
+import { useProgressStore } from '../store/useProgressStore'
+import { useCheckinStore } from '../store/useCheckinStore'
 import useTimeTheme from '../hooks/useTimeTheme'
 import usePlatformAuth from '../hooks/usePlatformAuth'
 
@@ -46,10 +48,18 @@ export default function App() {
     return sessionStorage.getItem('preloader_played') === '1'
   })
 
+  const flushPendingCompletions = useProgressStore((s) => s.flushPendingCompletions)
+  const flushPendingCheckin = useCheckinStore((s) => s.flushPendingSync)
+
   useEffect(() => {
     restoreSession()
     setReady(true)
-  }, [restoreSession])
+    // Retry pending API-writes которые упали из-за сетевых сбоев в прошлой
+    // сессии — checkin и practice completion. Если очереди пусты или
+    // юзер не залогинен — функции тихо вернутся.
+    flushPendingCheckin?.()
+    flushPendingCompletions?.()
+  }, [restoreSession, flushPendingCheckin, flushPendingCompletions])
 
   // Smooth-scroll: page lags behind cursor/wheel input. Enabled on
   // pointer-able devices (skips touch-only phones where native momentum is

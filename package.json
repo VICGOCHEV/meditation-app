@@ -9,7 +9,6 @@
     "dev:cms": "cd cms && npm run dev",
     "dev:backend": "cd backend && npm run dev",
     "dev:landing": "cd landing && npm run dev",
-    "build:landing": "cd landing && npm run build",
-    "lint": "cd application && npm run lint"
+    "build:landing": "cd landing && npm run build"
   }
 }

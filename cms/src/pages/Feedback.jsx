@@ -44,7 +44,7 @@ export default function Feedback() {
       })
       setRows(data || [])
     } catch (e) {
-      toast.error(errText(e))
+      toast.err(errText(e))
     } finally {
       setLoading(false)
     }
@@ -57,7 +57,7 @@ export default function Feedback() {
       await api.patch(`/admin/feedback/${id}`, { status })
       setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)))
     } catch (e) {
-      toast.error(errText(e))
+      toast.err(errText(e))
     }
   }
 

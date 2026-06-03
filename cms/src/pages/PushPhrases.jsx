@@ -199,7 +199,7 @@ export default function PushPhrases() {
       const { data } = await api.get('/admin/push-phrases')
       setRows(data?.items || [])
     } catch (e) {
-      toast.error(errText(e))
+      toast.err(errText(e))
     } finally {
       setLoading(false)
     }
@@ -222,15 +222,15 @@ export default function PushPhrases() {
     try {
       if (editing.phrase) {
         await api.put(`/admin/push-phrases/${editing.phrase.id}`, data)
-        toast.success('Фраза обновлена')
+        toast.ok('Фраза обновлена')
       } else {
         await api.post('/admin/push-phrases', data)
-        toast.success('Фраза создана')
+        toast.ok('Фраза создана')
       }
       setEditing(null)
       await load()
     } catch (e) {
-      toast.error(errText(e))
+      toast.err(errText(e))
     }
   }
 
@@ -239,7 +239,7 @@ export default function PushPhrases() {
       await api.put(`/admin/push-phrases/${phrase.id}`, { active: !phrase.active })
       setRows((rs) => rs.map((r) => (r.id === phrase.id ? { ...r, active: !phrase.active } : r)))
     } catch (e) {
-      toast.error(errText(e))
+      toast.err(errText(e))
     }
   }
 
@@ -247,10 +247,10 @@ export default function PushPhrases() {
     if (!confirm(`Удалить эту фразу? Текст:\n\n«${phrase.text.slice(0, 100)}…»`)) return
     try {
       await api.delete(`/admin/push-phrases/${phrase.id}`)
-      toast.success('Удалено')
+      toast.ok('Удалено')
       setRows((rs) => rs.filter((r) => r.id !== phrase.id))
     } catch (e) {
-      toast.error(errText(e))
+      toast.err(errText(e))
     }
   }
 

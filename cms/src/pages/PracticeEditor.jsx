@@ -94,6 +94,27 @@ export default function PracticeEditor({ mode }) {
       toast.err('Введите название')
       return
     }
+    // Перед публикацией проверяем что есть аудио — UI помечал music1
+    // как required, но publish раньше пропускал практику без дорожек.
+    // Авторский блок может быть без матрицы, но хотя бы одна дорожка
+    // (любая ячейка) должна быть.
+    if (published) {
+      const hasAnyAudio = Object.values(form.audio).some(Boolean)
+      if (!hasAnyAudio) {
+        toast.err('Загрузи хотя бы одну дорожку перед публикацией')
+        return
+      }
+      if (form.block !== 'author') {
+        // Для relaxation / awareness обязательна music1 у обоих голосов
+        // (это минимальная конфигурация — без неё плеер не сработает).
+        const mm1 = form.audio?.male_music1
+        const fm1 = form.audio?.female_music1
+        if (!mm1 || !fm1) {
+          toast.err('Для публикации нужны минимум male_music1 и female_music1')
+          return
+        }
+      }
+    }
     setSaving(true)
     try {
       const payload = buildPayload(published)

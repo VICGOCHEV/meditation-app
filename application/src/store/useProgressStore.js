@@ -152,8 +152,18 @@ export const useProgressStore = create((set, get) => ({
       try {
         await apiCompletePractice(id)
         await get().loadFromServer()
-      } catch {
-        /* network failure — local state уже отражает действие */
+      } catch (e) {
+        // Сетевой сбой / 5xx — кладём id в очередь pending sync чтобы
+        // прогресс не потерялся. flushPendingCompletions попробует
+        // отправить ещё раз при следующем mount'е App.
+        try {
+          const raw = localStorage.getItem('completion_pending_sync')
+          const arr = raw ? JSON.parse(raw) : []
+          if (!arr.includes(id)) arr.push(id)
+          localStorage.setItem('completion_pending_sync', JSON.stringify(arr))
+        } catch { /* ignore */ }
+        // eslint-disable-next-line no-console
+        console.warn('practice completion pending sync', id, e?.message || e)
       }
     } else {
       // Mock: пересчитать daCheckpoint + nextAwarenessUnlock локально
@@ -165,6 +175,29 @@ export const useProgressStore = create((set, get) => ({
       persist(get())
     }
     return id
+  },
+
+  // Попытка дослать pending-completions из localStorage. Вызывается из App.jsx
+  // при старте, после возврата связи. В USE_MOCK ничего не делает.
+  flushPendingCompletions: async () => {
+    if (USE_MOCK) return
+    let arr = []
+    try {
+      arr = JSON.parse(localStorage.getItem('completion_pending_sync') || '[]')
+    } catch { return }
+    if (!arr.length) return
+    const remaining = []
+    for (const id of arr) {
+      try {
+        await apiCompletePractice(id)
+      } catch {
+        remaining.push(id)
+      }
+    }
+    localStorage.setItem('completion_pending_sync', JSON.stringify(remaining))
+    if (remaining.length === 0) {
+      try { await get().loadFromServer() } catch { /* ignore */ }
+    }
   },
 
   addTrackerDay: (date = todayISO()) => {
