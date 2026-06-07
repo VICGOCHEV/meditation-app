@@ -63,6 +63,17 @@ export async function tgRoutes(app) {
     const chatId = msg.chat.id
     const text = msg.text || ''
 
+    // Логируем chat_id и текст — для дебага «откуда пишет юзер»
+    // (в обычных pino-логах виден только URL, chat_id не виден без этого).
+    app.log.info({
+      tg_chat_id: chatId,
+      tg_from: msg.from && {
+        id: msg.from.id, username: msg.from.username,
+        first_name: msg.from.first_name, last_name: msg.from.last_name,
+      },
+      tg_text: text.slice(0, 200),
+    }, 'tg webhook message')
+
     try {
       if (isCommand(text, 'start')) {
         await sendMessage(chatId, WELCOME_TEXT, {
