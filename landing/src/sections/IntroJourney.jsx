@@ -1,12 +1,9 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react'
-import { motion, useScroll, useTransform, useMotionValueEvent, useSpring } from 'framer-motion'
+import { useState, useEffect, useRef } from 'react'
+import { motion, useScroll, useTransform, useSpring } from 'framer-motion'
 import ScrollScrub from '../components/ScrollScrub'
 import ShinyButton from '../components/ShinyButton'
 import MouseFloat from '../components/MouseFloat'
 import { SymBlob, SymRipple, SymWave, SymOrbit, SymConstellation } from '../components/OrbSymbols'
-
-// глубинный шейдер — отдельным чанком, монтируется только в своей фазе
-const DepthScene = lazy(() => import('../components/DepthScene'))
 
 const EASE = [0.25, 1, 0.5, 1]
 
@@ -28,12 +25,10 @@ const lineDown = {
   visible: { opacity: 1, y: 0, transition: { duration: 1.2, ease: EASE } },
 }
 
-// Раскладка по скроллу: [0..SCRUB] — покадровый видео-влёт (AVIF-скраб),
-// [SCRUB..DEPTH] — финальный кадр оживает depth-параллаксом, [MANI..1] —
-// фразы манифеста. Только после — pin отпускается → классика.
-const SCRUB_END = 0.30
-const DEPTH_END = 0.42
-const MANI_START = 0.46
+// Раскладка по скроллу: [0..SCRUB] — плавный пролёт сквозь видео (AVIF-скраб),
+// затем мягкий кроссфейд в [MANI..1] — фразы манифеста. depth-карта убрана.
+const SCRUB_END = 0.5
+const MANI_START = 0.5
 
 // a — тихий зачин (extralight), b — акцент (medium), смещён вправо
 const PHRASES = [
@@ -138,47 +133,10 @@ export default function IntroJourney() {
     ? { dir: 'frames-m', count: 97, color: 'hero/scrub-m-last.webp', depth: 'hero/scrub-m-last-depth.webp' }
     : { dir: 'frames', count: 121, color: 'hero/scrub-last.webp', depth: 'hero/scrub-last-depth.webp' }
 
-  // фаза 1 — покадровый скраб (видео-влёт)
+  // покадровый скраб — плавный пролёт сквозь видео
   const scrub = useTransform(scrollYProgress, [0, SCRUB_END], [0, 1])
-  const scrubOpacity = useTransform(scrollYProgress, [SCRUB_END - 0.03, SCRUB_END + 0.02], [1, 0])
-  // фаза 2 — финальный кадр оживает глубиной, в конце РЕЗКИЙ наезд = «в трубу засосало»
-  const depth = useTransform(scrollYProgress, [SCRUB_END, DEPTH_END - 0.05, DEPTH_END], [0, 0.32, 1.0])
-  const depthWarp = useTransform(scrollYProgress, [DEPTH_END - 0.05, DEPTH_END], [1, 1.42])
-  const depthOpacity = useTransform(scrollYProgress, [SCRUB_END - 0.05, SCRUB_END, DEPTH_END - 0.04, DEPTH_END], [0, 1, 1, 0])
-
-  // рендерим WebGL глубины только в её фазе (иначе зря жрёт GPU = лаги)
-  const [depthActive, setDepthActive] = useState(false)
-  useMotionValueEvent(scrollYProgress, 'change', (v) => {
-    const on = v > SCRUB_END - 0.08 && v < DEPTH_END + 0.03
-    setDepthActive((prev) => (prev !== on ? on : prev))
-  })
-
-  // авто-скролл-гейт: на стыке скраб→глубина тебя автоматически протягивает
-  // через «трубу» до первой фразы манифеста; вверх — обратно к концу скраба.
-  const autoLock = useRef(false)
-  const lastSp = useRef(0)
-  const P_PHRASE1 = 0.50 // первая фраза манифеста видна
-  const P_SCRUB = 0.27 // конец скраба (последний кадр)
-  useMotionValueEvent(scrollYProgress, 'change', (v) => {
-    const lenis = typeof window !== 'undefined' ? window.__lenis : null
-    const sec = ref.current
-    const prev = lastSp.current
-    lastSp.current = v
-    if (!lenis || !sec || autoLock.current) return
-    // большие прыжки = переход по якорю/программный скролл → гейт не трогаем
-    if (Math.abs(v - prev) > 0.05) return
-    const range = sec.offsetHeight - window.innerHeight
-    const top = sec.offsetTop
-    // плавный разгон и торможение — без резкого старта/брейка («космос» убран)
-    const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2)
-    const fire = (p, duration, easing) => {
-      autoLock.current = true
-      lenis.scrollTo(top + p * range, { duration, easing, lock: true, onComplete: () => { autoLock.current = false } })
-      setTimeout(() => { autoLock.current = false }, duration * 1000 + 700) // страховка
-    }
-    if (v > prev && prev < SCRUB_END && v >= SCRUB_END) fire(P_PHRASE1, 1.8, easeInOutCubic) // вниз → к фразе
-    else if (v < prev && prev > MANI_START && v <= MANI_START) fire(P_SCRUB, 1.2, easeInOutCubic) // вверх → к скрабу
-  })
+  // в конце видео — мягкое затухание (кроссфейд в манифест/следующую секцию)
+  const scrubOpacity = useTransform(scrollYProgress, [SCRUB_END - 0.06, SCRUB_END + 0.02], [1, 0])
 
   // текст hero — поверх начала скраба. БЕЗ blur по скроллу: анимация filter:blur()
   // на крупном заголовке форсит repaint каждый кадр = тормоз. Fade+scale (GPU) хватает.
@@ -201,14 +159,7 @@ export default function IntroJourney() {
   return (
     <section ref={ref} style={{ height: '880vh' }} className="relative">
       <div className="sticky top-0 h-screen overflow-hidden">
-        {/* фаза 2 (за скрабом) — финальный кадр + карта глубины; в конце scale = «труба» */}
-        <motion.div className="absolute inset-0" style={{ opacity: depthOpacity, scale: depthWarp, zIndex: 1 }}>
-          <Suspense fallback={null}>
-            <DepthScene key={cfg.color} progress={depth} color={cfg.color} depth={cfg.depth} active={depthActive} />
-          </Suspense>
-        </motion.div>
-
-        {/* фаза 1 — покадровый AVIF-скраб поверх; на хэндофе гаснет, открывая тот же кадр в глубине */}
+        {/* покадровый AVIF-скраб — пролёт сквозь видео; в конце мягко гаснет */}
         <motion.div className="absolute inset-0" style={{ opacity: scrubOpacity, zIndex: 2 }}>
           <ScrollScrub key={cfg.dir} progress={scrub} dir={cfg.dir} count={cfg.count} />
         </motion.div>
