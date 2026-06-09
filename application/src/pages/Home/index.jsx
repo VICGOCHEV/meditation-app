@@ -122,7 +122,7 @@ function SectionHead({ eyebrow, title, sub, chip }) {
           <div className="label-mono text-lilac/80">{eyebrow}</div>
         </div>
         {chip && (
-          <span className="shrink-0 rounded-full border border-lilac/30 bg-lilac/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-lilac">
+          <span className="shrink-0 rounded-full border border-lilac/60 bg-lilac/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.15em] text-lilac">
             {chip}
           </span>
         )}

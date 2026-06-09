@@ -201,9 +201,12 @@ const amorphFragment = /* glsl */ `
     // at the intersection feel the screen-blend version had.
     float alphaMix = mix(0.55, 1.00, cut);
     float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
-    // Edge cleanup: very near-black pixels (anti-alias artefacts
-    // on the body edge) drop to transparent.
-    float edgeFade = smoothstep(0.0, 0.06, lum);
+    // Edge cleanup: very near-black pixels (anti-alias артефакты на body
+    // edge) гасим в прозрачность. Клиент 09.06: «снова видно чёрные края».
+    // Поднял нижний порог luminance (0.0 → 0.04) и резче клип (0.06 → 0.18),
+    // плюс возвёл edgeFade в степень 1.3 чтобы темнота быстрее уходила
+    // в alpha=0, а не подсвечивалась чёрным полу-прозрачным контуром.
+    float edgeFade = pow(smoothstep(0.04, 0.18, lum), 1.3);
     float alpha = body * alphaMix * edgeFade;
 
     gl_FragColor = vec4(col, alpha);

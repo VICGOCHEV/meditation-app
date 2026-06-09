@@ -237,8 +237,10 @@ export default function Player() {
         title="Завершить практику?"
       >
         <p className="text-[14px] text-fg-1">
-          Ты действительно хочешь остановить практику? Прогресс этого сеанса
-          сохранится, но завершённой не отметим.
+          Ты действительно хочешь остановить практику?
+        </p>
+        <p className="mt-2 text-[13px] text-fg-2">
+          Но она не будет отмечена в трекере.
         </p>
         <div className="mt-5 flex gap-3">
           <Button variant="secondary" fullWidth onClick={() => setFinishConfirm(false)}>
@@ -295,7 +297,7 @@ export default function Player() {
                     <path d="M6 6l12 12M18 6L6 18" />
                   </svg>
                 ),
-                text: 'Чтобы остановить — кнопка завершения в центре, с подтверждением.',
+                text: 'Чтобы остановить раньше — есть крестик в центре, с подтверждением.',
               },
               {
                 icon: (
@@ -303,7 +305,7 @@ export default function Player() {
                     <path d="M3 12h2M19 12h2M7 6v12M11 3v18M15 6v12" />
                   </svg>
                 ),
-                text: 'Голос и фон меняй внизу плеера — это да.',
+                text: 'Голос проводника и фоновое звучание выбирай ниже на плеере.',
               },
             ].map((row, i, arr) => (
               <div key={i}>

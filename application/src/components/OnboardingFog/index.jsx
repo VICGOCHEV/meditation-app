@@ -67,10 +67,14 @@ const fragment = /* glsl */ `
 
     float vign = mix(0.85, 1.0, smoothstep(1.1, 0.1, length(p)));
 
-    // Even denser threshold — thicker, more visible clouds
-    float smokeGate = smoothstep(0.18, 0.80, smoke);
-    float halo = vign * smokeGate * mix(0.85, 1.45, wisps);
-    halo += vign * pow(smoke, 4.0) * 0.55;
+    // Клиент 09.06: «пиковые значения дыма надо дать меньше».
+    // Подняли нижний порог smokeGate (0.18 → 0.32) — меньше базы дыма,
+    // и снизили wisps-множитель (mix 0.85→1.45 → 0.70→1.00) — нет
+    // ярких всплесков. Убрали добавочный «pow(smoke, 4.0)» — это
+    // именно он давал резкие пики «вдруг много», которые потом
+    // быстро исчезали.
+    float smokeGate = smoothstep(0.32, 0.78, smoke);
+    float halo = vign * smokeGate * mix(0.70, 1.00, wisps);
     halo *= uDensity;
     // 60-s gating window — emulates "stop generating new smoke" instead
     // of just dimming it. First 30 s of every cycle: full strength.
@@ -84,7 +88,9 @@ const fragment = /* glsl */ `
       smoothstep(58.0, 60.0, cycle)
     );
     halo *= gen;
-    halo = clamp(halo, 0.0, 1.0);
+    // Жёсткий потолок alpha (≤0.42) — чтобы пиковая густота никогда
+    // не перекрывала текст. Раньше доходило до 0.9, перекрывая всё.
+    halo = clamp(halo, 0.0, 0.42);
 
     vec3 cMid    = vec3(0.520, 0.300, 0.950);
     vec3 cGlow   = vec3(0.460, 0.260, 0.880);
