@@ -21,10 +21,19 @@ async function transporter() {
   // Динамический import чтобы не падать при отсутствии модуля
   // в среде без nodemailer (когда строим без mail).
   const nm = await import('nodemailer')
+  const port = Number(process.env.SMTP_PORT) || 465
+  // secure=true (полный TLS) для портов которые реально SSL:
+  //   465 (Yandex/Gmail классика), 1127 (Selectel Mail TLS).
+  // Для 587 / 1126 — STARTTLS (secure=false, апгрейд после EHLO).
+  // Override явно через SMTP_SECURE=true|false если нужно.
+  const secure =
+    process.env.SMTP_SECURE != null
+      ? process.env.SMTP_SECURE === 'true'
+      : port === 465 || port === 1127
   _transporter = nm.default.createTransport({
     host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 465,
-    secure: (Number(process.env.SMTP_PORT) || 465) === 465,
+    port,
+    secure,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
