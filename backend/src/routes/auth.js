@@ -2,7 +2,10 @@ import { db } from '../db.js'
 import { hashPassword, verifyPassword, toPublicUser } from '../utils/auth.js'
 import { verifyTgInitData, verifyVkSign } from '../utils/platformAuth.js'
 import { sendMail } from '../utils/mailer.js'
-import { passwordReset as passwordResetEmail } from '../utils/emailTemplates.js'
+import {
+  passwordReset as passwordResetEmail,
+  welcomeEmail,
+} from '../utils/emailTemplates.js'
 
 // RFC 5322 (simplified) — good enough for "is this an email at all".
 // Backend validation is a sanity check; deep validation belongs in client UX.
@@ -59,6 +62,13 @@ export async function authRoutes(app) {
       },
     })
     const token = app.jwt.sign({ id: user.id }, { expiresIn: '7d' })
+
+    // Welcome-письмо. Не блокирует ответ — если SMTP отвалится, юзер
+    // всё равно получит token и зайдёт. Письмо пойдёт в outbox.
+    const tmpl = welcomeEmail({ name: user.name })
+    sendMail({ to: user.email, ...tmpl })
+      .catch((e) => app.log.warn({ err: e?.message, userId: user.id }, 'welcome email failed'))
+
     return {
       ok: true,
       challengeId: `email_${user.id}`,

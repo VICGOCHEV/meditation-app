@@ -198,6 +198,89 @@ export function passwordReset({ name } = {}) {
 }
 
 /**
+ * Welcome-письмо после успешной регистрации через email/пароль.
+ * Тёплый, короткий, с CTA на главный экран приложения.
+ */
+export function welcomeEmail({ name } = {}) {
+  const hello = name
+    ? `Привет, ${escapeHtml(name)}.`
+    : 'Привет.'
+  return {
+    subject: 'Добро пожаловать в Meditation',
+    text:
+      `${name ? `Привет, ${name}.` : 'Привет.'}\n\n` +
+      'Ты с нами — рады знакомству.\n\n' +
+      'Внутри тебя ждут три блока:\n' +
+      '  · «Точка тишины» — четыре бесплатные практики расслабления, доступны сразу.\n' +
+      '  · «Пароль от жизни» — шесть практик осознанности по подписке.\n' +
+      '  · «Поток из пространства» — авторские медитации и подкаст.\n\n' +
+      'Войти и начать:\n' +
+      'https://all-relaxme.ru/\n\n' +
+      'Если возникнут вопросы — просто ответь на это письмо, мы прочитаем.',
+    html: shell({
+      title: 'Добро пожаловать',
+      intro: 'Спасибо что присоединились к Meditation',
+      contentHtml: `
+        <p style="margin: 0 0 16px;">${hello}</p>
+        <p style="margin: 0 0 18px;">
+          Ты с нами — рады знакомству. Внутри тебя ждут <b>три блока практик</b>,
+          выстроенные как путь: от мягкого расслабления до глубокой осознанности.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%"
+               style="margin: 8px 0 18px;">
+          <tr>
+            <td style="padding: 12px 14px; background: rgba(180,160,255,0.05);
+                       border: 1px solid ${BRAND.border}; border-radius: 10px;">
+              <div style="font-family: 'SF Mono', 'Courier New', monospace; font-size: 10px;
+                          letter-spacing: 0.18em; color: ${BRAND.lilacLight}; text-transform: uppercase;
+                          margin-bottom: 6px;">
+                01 · Точка тишины
+              </div>
+              <div style="font-size: 14px; line-height: 1.55; color: ${BRAND.fg1};">
+                Четыре бесплатные практики расслабления. Можно начать прямо сейчас.
+              </div>
+            </td>
+          </tr>
+          <tr><td style="height: 8px;"></td></tr>
+          <tr>
+            <td style="padding: 12px 14px; background: rgba(180,160,255,0.05);
+                       border: 1px solid ${BRAND.border}; border-radius: 10px;">
+              <div style="font-family: 'SF Mono', 'Courier New', monospace; font-size: 10px;
+                          letter-spacing: 0.18em; color: ${BRAND.lilacLight}; text-transform: uppercase;
+                          margin-bottom: 6px;">
+                02 · Пароль от жизни
+              </div>
+              <div style="font-size: 14px; line-height: 1.55; color: ${BRAND.fg1};">
+                Шесть практик осознанности — по подписке. Переход из тревоги в присутствие.
+              </div>
+            </td>
+          </tr>
+          <tr><td style="height: 8px;"></td></tr>
+          <tr>
+            <td style="padding: 12px 14px; background: rgba(180,160,255,0.05);
+                       border: 1px solid ${BRAND.border}; border-radius: 10px;">
+              <div style="font-family: 'SF Mono', 'Courier New', monospace; font-size: 10px;
+                          letter-spacing: 0.18em; color: ${BRAND.lilacLight}; text-transform: uppercase;
+                          margin-bottom: 6px;">
+                03 · Поток из пространства
+              </div>
+              <div style="font-size: 14px; line-height: 1.55; color: ${BRAND.fg1};">
+                Авторские медитации и подкаст. Глубина — для тех, кто готов.
+              </div>
+            </td>
+          </tr>
+        </table>
+        <p style="margin: 0; color: ${BRAND.fg3}; font-size: 13px;">
+          Если возникнут вопросы — просто ответь на это письмо, мы прочитаем.
+        </p>
+      `,
+      ctaLabel: 'Открыть приложение',
+      ctaUrl: 'https://all-relaxme.ru/',
+    }),
+  }
+}
+
+/**
  * Уведомление админу о новом фидбеке через форму ОС в Profile.
  */
 export function feedbackNotification({ type, message, fromName, fromEmail, userId }) {
