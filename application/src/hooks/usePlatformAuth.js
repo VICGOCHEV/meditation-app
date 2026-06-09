@@ -49,7 +49,33 @@ export default function usePlatformAuth() {
       }
     }
 
+    // VK Mini App init — без него splash-логотип ВК висит вечно.
+    // Vk Bridge сам определяет среду (ios/android/web) и шлёт VKWebAppInit
+    // в правильный канал. На обычном браузере вне VK — no-op'ит тихо.
+    async function initVk() {
+      try {
+        const inVkContext =
+          /vk_user_id|vk_app_id/.test(window.location.search) ||
+          /vk_user_id|vk_app_id/.test(window.location.hash)
+        if (!inVkContext) return
+        const bridgeMod = await import('@vkontakte/vk-bridge')
+        if (cancelled) return
+        const bridge = bridgeMod.default
+        // VKWebAppInit — убирает splash-screen ВК и говорит «приложение готово»
+        try {
+          await bridge.send('VKWebAppInit')
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.warn('VKWebAppInit failed', e?.message || e)
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('VK Bridge load failed', e?.message || e)
+      }
+    }
+
     init()
+    initVk()
     return () => {
       cancelled = true
     }
