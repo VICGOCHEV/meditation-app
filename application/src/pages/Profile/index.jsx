@@ -121,6 +121,11 @@ export default function Profile() {
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
 
+  // Управление активной подпиской. Полноценный self-serve cancel через
+  // YooKassa API ещё не подключён (нужен токен от клиента) — пока даём
+  // ссылку на support-email из оферты, чтобы юзер мог отписаться вручную.
+  const [manageOpen, setManageOpen] = useState(false)
+
   // Музыка для секции «Настройки» — берём из CMS (раньше был хардкод
   // Спокойствие / Природа / Космос, который никогда не обновлялся).
   const [musicList, setMusicList] = useState([
@@ -265,17 +270,17 @@ export default function Profile() {
         <div className="panel flex items-center justify-between">
           <div>
             {subscription.active ? (
-              <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px]" style={{ background: 'oklch(0.72 0.13 160 / 0.15)', color: 'oklch(0.82 0.13 160)', border: '1px solid oklch(0.72 0.13 160 / 0.3)' }}>
+              <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px]" style={{ background: 'oklch(0.72 0.13 160 / 0.15)', color: 'oklch(0.82 0.13 160)', border: '1px solid oklch(0.82 0.13 160)' }}>
                 Активна до {formatRuDate(subscription.expiresAt)}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-2 rounded-full border border-line-2 bg-white/5 px-3 py-1 text-[12px] text-fg-3">
+              <span className="inline-flex items-center gap-2 rounded-full border border-fg-3 bg-white/5 px-3 py-1 text-[12px] text-fg-3">
                 Не активна
               </span>
             )}
           </div>
           {subscription.active ? (
-            <Button size="sm" variant="secondary">Управление</Button>
+            <Button size="sm" variant="secondary" onClick={() => setManageOpen(true)}>Управление</Button>
           ) : (
             <Button size="sm" onClick={() => navigate('/subscription')}>Оформить</Button>
           )}
@@ -588,6 +593,37 @@ export default function Profile() {
           Удалить аккаунт
         </button>
       </div>
+
+      <Modal
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        title="Управление подпиской"
+      >
+        <p className="text-[14px] text-fg-1">
+          Подписка <strong className="text-fg-0">«Осознанность»</strong> активна
+          до {subscription.active ? formatRuDate(subscription.expiresAt) : '—'}.
+          Списание автоматическое — 199 ₽ в месяц.
+        </p>
+        <p className="mt-3 text-[13px] text-fg-2">
+          Чтобы отменить автопродление, напиши нам — мы остановим списание
+          сегодня же. Текущий оплаченный период до{' '}
+          {subscription.active ? formatRuDate(subscription.expiresAt) : '—'}{' '}
+          остаётся доступным.
+        </p>
+        <div className="mt-5 flex flex-col gap-3">
+          <a
+            href="mailto:rasslablenieiosoznanost@mail.ru?subject=Отмена%20подписки%20RELAX%20ME&body=Здравствуйте.%20Прошу%20отменить%20автопродление%20моей%20подписки."
+            className="block w-full"
+          >
+            <Button variant="secondary" fullWidth>
+              Написать на почту
+            </Button>
+          </a>
+          <Button fullWidth onClick={() => setManageOpen(false)}>
+            Закрыть
+          </Button>
+        </div>
+      </Modal>
 
       <Modal
         open={deleteOpen}
