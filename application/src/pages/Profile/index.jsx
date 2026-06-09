@@ -5,6 +5,7 @@ import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import Sparkline from '../../components/ui/Sparkline'
 import Modal from '../../components/ui/Modal'
+import LegalLinks from '../../components/ui/LegalLinks'
 import TrackerCalendar from '../../components/TrackerCalendar'
 import { useAuthStore } from '../../store/useAuthStore'
 import { useProgressStore } from '../../store/useProgressStore'
@@ -636,6 +637,8 @@ export default function Profile() {
           </Button>
         </div>
       </Modal>
+
+      <LegalLinks />
     </ScreenShell>
     </motion.div>
 

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import ScreenShell from '../../components/ui/ScreenShell'
 import Button from '../../components/ui/Button'
 import AnimatedSubscribeButton from '../../components/ui/AnimatedSubscribeButton'
+import LegalLinks from '../../components/ui/LegalLinks'
 import { useProgressStore } from '../../store/useProgressStore'
 import { api, USE_MOCK } from '../../api/client'
 
@@ -451,6 +452,8 @@ export default function Subscription() {
           <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.18em] text-fg-3">
             7 дней бесплатно · отмена в любой момент
           </p>
+
+          <LegalLinks />
         </>
       )}
     </ScreenShell>
