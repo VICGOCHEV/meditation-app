@@ -258,7 +258,7 @@ export default function Home() {
           eyebrow="01 · СТАРТ"
           title="Точка тишины"
           sub="Бесплатные практики расслабления — мягкий вход в тело."
-          chip="Бесплатно · 4"
+          chip="Бесплатно · 3"
         />
         <motion.div
           className="grid grid-cols-2 gap-3"
@@ -322,52 +322,10 @@ export default function Home() {
         </motion.div>
       </section>
 
-      <section className="mt-10">
-        <SectionHead
-          eyebrow="03 · ГЛУБИНА"
-          title="Поток из пространства"
-          sub="Авторские медитации и подкасты — погружение в авторскую систему."
-          chip="2 бесплатные · 99 ₽"
-        />
-        <motion.div
-          className="grid grid-cols-2 gap-3"
-          variants={gridContainer}
-          initial="initial"
-          animate="animate"
-        >
-          {practices.author.map((p) => {
-            // Авторские: 3 источника доступа:
-            //   1. flag `free` — «Знакомство» + «Подкаст», бесплатны всем
-            //   2. tier='all-inclusive' (299₽) — все авторские включены
-            //   3. иначе — поштучно за 99₽, клик ведёт на /subscription
-            // Подкаст («Подкаст «Эволюция сознания»») имеет свою маркировку
-            // вместо общего «Включено» — клиент 03.06.
-            const inAllInclusive =
-              subscription.active && subscription.tier === 'all-inclusive'
-            const accessible = p.free === true || inAllInclusive
-            const isPodcast = /^Подкаст/i.test(p.title)
-            const badge = isPodcast
-              ? 'Подкаст'
-              : p.free
-              ? 'Бесплатно'
-              : inAllInclusive
-              ? 'Включено'
-              : undefined
-            return (
-              <motion.div key={p.id} variants={cardItem}>
-                <Card
-                  title={p.title}
-                  duration={p.duration}
-                  badge={badge}
-                  price={accessible ? undefined : p.price}
-                  onPlay={accessible ? () => goPlay(p.id) : undefined}
-                  onBuy={() => navigate('/subscription')}
-                />
-              </motion.div>
-            )
-          })}
-        </motion.div>
-      </section>
+      {/* Блок «Авторские» (вкл. подкаст) — клиент 09.06.2026 поставил
+          на паузу до появления ресурса записывать новый контент.
+          Секцию скрываем из UI, код/роуты /player/auN не трогаем —
+          вернётся одним рендером когда будет готов. */}
 
       <VoiceMusicModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </ScreenShell>

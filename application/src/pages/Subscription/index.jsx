@@ -20,12 +20,12 @@ function loadYookassaScript() {
   })
 }
 
-// Два тарифа клиента от 2026-05-26:
-//   awareness     — только курс Осознанности, авторские по 99₽ поштучно
-//   all-inclusive — курс + все авторские (текущие и будущие месячные)
-//
-// Бесплатное Расслабление и 2 бесплатных авторских доступны без подписки,
-// поэтому на этом экране не упоминаем — это про апгрейд.
+// Тариф клиента от 2026-06-09:
+//   awareness — единственный тариф, курс Осознанности (199₽/мес).
+// До 09.06 был ещё all-inclusive (299₽) + поштучные авторские 99₽;
+// блок «Авторские» поставлен на паузу, тариф убран из UI. Бэкенд
+// продолжает принимать all-inclusive webhook'и, чтобы существующие
+// подписки не сломались.
 const TIERS = [
   {
     id: 'awareness',
@@ -41,22 +41,6 @@ const TIERS = [
       'Система прогрессии + глубокий анализ',
     ],
     bonus: null,
-  },
-  {
-    id: 'all-inclusive',
-    name: 'Всё включено',
-    price: 299,
-    currency: '₽',
-    period: '/ мес',
-    trial: '7 дней бесплатно',
-    badge: 'Полный доступ',
-    benefits: [
-      'Всё из «Осознанности»',
-      'Доступ ко всем авторским практикам',
-      'Новые авторские каждый месяц без доплат',
-      'Без поштучных покупок 99 ₽',
-    ],
-    bonus: 'выгоднее, если слушаешь авторские',
   },
 ]
 
@@ -138,7 +122,12 @@ export default function Subscription() {
   const activate = useProgressStore((s) => s.activateSubscription)
   const [stage, setStage] = useState('idle') // idle | loading | widget | success | error
   const [errorMsg, setErrorMsg] = useState('')
-  const [tier, setTier] = useState('awareness') // awareness | all-inclusive
+  // С 09.06 тариф единственный — `awareness`. State оставлен, потому что
+  // ниже всё ещё стоят проверки `selectedTier?.name` и `metadata.tier`
+  // и success-экран ссылается на «Пакет ‹название›». Если в будущем
+  // вернётся второй тариф — достаточно расширить TIERS, ничего больше
+  // переписывать не надо.
+  const [tier] = useState('awareness')
   const widgetRef = useRef(null)
 
   // Cleanup виджета при размонтировании / уходе со страницы.
@@ -422,9 +411,9 @@ export default function Subscription() {
         <>
           <div className="label-mono text-lilac">Подписка</div>
           <h1 className="mt-2 font-serif text-[34px] leading-tight text-fg-0">
-            Выбери глубину
+            Открой курс
             <br />
-            пути.
+            осознанности.
           </h1>
 
           <div className="mt-6 flex flex-col gap-3">
@@ -433,14 +422,12 @@ export default function Subscription() {
                 key={t.id}
                 tier={t}
                 selected={tier === t.id}
-                onSelect={setTier}
+                onSelect={() => {}}
               />
             ))}
           </div>
 
           <p className="mt-4 text-center text-[12px] text-fg-3">
-            Или покупай авторские поштучно — 99 ₽ каждая.
-            <br />
             Расслабление — всегда бесплатно.
           </p>
 
