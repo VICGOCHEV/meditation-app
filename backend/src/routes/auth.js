@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { db } from '../db.js'
 import { hashPassword, verifyPassword, toPublicUser } from '../utils/auth.js'
 import { verifyTgInitData, verifyVkSign } from '../utils/platformAuth.js'
@@ -131,12 +132,71 @@ export async function authRoutes(app) {
     if (identifier.includes('@')) {
       const user = await db.user.findUnique({ where: { email: identifier } })
       if (user) {
-        const tmpl = passwordResetEmail({ name: user.name })
+        // Random 32-byte token → юзеру в письмо как hex.
+        // В БД храним только sha256(token) + срок 1 час: даже при дампе БД
+        // токен не утечёт, а одноразовость гарантирована clear'ом hash'а
+        // после успешного reset'а.
+        const token = crypto.randomBytes(32).toString('hex')
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+        const exp = new Date(Date.now() + 60 * 60 * 1000)
+        await db.user.update({
+          where: { id: user.id },
+          data: { resetTokenHash: tokenHash, resetTokenExp: exp },
+        })
+        const base = process.env.APP_PUBLIC_URL || 'https://all-relaxme.ru'
+        const resetUrl = `${base}/auth/reset/confirm?token=${token}`
+        const tmpl = passwordResetEmail({ name: user.name, resetUrl })
         await sendMail({ to: user.email, ...tmpl })
       }
     }
     // Всегда возвращаем 200 — anti-enumeration
     return { ok: true }
+  })
+
+  // POST /api/auth/reset/confirm {token, password}
+  // Подтверждение сброса: ищем юзера по sha256(token) + срок, обновляем
+  // passwordHash, чистим resetTokenHash/Exp (одноразовый токен).
+  // Возвращаем JWT, чтобы юзер сразу попал в приложение.
+  app.post('/auth/reset/confirm', {
+    ...authLimit,
+    schema: {
+      body: {
+        type: 'object',
+        required: ['token', 'password'],
+        properties: {
+          token: { type: 'string', minLength: 32, maxLength: 200 },
+          password: { type: 'string', minLength: 8, maxLength: 200 },
+        },
+      },
+    },
+  }, async (req, reply) => {
+    const { token, password } = req.body
+    if (!PASSWORD_RE.test(password)) {
+      return reply.code(400).send({
+        error: 'Пароль слишком слабый: нужны 8+ символов, хотя бы одна буква и одна цифра или символ',
+      })
+    }
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+    const user = await db.user.findFirst({
+      where: {
+        resetTokenHash: tokenHash,
+        resetTokenExp: { gt: new Date() },
+      },
+    })
+    if (!user) {
+      return reply.code(400).send({ error: 'Ссылка устарела или уже использована. Запроси новую.' })
+    }
+    const passwordHash = await hashPassword(password)
+    const updated = await db.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        resetTokenHash: null,
+        resetTokenExp: null,
+      },
+    })
+    const jwtToken = app.jwt.sign({ id: updated.id }, { expiresIn: '7d' })
+    return { ok: true, token: jwtToken, user: toPublicUser(updated) }
   })
 
   // GET /api/auth/me — current user (requires JWT)

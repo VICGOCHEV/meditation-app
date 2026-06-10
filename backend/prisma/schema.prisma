@@ -12,6 +12,10 @@ model User {
   // email теперь optional — для TG/VK юзеров email может отсутствовать
   email             String?              @unique
   passwordHash      String?
+  // Reset-password flow: при /auth/reset кладём sha256(token) + срок.
+  // По /auth/reset/confirm ищем юзера по этому hash, обновляем пароль.
+  resetTokenHash    String?              @map("reset_token_hash")
+  resetTokenExp     DateTime?            @map("reset_token_exp")
   name              String?
   // Telegram Mini App identity (если зашёл из бота)
   tgUserId          BigInt?              @unique @map("tg_user_id")

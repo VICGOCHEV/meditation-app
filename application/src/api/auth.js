@@ -44,6 +44,21 @@ export async function resetPassword({ identifier }) {
   return data
 }
 
+// Подтверждение reset'а: меняем пароль по одноразовому токену из письма.
+// Возвращает JWT — после успеха сразу логиним юзера.
+export async function resetPasswordConfirm({ token, password }) {
+  if (USE_MOCK) {
+    await delay(400)
+    return {
+      ok: true,
+      token: 'mock_token_' + Date.now(),
+      user: { id: 1, email: 'mock@example.com', name: 'Практик' },
+    }
+  }
+  const { data } = await api.post('/auth/reset/confirm', { token, password })
+  return data
+}
+
 // Telegram Mini App auto-login. Передаём Telegram.WebApp.initData
 // (URL-encoded query string), сервер проверяет HMAC через TG_BOT_TOKEN.
 export async function tgInit(initData) {

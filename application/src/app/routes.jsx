@@ -13,6 +13,7 @@ import Onboarding from '../pages/Onboarding'
 import Login from '../pages/Auth/Login'
 import Register from '../pages/Auth/Register'
 import ResetPassword from '../pages/Auth/ResetPassword'
+import ResetPasswordConfirm from '../pages/Auth/ResetPasswordConfirm'
 import Home from '../pages/Home'
 import Checkin from '../pages/Checkin'
 import DeepAnalysis from '../pages/DeepAnalysis'
@@ -57,6 +58,10 @@ export default function AppRoutes() {
           <Route path="/auth/login" element={<Login />} />
           <Route path="/auth/register" element={<Register />} />
           <Route path="/auth/reset" element={<ResetPassword />} />
+          <Route path="/auth/reset/confirm" element={<ResetPasswordConfirm />} />
+          {/* Backwards-compat: старые письма уже могли уйти со ссылкой
+              /auth/reset-password — редиректим её на актуальный путь. */}
+          <Route path="/auth/reset-password" element={<Navigate to="/auth/reset" replace />} />
 
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/checkin" element={<ProtectedRoute><Checkin /></ProtectedRoute>} />
