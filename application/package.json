@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
     "@react-three/fiber": "^8.18.0",
+    "@sentry/react": "^9.47.1",
     "@twa-dev/sdk": "^8.0.2",
     "@vkontakte/vk-bridge": "^3.0.2",
     "axios": "^1.7.7",

@@ -11,6 +11,8 @@ import { db } from './db.js'
 import { authenticate } from './middlewares/auth.js'
 import { ensureUploadDir } from './utils/media.js'
 import { healthRoute } from './routes/health.js'
+import { internalRoutes } from './routes/internal.js'
+import { initSentry, sentryErrorHandler } from './utils/sentry.js'
 import { authRoutes } from './routes/auth.js'
 import { progressRoutes } from './routes/progress.js'
 import { practicesRoutes } from './routes/practices.js'
@@ -33,7 +35,12 @@ import { adminSubscriptionsRoutes } from './routes/admin/subscriptions.js'
 import { adminFeedbackRoutes } from './routes/admin/feedback.js'
 import { adminPushPhrasesRoutes } from './routes/admin/pushPhrases.js'
 
+// Sentry должен инициализироваться ДО создания Fastify, чтобы перехватывать
+// ошибки на самых ранних стадиях. No-op если SENTRY_DSN не задан.
+initSentry()
+
 const app = Fastify({ logger: { level: 'info' }, trustProxy: true })
+sentryErrorHandler(app)
 
 await app.register(sensible)
 await app.register(helmet, {
@@ -89,6 +96,9 @@ await app.register(fastifyStatic, {
 })
 
 await app.register(healthRoute, { prefix: '/api' })
+// /internal/* монтируется БЕЗ /api префикса — этот префикс наружу через Caddy
+// (см. /etc/caddy/Caddyfile) НЕ проксируется, путь доступен только локально.
+await app.register(internalRoutes)
 await app.register(authRoutes, { prefix: '/api' })
 await app.register(progressRoutes, { prefix: '/api' })
 await app.register(practicesRoutes, { prefix: '/api' })
