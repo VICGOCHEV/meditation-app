@@ -67,7 +67,7 @@ fi
 
 # 1. Health endpoint
 HEALTH=$(curl -sS --max-time 10 -o /tmp/health.json -w '%{http_code}' \
-  http://127.0.0.1:3001/health/full 2>/dev/null)
+  http://127.0.0.1:3001/api/health/full 2>/dev/null)
 DB_OK=$(jq -r '.db.ok' /tmp/health.json 2>/dev/null || echo "false")
 if [ "$HEALTH" != "200" ] || [ "$DB_OK" != "true" ]; then
   if should_alert "backend_down"; then
