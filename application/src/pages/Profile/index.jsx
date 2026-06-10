@@ -126,6 +126,18 @@ export default function Profile() {
   // ссылку на support-email из оферты, чтобы юзер мог отписаться вручную.
   const [manageOpen, setManageOpen] = useState(false)
 
+  // Однократная подсказка над календарём: «Дни закрашиваются после
+  // полностью прослушанной практики». Показываем пока юзер не закроет
+  // крестиком — флаг живёт в localStorage.
+  const [trackerHintOpen, setTrackerHintOpen] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem('tracker_hint_seen') !== '1'
+  })
+  const dismissTrackerHint = () => {
+    try { localStorage.setItem('tracker_hint_seen', '1') } catch { /* noop */ }
+    setTrackerHintOpen(false)
+  }
+
   // Музыка для секции «Настройки» — берём из CMS (раньше был хардкод
   // Спокойствие / Природа / Космос, который никогда не обновлялся).
   const [musicList, setMusicList] = useState([
@@ -288,6 +300,28 @@ export default function Profile() {
       </Section>
 
       <Section title="Мои практики">
+        {trackerHintOpen && (
+          <div className="mb-3 flex items-start gap-3 rounded-md border border-lilac/40 bg-lilac/8 px-3 py-2.5">
+            <svg viewBox="0 0 24 24" className="mt-[2px] h-4 w-4 shrink-0 text-lilac" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v4M12 16h.01" strokeLinecap="round" />
+            </svg>
+            <p className="flex-1 text-[12px] leading-snug text-fg-1">
+              День закрашивается, когда практика прослушана целиком —
+              без остановки и перемотки.
+            </p>
+            <button
+              type="button"
+              onClick={dismissTrackerHint}
+              aria-label="Понятно, скрыть подсказку"
+              className="-m-1 p-1 text-fg-3 hover:text-fg-1 transition-colors"
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+        )}
         <TrackerCalendar trackerDays={trackerDays} streak={streak} />
       </Section>
 
@@ -440,7 +474,7 @@ export default function Profile() {
               <div className="label-mono">Пуши в Telegram</div>
               <p className="mt-1 text-[14px] text-fg-1">
                 Мягкие напоминания вернуться к практике в 08:00, 12:00,
-                16:00 и 20:00. Тексты подобраны под время дня.
+                16:00 и 20:00.
               </p>
             </div>
 

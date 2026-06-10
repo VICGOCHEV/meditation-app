@@ -63,11 +63,15 @@ export default function Register() {
   const [code, setCode] = useState('')
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+  // Чекбокс согласия с офертой/политикой/согласием на ОПД — обязателен
+  // для регистрации (152-ФЗ + Закон о защите прав потребителей). Без
+  // галки кнопка «Присоединиться» задизейблена.
+  const [legalOk, setLegalOk] = useState(false)
 
   const pwdOk = useMemo(() => PASSWORD_RE.test(password), [password])
   const matchOk = passwordRepeat.length > 0 && password === passwordRepeat
   const matchBad = passwordRepeat.length > 0 && password !== passwordRepeat
-  const canSubmit = identifier.trim().length > 2 && pwdOk && matchOk && !loading
+  const canSubmit = identifier.trim().length > 2 && pwdOk && matchOk && legalOk && !loading
 
   const onRegister = async (e) => {
     e.preventDefault()
@@ -75,6 +79,7 @@ export default function Register() {
     if (!identifier.trim()) return setErr('Введи email или телефон')
     if (!pwdOk) return setErr('Пароль слишком слабый: нужны 8+ символов, хотя бы одна буква и одна цифра или символ')
     if (!matchOk) return setErr('Пароли не совпадают')
+    if (!legalOk) return setErr('Чтобы продолжить, подтверди согласие с документами')
     setLoading(true)
     try {
       const res = await register({ identifier: identifier.trim(), password })
@@ -156,6 +161,30 @@ export default function Register() {
               </div>
             )}
           </Field>
+
+          <label className="flex items-start gap-3 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={legalOk}
+              onChange={(e) => setLegalOk(e.target.checked)}
+              className="mt-[3px] h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border border-line-2 bg-white/5 checked:border-lilac checked:bg-lilac/30 transition focus:outline-none focus:ring-2 focus:ring-lilac/40"
+              style={{
+                backgroundImage: legalOk
+                  ? "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23f4f0ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E\")"
+                  : 'none',
+                backgroundSize: '12px 12px',
+                backgroundRepeat: 'no-repeat',
+                backgroundPosition: 'center',
+              }}
+            />
+            <span className="text-[12px] leading-snug text-fg-2">
+              Я ознакомился и принимаю{' '}
+              <a href="/docs/user-agreement.pdf" target="_blank" rel="noopener noreferrer" className="text-lilac underline-offset-2 hover:underline">оферту</a>,{' '}
+              <a href="/docs/privacy-policy.pdf" target="_blank" rel="noopener noreferrer" className="text-lilac underline-offset-2 hover:underline">политику&nbsp;конфиденциальности</a>{' '}
+              и даю{' '}
+              <a href="/docs/personal-data-consent.pdf" target="_blank" rel="noopener noreferrer" className="text-lilac underline-offset-2 hover:underline">согласие&nbsp;на&nbsp;обработку&nbsp;персональных&nbsp;данных</a>.
+            </span>
+          </label>
 
           {err && <div className="text-sm text-err">{err}</div>}
 

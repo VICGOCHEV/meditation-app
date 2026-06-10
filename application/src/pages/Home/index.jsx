@@ -258,7 +258,7 @@ export default function Home() {
           eyebrow="01 · СТАРТ"
           title="Точка тишины"
           sub="Бесплатные практики расслабления — мягкий вход в тело."
-          chip="Бесплатно · 3"
+          chip="Бесплатно · 4"
         />
         <motion.div
           className="grid grid-cols-2 gap-3"

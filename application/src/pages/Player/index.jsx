@@ -77,16 +77,12 @@ export default function Player() {
   const [practiceLoaded, setPracticeLoaded] = useState(false)
   const [completed, setCompleted] = useState(false)
   const [finishConfirm, setFinishConfirm] = useState(false)
-  // Intro-модалка показывается только при первом открытии плеера (за всё
-  // время). После закрытия — кладём флаг в localStorage и больше не дёргаем.
-  const [introOpen, setIntroOpen] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return localStorage.getItem('player_intro_seen') !== '1'
-  })
-  const dismissIntro = () => {
-    try { localStorage.setItem('player_intro_seen', '1') } catch { /* noop */ }
-    setIntroOpen(false)
-  }
+  // Intro-модалка с правилами «без паузы и перемотки». Клиент 10.06:
+  // показывать её КАЖДЫЙ раз при заходе в плеер, а не только при первом
+  // (раньше localStorage-флаг хоронил её после первого закрытия). Юзер
+  // должен пере-согласиться с условием перед каждой практикой.
+  const [introOpen, setIntroOpen] = useState(true)
+  const dismissIntro = () => setIntroOpen(false)
   // `leaving` flips on intent-to-navigate. AudioPlayer reads it as
   // `shaderHidden` and runs an AnimatePresence exit on the sphere
   // BEFORE the route's own opacity fade kicks in. Without this the
