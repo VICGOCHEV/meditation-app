@@ -106,12 +106,19 @@ export default function Profile() {
   const openLogoutFarewell = () => setLogoutPending(true)
   const cancelLogout = () => setLogoutPending(false)
   const confirmLogout = () => {
-    // navigate СНАЧАЛА (replace, чтобы back-кнопка не вернула на пустой profile),
-    // потом clear store — иначе ProtectedRoute может промежуточно отрендерить
-    // нелогичное состояние пока store обновляется.
-    navigate('/auth/login', { replace: true })
-    setTimeout(() => logout(), 50)
+    // Клиент 10.06: «жму «Выйти» — пустой экран». Раньше делали
+    // navigate→setTimeout(logout) — react-router-вью успевал отрисовать
+    // protected роут до того как store очистится. Сейчас: чистим store
+    // и сразу делаем hard-reload через window.location.replace — это
+    // выкидывает все таймеры/эффекты, ProtectedRoute стартует заново
+    // и сразу редиректит на /auth/login. Никаких гонок.
+    logout()
     setLogoutPending(false)
+    if (typeof window !== 'undefined') {
+      window.location.replace('/auth/login')
+    } else {
+      navigate('/auth/login', { replace: true })
+    }
   }
 
   // Two-step delete: user has to type «УДАЛИТЬ» (mirrors GitHub /
@@ -616,7 +623,7 @@ export default function Profile() {
       </Section>
 
       <div className="mt-10 flex flex-col gap-3">
-        <Button variant="destructive" fullWidth onClick={openLogoutFarewell}>
+        <Button variant="secondary" fullWidth onClick={openLogoutFarewell}>
           Выйти из аккаунта
         </Button>
         <button
