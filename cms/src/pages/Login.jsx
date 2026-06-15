@@ -3,18 +3,33 @@ import { api, errText } from '../lib/api.js'
 import { useAuth } from '../lib/store.js'
 import { useToast } from '../ui/Toast.jsx'
 
+// Persistent email из прошлого входа с галкой «Запомнить меня».
+// Только email — пароль никогда не сохраняем в plain text.
+const REMEMBERED_EMAIL_KEY = 'cms_remembered_email'
+
 export default function Login() {
   const setAuth = useAuth((s) => s.setAuth)
   const toast = useToast()
-  const [email, setEmail] = useState('')
+  // По умолчанию подставляем email из последнего «помнимого» входа,
+  // галка тоже остаётся включённой — 95% случаев клиент хочет тот же режим.
+  const rememberedEmail = (() => {
+    try { return localStorage.getItem(REMEMBERED_EMAIL_KEY) || '' } catch { return '' }
+  })()
+  const [email, setEmail] = useState(rememberedEmail)
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(Boolean(rememberedEmail))
   const [busy, setBusy] = useState(false)
 
   async function submit(e) {
     e.preventDefault()
     setBusy(true)
     try {
-      const { data } = await api.post('/admin/login', { email, password })
+      const { data } = await api.post('/admin/login', { email, password, remember })
+      if (remember) {
+        try { localStorage.setItem(REMEMBERED_EMAIL_KEY, email) } catch { /* noop */ }
+      } else {
+        try { localStorage.removeItem(REMEMBERED_EMAIL_KEY) } catch { /* noop */ }
+      }
       setAuth(data.token, data.admin)
     } catch (err) {
       toast.err(errText(err))
@@ -55,7 +70,7 @@ export default function Login() {
 
         <label className="label">Пароль</label>
         <input
-          className="input mb-5"
+          className="input mb-4"
           type="password"
           autoComplete="current-password"
           value={password}
@@ -63,6 +78,17 @@ export default function Login() {
           placeholder="••••••••"
           required
         />
+
+        <label className="mb-5 flex cursor-pointer items-center gap-2.5 select-none">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="h-4 w-4 cursor-pointer accent-violet"
+          />
+          <span className="text-sm text-fg-1">Запомнить меня</span>
+          <span className="ml-auto text-[11px] text-fg-3">не вводить пароль 30 дней</span>
+        </label>
 
         <button className="btn-primary w-full" disabled={busy}>
           {busy ? 'Входим…' : 'Войти'}
