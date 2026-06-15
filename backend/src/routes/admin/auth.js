@@ -19,6 +19,7 @@ export async function adminAuthRoutes(app) {
         properties: {
           email: { type: 'string', maxLength: 254 },
           password: { type: 'string', maxLength: 200 },
+          remember: { type: 'boolean' },
         },
       },
     },
@@ -33,9 +34,12 @@ export async function adminAuthRoutes(app) {
     const ok = await verifyPassword(req.body.password, admin.passwordHash)
     if (!ok) return reply.code(401).send({ error: 'Неверный email или пароль' })
 
+    // remember=true → длинный TTL (по умолчанию 30 дней) чтобы клиент не
+    // вводил пароль каждый день. Без галки — 12h как раньше.
+    const ttl = req.body.remember ? config.adminJwtTtlRemember : config.adminJwtTtl
     const token = app.jwt.sign(
       { kind: 'admin', aid: admin.id, role: admin.role },
-      { expiresIn: config.adminJwtTtl },
+      { expiresIn: ttl },
     )
     return { token, admin: toPublicAdmin(admin) }
   })

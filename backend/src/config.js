@@ -19,6 +19,9 @@ export const config = {
   mediaUrlBase: process.env.MEDIA_URL_BASE || '/cms-media',
   // TTL админ-токена CMS (короче пользовательского).
   adminJwtTtl: process.env.ADMIN_JWT_TTL || '12h',
+  // TTL для логина с галкой «Запомнить меня» — длиннее, чтобы клиент
+  // не вводил пароль каждый день в собственный кабинет.
+  adminJwtTtlRemember: process.env.ADMIN_JWT_TTL_REMEMBER || '30d',
   // Лимит размера одного аудиофайла (байт). По умолчанию 60 МБ.
   maxAudioBytes: Number(process.env.MAX_AUDIO_BYTES) || 60 * 1024 * 1024,
 }
