@@ -81,6 +81,30 @@ export async function paymentRoutes(app) {
         return { ok: true, ignored: 'bad-metadata' }
       }
 
+      // Лог транзакции — пишем ДО апдейта подписки. Идемпотентно по
+      // yookassaId: если ЮKassa зачем-то ретранслировала webhook —
+      // upsert не создаст дубликата.
+      try {
+        const amountKopecks = Math.round(parseFloat(actual.amount?.value || '0') * 100)
+        const paidAt = actual.captured_at ? new Date(actual.captured_at) : new Date()
+        await db.payment.upsert({
+          where: { yookassaId: actual.id },
+          create: {
+            yookassaId: actual.id,
+            userId,
+            amount: amountKopecks,
+            currency: actual.amount?.currency || 'RUB',
+            tier,
+            status: actual.status,
+            paidAt,
+          },
+          update: { status: actual.status },
+        })
+      } catch (logErr) {
+        // Не блокируем активацию подписки, если лог не записался.
+        app.log.warn({ err: logErr.message, paymentId: actual.id }, 'payment log upsert failed')
+      }
+
       // Активируем (или продлеваем) подписку. Логика как в POST /subscription.
       const now = new Date()
       const sub = await db.subscription.findUnique({ where: { userId } })

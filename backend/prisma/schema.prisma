@@ -32,6 +32,29 @@ model User {
   unlockedAwareness UnlockedAwareness[]
   feedback          Feedback[]
   notifyPrefs       NotifyPrefs?
+  payments          Payment[]
+}
+
+// Лог транзакций ЮKassa. Каждое payment.succeeded из webhook'а пишется
+// сюда, до обновления Subscription. Даёт историю «когда юзер сколько
+// платил» для бухгалтерии / аналитики / разруливания споров.
+model Payment {
+  id                String   @id @default(cuid())
+  userId            Int
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // ID платежа в системе ЮKassa (уникальный)
+  yookassaId        String   @unique @map("yookassa_id")
+  amount            Int      // в копейках, чтобы избежать float-погрешностей
+  currency          String   @default("RUB")
+  tier              String   // awareness / all-inclusive
+  // succeeded / refunded / canceled — отражает текущее состояние в ЮKassa
+  status            String
+  // Когда платёж реально засчитан в ЮKassa (а не когда мы получили webhook)
+  paidAt            DateTime @map("paid_at")
+  createdAt         DateTime @default(now())
+
+  @@index([userId, paidAt])
+  @@index([status])
 }
 
 // Настройки пуш-уведомлений юзера. Один тумблер вкл/выкл + IANA-таймзона.
