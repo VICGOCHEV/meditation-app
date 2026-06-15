@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
@@ -224,9 +224,30 @@ function PlayShaderMesh() {
 }
 
 export default function PlayShader({ className }) {
+  const wrapRef = useRef(null)
+  const [visible, setVisible] = useState(true)
+  const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || document.visibilityState === 'visible')
+
+  useEffect(() => {
+    const onVisibility = () => setPageVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  useEffect(() => {
+    if (!wrapRef.current) return
+    const io = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { rootMargin: '80px' },
+    )
+    io.observe(wrapRef.current)
+    return () => io.disconnect()
+  }, [])
+
   return (
-    <div className={className ?? 'absolute inset-0 h-full w-full'}>
+    <div ref={wrapRef} className={className ?? 'absolute inset-0 h-full w-full'}>
       <Canvas
+        frameloop={pageVisible && visible ? 'always' : 'never'}
         gl={{ antialias: true, alpha: true, premultipliedAlpha: true }}
         dpr={[1, 2]}
         style={{ width: '100%', height: '100%', display: 'block', background: 'transparent' }}

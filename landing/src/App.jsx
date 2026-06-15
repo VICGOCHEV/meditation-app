@@ -4,7 +4,7 @@ import Lenis from 'lenis'
 import CursorTrail from './components/CursorTrail'
 import { LiquidGlassFilter } from './components/LiquidGlassFilter'
 import LoginOverlay from './components/LoginOverlay'
-import MouseFloat, { startPointerTracking } from './components/MouseFloat'
+import MouseFloat, { startPointerTracking, stopPointerTracking } from './components/MouseFloat'
 
 // three-фон грузим лениво (отдельный чанк) — не блокирует первый рендер
 const AppBackground = lazy(() => import('./components/AppBackground'))
@@ -20,7 +20,10 @@ import Footer from './sections/Footer'
 
 export default function App() {
   const [loginOpen, setLoginOpen] = useState(false)
-  useEffect(() => { startPointerTracking() }, [])
+  useEffect(() => {
+    startPointerTracking()
+    return () => stopPointerTracking()
+  }, [])
   useEffect(() => {
     const lenis = new Lenis({ duration: 1.15, smoothWheel: true })
     window.__lenis = lenis

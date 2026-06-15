@@ -284,6 +284,59 @@ export function welcomeEmail({ name } = {}) {
 }
 
 /**
+ * Письмо «подписка кончается через 3 дня». Шлёт cron-job
+ * `subscriptionExpiry` каждое утро 10:00. Шаблон с человеческим тоном —
+ * мы не настаиваем, а напоминаем + ссылка на продление.
+ */
+export function subscriptionExpiring({ name, expiresAt, daysLeft = 3 } = {}) {
+  const hello = name ? `Привет, ${escapeHtml(name)}.` : 'Привет.'
+  const dateStr = expiresAt
+    ? new Date(expiresAt).toLocaleDateString('ru-RU', {
+        day: 'numeric', month: 'long',
+      })
+    : ''
+  const daysLabel = daysLeft === 1
+    ? '1 день'
+    : daysLeft < 5 ? `${daysLeft} дня` : `${daysLeft} дней`
+
+  return {
+    subject: `Подписка кончается через ${daysLabel} · Meditation`,
+    text:
+      `${name ? `Привет, ${name}.` : 'Привет.'}\n\n` +
+      `Твоя подписка на курс «Осознанность» заканчивается ${dateStr ? dateStr + ' ' : ''}` +
+      `— через ${daysLabel}.\n\n` +
+      'Чтобы не прерывать практику и не терять открытые медитации, ' +
+      'продли подписку в приложении:\n' +
+      'https://all-relaxme.ru/subscription\n\n' +
+      'Если решишь сделать паузу — это тоже нормально. Прогресс сохранится, ' +
+      'трекер останется на месте, вернёшься когда будешь готов.',
+    html: shell({
+      title: 'Подписка скоро закончится',
+      intro: `Через ${daysLabel} — нужно решение`,
+      contentHtml: `
+        <p style="margin: 0 0 16px;">${hello}</p>
+        <p style="margin: 0 0 16px;">
+          Твоя подписка на курс <b>«Осознанность»</b> заканчивается
+          ${dateStr ? `<b>${escapeHtml(dateStr)}</b>` : 'скоро'} — это
+          через ${daysLabel}.
+        </p>
+        <p style="margin: 0 0 16px;">
+          Чтобы не прерывать практику и не терять открытые медитации,
+          продли в приложении одной кнопкой.
+        </p>
+        <p style="margin: 0; color: ${BRAND.fg3};">
+          Если решишь сделать паузу — это тоже нормально. Прогресс
+          сохранится, трекер останется на месте, вернёшься когда будешь
+          готов.
+        </p>
+      `,
+      ctaLabel: 'Продлить подписку',
+      ctaUrl: 'https://all-relaxme.ru/subscription',
+    }),
+  }
+}
+
+/**
  * Уведомление админу о новом фидбеке через форму ОС в Profile.
  */
 export function feedbackNotification({ type, message, fromName, fromEmail, userId }) {

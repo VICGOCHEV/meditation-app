@@ -9,6 +9,8 @@ import Music from './pages/Music.jsx'
 import Users from './pages/Users.jsx'
 import Feedback from './pages/Feedback.jsx'
 import PushPhrases from './pages/PushPhrases.jsx'
+import PromoCodes from './pages/PromoCodes.jsx'
+import Broadcasts from './pages/Broadcasts.jsx'
 
 export default function App() {
   const token = useAuth((s) => s.token)
@@ -27,6 +29,8 @@ export default function App() {
         <Route path="/users" element={<Users />} />
         <Route path="/feedback" element={<Feedback />} />
         <Route path="/push-phrases" element={<PushPhrases />} />
+        <Route path="/promocodes" element={<PromoCodes />} />
+        <Route path="/broadcasts" element={<Broadcasts />} />
         <Route path="*" element={<Navigate to="/practices" replace />} />
       </Routes>
     </Shell>

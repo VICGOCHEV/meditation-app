@@ -131,6 +131,41 @@ export default function Subscription() {
   const [tier] = useState('awareness')
   const widgetRef = useRef(null)
 
+  // Промокод: разворачиваемое поле + проверка/применение.
+  // appliedPromo: { code, percent, baseRub, discountRub, finalRub } | null
+  const [promoOpen, setPromoOpen] = useState(false)
+  const [promoInput, setPromoInput] = useState('')
+  const [promoCheckingState, setPromoCheckingState] = useState('idle') // idle | checking | error
+  const [promoError, setPromoError] = useState('')
+  const [appliedPromo, setAppliedPromo] = useState(null)
+
+  const checkPromo = async () => {
+    const code = promoInput.trim().toUpperCase()
+    if (!code) return
+    setPromoCheckingState('checking')
+    setPromoError('')
+    try {
+      const { data } = await api.post('/promocode/validate', { code, tier })
+      if (data?.ok) {
+        setAppliedPromo(data)
+        setPromoCheckingState('idle')
+      } else {
+        setPromoError('Промокод не найден')
+        setPromoCheckingState('error')
+      }
+    } catch (err) {
+      setPromoError(err?.response?.data?.error || 'Промокод не найден')
+      setPromoCheckingState('error')
+    }
+  }
+
+  const clearPromo = () => {
+    setAppliedPromo(null)
+    setPromoInput('')
+    setPromoError('')
+    setPromoCheckingState('idle')
+  }
+
   // Cleanup виджета при размонтировании / уходе со страницы.
   useEffect(() => {
     return () => {
@@ -160,8 +195,18 @@ export default function Subscription() {
     }
 
     try {
-      // 1. Создаём платёж на бэке → получаем confirmation_token
-      const { data } = await api.post('/payments/yookassa/create', { tier })
+      // 1. Создаём платёж на бэке → получаем confirmation_token.
+      // Если применён промокод — передаём, бэк применит скидку.
+      const reqBody = { tier }
+      if (appliedPromo?.code) reqBody.promoCode = appliedPromo.code
+      const { data } = await api.post('/payments/yookassa/create', reqBody)
+      // 100%-промокод: бэк сам активировал подписку без захода в ЮKassa.
+      if (data?.freeActivation) {
+        setStage('verifying')
+        await loadFromServer()
+        setStage('success')
+        return
+      }
       if (!data?.confirmationToken) throw new Error('Нет confirmation_token')
 
       // 2. Подгружаем виджет (один раз за сессию)
@@ -431,6 +476,68 @@ export default function Subscription() {
           <p className="mt-4 text-center text-[12px] text-fg-3">
             Расслабление — всегда бесплатно.
           </p>
+
+          {/* Промокод — раскрывающаяся секция. По дефолту скрыта чтобы не
+              отвлекать от основного потока, открывается одной кнопкой. */}
+          <div className="mt-5">
+            {appliedPromo ? (
+              <div
+                className="flex items-center justify-between rounded-md border border-lilac/40 bg-lilac/10 px-3 py-2.5"
+              >
+                <div className="flex flex-col">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-lilac">
+                    Промокод применён
+                  </span>
+                  <span className="mt-0.5 text-[13px] text-fg-0">
+                    <span className="font-mono">{appliedPromo.code}</span> · −{appliedPromo.percent}% ·
+                    {' '}<span className="font-mono text-lilac">{appliedPromo.finalRub}&nbsp;₽</span>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearPromo}
+                  className="text-fg-3 hover:text-fg-0 transition"
+                  aria-label="Убрать промокод"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
+            ) : promoOpen ? (
+              <div className="rounded-md border border-line-2 bg-white/[0.03] p-3">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    placeholder="ПРОМОКОД"
+                    className="field-input flex-1 font-mono tracking-[0.15em]"
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); checkPromo() } }}
+                  />
+                  <button
+                    type="button"
+                    onClick={checkPromo}
+                    disabled={!promoInput.trim() || promoCheckingState === 'checking'}
+                    className="rounded-sm border border-lilac bg-lilac/20 px-4 text-[13px] text-fg-0 hover:bg-lilac/30 transition disabled:opacity-50"
+                  >
+                    {promoCheckingState === 'checking' ? '…' : 'Применить'}
+                  </button>
+                </div>
+                {promoError && (
+                  <div className="mt-2 text-[12px] text-err">{promoError}</div>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setPromoOpen(true)}
+                className="w-full text-center text-[12px] text-fg-3 hover:text-lilac transition"
+              >
+                У меня есть промокод →
+              </button>
+            )}
+          </div>
 
           {stage === 'error' && (
             <div className="mt-6 rounded-md border border-line-2 bg-err/10 px-4 py-3 text-[13px] text-err">

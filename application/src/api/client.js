@@ -1,13 +1,15 @@
 import axios from 'axios'
+import { apiBaseUrl, shouldUseMock } from './clientConfig'
 
 // USE_MOCK включается ТОЛЬКО явно через VITE_USE_MOCK=true. Раньше fallback
 // "если VITE_API_URL пустой — включать mock" приводил к тому что в production
 // без env-переменной приложение возвращало fake login/payment/progress.
 // На проде Caddy проксирует /api → бэк, baseURL '/api' работает по умолчанию.
-export const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+const env = import.meta.env || {}
+export const USE_MOCK = shouldUseMock(env)
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: apiBaseUrl(env),
   timeout: 10000,
 })
 

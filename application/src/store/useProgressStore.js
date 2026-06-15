@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { todayISO } from '../utils/dateHelpers'
 import { api, USE_MOCK } from '../api/client'
 import { fetchProgress, completePractice as apiCompletePractice } from '../api/progress'
+import { COMPLETION_PENDING_KEY, clearCompletionPending } from './pendingSyncKeys'
 
 const KEY = 'progress_state'
 
@@ -157,10 +158,10 @@ export const useProgressStore = create((set, get) => ({
         // прогресс не потерялся. flushPendingCompletions попробует
         // отправить ещё раз при следующем mount'е App.
         try {
-          const raw = localStorage.getItem('completion_pending_sync')
+          const raw = localStorage.getItem(COMPLETION_PENDING_KEY)
           const arr = raw ? JSON.parse(raw) : []
           if (!arr.includes(id)) arr.push(id)
-          localStorage.setItem('completion_pending_sync', JSON.stringify(arr))
+          localStorage.setItem(COMPLETION_PENDING_KEY, JSON.stringify(arr))
         } catch { /* ignore */ }
         // eslint-disable-next-line no-console
         console.warn('practice completion pending sync', id, e?.message || e)
@@ -183,7 +184,7 @@ export const useProgressStore = create((set, get) => ({
     if (USE_MOCK) return
     let arr = []
     try {
-      arr = JSON.parse(localStorage.getItem('completion_pending_sync') || '[]')
+      arr = JSON.parse(localStorage.getItem(COMPLETION_PENDING_KEY) || '[]')
     } catch { return }
     if (!arr.length) return
     const remaining = []
@@ -194,7 +195,7 @@ export const useProgressStore = create((set, get) => ({
         remaining.push(id)
       }
     }
-    localStorage.setItem('completion_pending_sync', JSON.stringify(remaining))
+    localStorage.setItem(COMPLETION_PENDING_KEY, JSON.stringify(remaining))
     if (remaining.length === 0) {
       try { await get().loadFromServer() } catch { /* ignore */ }
     }
@@ -235,6 +236,7 @@ export const useProgressStore = create((set, get) => ({
 
   reset: () => {
     localStorage.removeItem(KEY)
+    clearCompletionPending()
     set(defaults)
   },
 }))

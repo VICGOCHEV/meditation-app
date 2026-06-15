@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
@@ -138,12 +138,34 @@ function SmokeMesh() {
 }
 
 export default function SpookySmoke({ className, blendMode = 'screen' }) {
+  const wrapRef = useRef(null)
+  const [visible, setVisible] = useState(true)
+  const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || document.visibilityState === 'visible')
+
+  useEffect(() => {
+    const onVisibility = () => setPageVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
+  useEffect(() => {
+    if (!wrapRef.current) return
+    const io = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { rootMargin: '120px' },
+    )
+    io.observe(wrapRef.current)
+    return () => io.disconnect()
+  }, [])
+
   return (
     <div
+      ref={wrapRef}
       className={className ?? 'pointer-events-none absolute inset-0 h-full w-full'}
       style={{ mixBlendMode: blendMode }}
     >
       <Canvas
+        frameloop={pageVisible && visible ? 'always' : 'never'}
         gl={{
           antialias: true,
           alpha: true,

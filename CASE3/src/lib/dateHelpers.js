@@ -1,0 +1,82 @@
+const DAY = 24 * 60 * 60 * 1000
+
+// Progression cycle in days. One cycle = «прошло N дней → DA доступен →
+// DA пройден → открывается следующая Awareness-практика». Клиент
+// зафиксировал N=4 в 2026-05-20. Меняем здесь — UI и формулы прогресса
+// подтянутся автоматически.
+export const PROGRESSION_CYCLE_DAYS = 4
+
+export function todayISO() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+export function isToday(dateString) {
+  if (!dateString) return false
+  return dateString.slice(0, 10) === todayISO()
+}
+
+export function daysSince(dateString) {
+  if (!dateString) return Infinity
+  const diff = Date.now() - new Date(dateString).getTime()
+  return Math.floor(diff / DAY)
+}
+
+export function daysUntil(dateString) {
+  if (!dateString) return 0
+  const diff = new Date(dateString).getTime() - Date.now()
+  return Math.max(0, Math.ceil(diff / DAY))
+}
+
+export function canDoDeepAnalysis(lastDate) {
+  return !lastDate || daysSince(lastDate) >= PROGRESSION_CYCLE_DAYS
+}
+
+// Count entries (ISO date strings or { date }) that fall within the last `n` days.
+export function countWithinLastDays(items, n, getter = (x) => x) {
+  if (!items?.length) return 0
+  const cutoff = Date.now() - n * DAY
+  return items.reduce((acc, x) => {
+    const ts = new Date(getter(x)).getTime()
+    return Number.isFinite(ts) && ts >= cutoff ? acc + 1 : acc
+  }, 0)
+}
+
+export function formatRuDate(dateString) {
+  if (!dateString) return ''
+  const months = [
+    'янв', 'фев', 'мар', 'апр', 'мая', 'июн',
+    'июл', 'авг', 'сен', 'окт', 'ноя', 'дек',
+  ]
+  const d = new Date(dateString)
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`
+}
+
+export function consecutiveStreak(dates) {
+  if (!dates?.length) return 0
+  const set = new Set(dates.map(d => d.slice(0, 10)))
+  let streak = 0
+  const cursor = new Date()
+  while (set.has(cursor.toISOString().slice(0, 10))) {
+    streak += 1
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
+export function monthGrid(year, month) {
+  const first = new Date(year, month, 1)
+  const start = new Date(first)
+  const dow = (first.getDay() + 6) % 7
+  start.setDate(first.getDate() - dow)
+  const days = []
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    days.push({
+      iso: d.toISOString().slice(0, 10),
+      day: d.getDate(),
+      inMonth: d.getMonth() === month,
+    })
+  }
+  return days
+}

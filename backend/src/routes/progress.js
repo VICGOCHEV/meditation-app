@@ -1,5 +1,6 @@
 import { db } from '../db.js'
 import { whichDaCheckpoint, nextAwarenessUnlock } from '../utils/progressionRules.js'
+import { buildKtProgressSnapshot } from '../utils/ktHistory.js'
 
 export async function progressRoutes(app) {
   // GET /api/progress — full user state snapshot
@@ -12,11 +13,10 @@ export async function progressRoutes(app) {
         db.unlockedAwareness.findMany({ where: { userId }, orderBy: { unlockedAt: 'asc' } }),
         db.practiceCompletion.findMany({ where: { userId }, orderBy: { completedAt: 'asc' } }),
         db.trackerDay.findMany({ where: { userId }, orderBy: { date: 'asc' } }),
-        db.ktEntry.findMany({ where: { userId }, orderBy: { createdAt: 'asc' }, take: 12 }),
+        db.ktEntry.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, take: 12 }),
       ])
 
-    const ktHistory = ktRows.map((e) => ({ date: e.createdAt.toISOString(), kt: e.kt }))
-    const lastKtEntry = ktRows.at(-1) || null
+    const { ktHistory, lastKtEntry } = buildKtProgressSnapshot(ktRows)
 
     const completedSet = new Set(completions.map((r) => r.practiceId))
     const trackerSet = new Set(trackerRows.map((r) => r.date.toISOString().slice(0, 10)))

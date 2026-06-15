@@ -10,12 +10,37 @@ import {
   IconBell,
 } from '../ui/icons.jsx'
 
+// inline-иконки для новых разделов (промо и broadcast) — экономим
+// добавление в общий icons.jsx ради двух элементов.
+function IconTag(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M7 3h6l8 8-10 10L3 13V7l4-4z" />
+      <circle cx="9" cy="9" r="1" />
+    </svg>
+  )
+}
+function IconSend(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M22 2 11 13" />
+      <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+    </svg>
+  )
+}
+
 const NAV = [
   { group: 'Контент', items: [
     { to: '/practices', label: 'Практики', icon: IconLayers },
     { to: '/voices', label: 'Голоса', icon: IconMic },
     { to: '/music', label: 'Музыка', icon: IconMusic },
     { to: '/push-phrases', label: 'Тексты пушей', icon: IconBell },
+  ] },
+  { group: 'Монетизация', items: [
+    { to: '/promocodes', label: 'Промокоды', icon: IconTag },
+  ] },
+  { group: 'Связь с юзерами', items: [
+    { to: '/broadcasts', label: 'Email-рассылки', icon: IconSend },
   ] },
   { group: 'Данные', items: [
     { to: '/users', label: 'Юзеры и подписки', icon: IconUsers },
@@ -32,6 +57,8 @@ function crumb(pathname) {
   if (pathname.startsWith('/users')) return 'Юзеры и подписки'
   if (pathname.startsWith('/feedback')) return 'Обратная связь'
   if (pathname.startsWith('/push-phrases')) return 'Тексты пушей'
+  if (pathname.startsWith('/promocodes')) return 'Промокоды'
+  if (pathname.startsWith('/broadcasts')) return 'Email-рассылки'
   return ''
 }
 

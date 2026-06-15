@@ -1,4 +1,4 @@
-import { useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
@@ -128,6 +128,14 @@ function HaloMesh() {
 }
 
 export default function AppBackground() {
+  const [pageVisible, setPageVisible] = useState(() => typeof document === 'undefined' || document.visibilityState === 'visible')
+
+  useEffect(() => {
+    const onVisibility = () => setPageVisible(document.visibilityState === 'visible')
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [])
+
   return (
     <div
       aria-hidden="true"
@@ -135,6 +143,7 @@ export default function AppBackground() {
       style={{ background: '#11101a' }}
     >
       <Canvas
+        frameloop={pageVisible ? 'always' : 'never'}
         gl={{ antialias: false, alpha: false, preserveDrawingBuffer: false, powerPreference: 'low-power' }}
         dpr={[0.75, 1.5]}
         style={{ width: '100%', height: '100%', display: 'block' }}

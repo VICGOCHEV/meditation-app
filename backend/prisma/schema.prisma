@@ -117,8 +117,80 @@ model Subscription {
   expiresAt DateTime?
   // 'awareness' (199₽) | 'all-inclusive' (299₽)
   tier      String    @default("awareness")
+  // Когда юзеру отправили письмо «подписка кончается через 3 дня».
+  // Cron-job смотрит на это поле — null или >3д назад → шлёт.
+  // После каждого продления обнуляется, чтобы напомнить в следующий цикл.
+  expirationNotifiedAt DateTime? @map("expiration_notified_at")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
+}
+
+// Промокоды: разовые или многоразовые скидки на подписку.
+// Применяются на экране /subscription до создания платежа в ЮKassa.
+// Логика: amount * (100 - percent) / 100, округлено вниз до целого рубля.
+model PromoCode {
+  id          Int               @id @default(autoincrement())
+  // Сам код, который юзер вводит (case-insensitive, храним в upper).
+  code        String            @unique
+  // Скидка в процентах от цены тарифа (0-100). 100 = бесплатно.
+  percent     Int
+  // Опционально: ограничение по сроку действия.
+  validFrom   DateTime?         @map("valid_from")
+  validUntil  DateTime?         @map("valid_until")
+  // 0 = без лимита, >0 = максимум использований всего.
+  maxUses     Int               @default(0) @map("max_uses")
+  usedCount   Int               @default(0) @map("used_count")
+  // Можно временно выключить без удаления.
+  active      Boolean           @default(true)
+  // Опционально: пояснение «акция к Новому году» — видно только в CMS.
+  note        String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  uses        PromoCodeUse[]
+
+  @@index([active, validUntil])
+}
+
+// Лог применений промокода. Защищает от повторного использования
+// одним юзером + даёт аналитику «сколько раз промо сработал».
+model PromoCodeUse {
+  id          Int       @id @default(autoincrement())
+  promoCodeId Int       @map("promo_code_id")
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  userId      Int       @map("user_id")
+  // Сумма скидки в копейках на момент применения (для истории).
+  discountKopecks Int   @map("discount_kopecks")
+  // ID платежа ЮKassa, к которому применили (после успешного payment.succeeded).
+  paymentId   String?   @map("payment_id")
+  usedAt      DateTime  @default(now()) @map("used_at")
+
+  @@unique([promoCodeId, userId])
+  @@index([userId])
+}
+
+// Массовые email-рассылки от админа CMS. Создаются мгновенно с
+// status='pending', обрабатываются background-воркером (cron каждую
+// минуту) — он берёт следующего получателя из аудитории и шлёт.
+// Это не «отправь сейчас», а очередь — защита от лимитов SMTP-провайдера.
+model BroadcastJob {
+  id          Int      @id @default(autoincrement())
+  subject     String
+  body        String   // plain text — обернётся в HTML-шаблон автоматом
+  // 'all' / 'paid' / 'free' / 'specific' (на будущее, фильтры)
+  audience    String
+  // pending / running / done / failed
+  status      String   @default("pending")
+  totalCount  Int      @default(0) @map("total_count")
+  sentCount   Int      @default(0) @map("sent_count")
+  failedCount Int      @default(0) @map("failed_count")
+  // Когда последний раз воркер обрабатывал эту рассылку — для дедлока.
+  lastTickAt  DateTime? @map("last_tick_at")
+  createdAt   DateTime @default(now())
+  finishedAt  DateTime? @map("finished_at")
+  // Кто запустил (id админа CMS).
+  createdBy   Int      @map("created_by")
+
+  @@index([status, createdAt])
 }
 
 model UnlockedAwareness {

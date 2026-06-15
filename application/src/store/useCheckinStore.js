@@ -2,9 +2,9 @@ import { create } from 'zustand'
 import { calcIS } from '../utils/scoreCalc'
 import { isToday } from '../utils/dateHelpers'
 import { api, USE_MOCK } from '../api/client'
+import { CHECKIN_PENDING_KEY, clearCheckinPending } from './pendingSyncKeys'
 
 const KEY = 'checkin_state'
-const PENDING_KEY = 'checkin_pending_sync'
 
 const load = () => {
   try {
@@ -16,7 +16,7 @@ const load = () => {
 
 const loadPending = () => {
   try {
-    return JSON.parse(localStorage.getItem(PENDING_KEY)) || []
+    return JSON.parse(localStorage.getItem(CHECKIN_PENDING_KEY)) || []
   } catch {
     return []
   }
@@ -48,7 +48,7 @@ export const useCheckinStore = create((set, get) => ({
         // — отправим снова.
         const pending = loadPending()
         pending.push({ q1, q2, q3, q4, at: lastCheckinDate })
-        localStorage.setItem(PENDING_KEY, JSON.stringify(pending))
+        localStorage.setItem(CHECKIN_PENDING_KEY, JSON.stringify(pending))
         // eslint-disable-next-line no-console
         console.warn('checkin pending sync', e?.message || e)
       }
@@ -72,7 +72,7 @@ export const useCheckinStore = create((set, get) => ({
         remaining.push(item)
       }
     }
-    localStorage.setItem(PENDING_KEY, JSON.stringify(remaining))
+    localStorage.setItem(CHECKIN_PENDING_KEY, JSON.stringify(remaining))
   },
 
   checkIfDoneToday: () => {
@@ -83,6 +83,7 @@ export const useCheckinStore = create((set, get) => ({
 
   reset: () => {
     localStorage.removeItem(KEY)
+    clearCheckinPending()
     set({ lastCheckinDate: null, todayCheckinDone: false, lastIS: null })
   },
 }))

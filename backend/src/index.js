@@ -24,6 +24,11 @@ import { tgRoutes } from './routes/tg.js'
 import { feedbackRoutes } from './routes/feedback.js'
 import { notifyRoutes } from './routes/notify.js'
 import { startNotifier } from './jobs/notifier.js'
+import { startExpirationNotifier } from './jobs/expirationNotifier.js'
+import { startBroadcastWorker } from './jobs/broadcastWorker.js'
+import { promocodeRoutes } from './routes/promocodes.js'
+import { adminBroadcastRoutes } from './routes/admin/broadcast.js'
+import { adminPromocodesRoutes } from './routes/admin/promocodes.js'
 import { contentRoutes } from './routes/content.js'
 import { adminAuthRoutes } from './routes/admin/auth.js'
 import { adminMediaRoutes } from './routes/admin/media.js'
@@ -109,6 +114,7 @@ await app.register(paymentRoutes, { prefix: '/api' })
 await app.register(tgRoutes, { prefix: '/api' })
 await app.register(feedbackRoutes, { prefix: '/api' })
 await app.register(notifyRoutes, { prefix: '/api' })
+await app.register(promocodeRoutes, { prefix: '/api' })
 
 // Публичный контент для аппки (замена Strapi)
 await app.register(contentRoutes, { prefix: '/api' })
@@ -123,6 +129,8 @@ await app.register(adminDashboardRoutes, { prefix: '/api' })
 await app.register(adminSubscriptionsRoutes, { prefix: '/api' })
 await app.register(adminFeedbackRoutes, { prefix: '/api' })
 await app.register(adminPushPhrasesRoutes, { prefix: '/api' })
+await app.register(adminBroadcastRoutes, { prefix: '/api' })
+await app.register(adminPromocodesRoutes, { prefix: '/api' })
 
 const close = async () => {
   app.log.info('shutting down...')
@@ -137,4 +145,8 @@ app.listen({ host: config.host, port: config.port }).then(() => {
   app.log.info({ host: config.host, port: config.port }, 'meditation-api up')
   // Cron-воркер пушей. Стартует после успешного listen, чтобы не блокировать.
   startNotifier(app)
+  // Cron-воркер уведомлений об окончании подписки (daily 10:00 МСК)
+  startExpirationNotifier(app)
+  // Cron-воркер broadcast-рассылок (каждую минуту, до 25 писем за тик)
+  startBroadcastWorker(app)
 })
