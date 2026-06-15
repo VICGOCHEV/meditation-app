@@ -6,14 +6,23 @@ import PasswordInput from './PasswordInput'
 import { useAuthStore } from '../../store/useAuthStore'
 import { login } from '../../api/auth'
 
+// Persistent email из прошлого входа с галкой «Запомнить меня».
+// Сохраняем ТОЛЬКО email — пароль никогда в plain text.
+const REMEMBERED_EMAIL_KEY = 'app_remembered_email'
+
 // Логин по email/паролю. TG/VK Mini App auto-login временно отключён —
 // инфра в порядке (relay, webhook, бэк-роуты), но Mini App контекст не
 // активируется без /newapp в BotFather. См. docs/31-tg-integration-2026-06-02.md
 export default function Login() {
   const navigate = useNavigate()
   const authLogin = useAuthStore((s) => s.login)
-  const [identifier, setIdentifier] = useState('')
+
+  const rememberedEmail = (() => {
+    try { return localStorage.getItem(REMEMBERED_EMAIL_KEY) || '' } catch { return '' }
+  })()
+  const [identifier, setIdentifier] = useState(rememberedEmail)
   const [password, setPassword] = useState('')
+  const [remember, setRemember] = useState(Boolean(rememberedEmail))
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -22,7 +31,12 @@ export default function Login() {
     setErr('')
     setLoading(true)
     try {
-      const { token, user } = await login({ identifier, password })
+      const { token, user } = await login({ identifier, password, remember })
+      if (remember) {
+        try { localStorage.setItem(REMEMBERED_EMAIL_KEY, identifier) } catch { /* noop */ }
+      } else {
+        try { localStorage.removeItem(REMEMBERED_EMAIL_KEY) } catch { /* noop */ }
+      }
       authLogin(token, user)
       navigate('/')
     } catch (e) {
@@ -42,9 +56,10 @@ export default function Login() {
   return (
     <AuthShell title="Войти">
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        <Field label="Email или телефон">
+        <Field label="Email">
           <input
-            type="text"
+            type="email"
+            inputMode="email"
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             className="field-input"
@@ -56,6 +71,25 @@ export default function Login() {
         <Field label="Пароль">
           <PasswordInput value={password} onChange={setPassword} />
         </Field>
+
+        <label className="flex cursor-pointer items-center gap-2.5 select-none">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+            className="mt-[1px] h-4 w-4 shrink-0 cursor-pointer appearance-none rounded border border-line-2 bg-white/5 checked:border-lilac checked:bg-lilac/30 transition focus:outline-none focus:ring-2 focus:ring-lilac/40"
+            style={{
+              backgroundImage: remember
+                ? "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23f4f0ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E\")"
+                : 'none',
+              backgroundSize: '12px 12px',
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'center',
+            }}
+          />
+          <span className="text-[13px] text-fg-1">Запомнить меня</span>
+          <span className="ml-auto text-[11px] text-fg-3">остаться в аккаунте на 90 дней</span>
+        </label>
 
         {err && <div className="text-sm text-err">{err}</div>}
 

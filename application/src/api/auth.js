@@ -1,6 +1,6 @@
 import { api, USE_MOCK, delay } from './client'
 
-export async function login({ identifier, password }) {
+export async function login({ identifier, password, remember }) {
   if (USE_MOCK) {
     await delay(400)
     if (!identifier || !password) throw new Error('Введите данные для входа')
@@ -9,7 +9,7 @@ export async function login({ identifier, password }) {
       user: { id: 1, email: identifier, name: identifier.split('@')[0] || 'Практик' },
     }
   }
-  const { data } = await api.post('/auth/login', { identifier, password })
+  const { data } = await api.post('/auth/login', { identifier, password, remember })
   return data
 }
 

@@ -78,7 +78,9 @@ export async function authRoutes(app) {
     }
   })
 
-  // POST /api/auth/login {identifier, password}
+  // POST /api/auth/login {identifier, password, remember?}
+  // remember=true → токен на 90 дней (галка «Запомнить меня»),
+  // иначе дефолтные 7 дней.
   app.post('/auth/login', {
     ...authLimit,
     schema: {
@@ -88,11 +90,12 @@ export async function authRoutes(app) {
         properties: {
           identifier: { type: 'string', maxLength: 254 },
           password: { type: 'string', maxLength: 200 },
+          remember: { type: 'boolean' },
         },
       },
     },
   }, async (req, reply) => {
-    const { identifier, password } = req.body
+    const { identifier, password, remember } = req.body
     const email = identifier.toLowerCase()
     const user = await db.user.findUnique({ where: { email } })
     if (!user) {
@@ -104,7 +107,8 @@ export async function authRoutes(app) {
     const ok = await verifyPassword(password, user.passwordHash)
     if (!ok) return reply.code(401).send({ error: 'Кажется, пароль не подходит. Попробуй вспомнить его.' })
 
-    const token = app.jwt.sign({ id: user.id }, { expiresIn: '7d' })
+    const ttl = remember ? '90d' : '7d'
+    const token = app.jwt.sign({ id: user.id }, { expiresIn: ttl })
     return { token, user: toPublicUser(user) }
   })
 

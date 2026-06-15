@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import AuthShell, { Field } from './AuthShell'
 import Button from '../../components/ui/Button'
 import PasswordInput from './PasswordInput'
+import { PASSWORD_RE, passwordChecks } from './passwordRules'
 import { register, verifyCode } from '../../api/auth'
 import { useAuthStore } from '../../store/useAuthStore'
 
@@ -10,15 +11,6 @@ import { useAuthStore } from '../../store/useAuthStore'
 // 8+ символов, хотя бы одна буква и хотя бы одна цифра ИЛИ символ.
 // Раньше фронт требовал именно цифру — backend пропускал «Password!»,
 // фронт нет → юзер думал что правильный пароль отвергают.
-const PASSWORD_RE = /^(?=.*[A-Za-zА-Яа-яЁё])(?=.*[\d\W_]).{8,}$/
-
-function passwordChecks(pwd) {
-  return {
-    long: pwd.length >= 8,
-    letter: /[A-Za-zА-Яа-яЁё]/.test(pwd),
-    nonAlpha: /[\d\W_]/.test(pwd), // цифра или любой не-буквенный символ
-  }
-}
 
 function PasswordHints({ pwd, show }) {
   const c = passwordChecks(pwd)
@@ -76,7 +68,7 @@ export default function Register() {
   const onRegister = async (e) => {
     e.preventDefault()
     setErr('')
-    if (!identifier.trim()) return setErr('Введи email или телефон')
+    if (!identifier.trim()) return setErr('Введи email')
     if (!pwdOk) return setErr('Пароль слишком слабый: нужны 8+ символов, хотя бы одна буква и одна цифра или символ')
     if (!matchOk) return setErr('Пароли не совпадают')
     if (!legalOk) return setErr('Чтобы продолжить, подтверди согласие с документами')
@@ -125,9 +117,10 @@ export default function Register() {
     <AuthShell title={stage === 'form' ? 'Создать аккаунт' : 'Подтверди номер'}>
       {stage === 'form' ? (
         <form onSubmit={onRegister} className="flex flex-col gap-4">
-          <Field label="Email или телефон">
+          <Field label="Email">
             <input
-              type="text"
+              type="email"
+              inputMode="email"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               className="field-input"
