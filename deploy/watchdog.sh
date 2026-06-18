@@ -7,7 +7,7 @@
 #
 # Что мониторим (по убыванию важности):
 #   1. Бэк жив и отвечает 200 на /api/health/full с db.ok=true
-#   2. systemd сервисы meditation-api, meditation-cms живы
+#   2. systemd сервисы meditation-api, postgresql, caddy живы (CMS — статика за caddy)
 #   3. Свободно > 10% места на диске
 #   4. Load average 1-min < 8
 #   5. Free RAM > 200 MB
@@ -71,7 +71,7 @@ HEALTH=$(curl -sS --max-time 10 -o /tmp/health.json -w '%{http_code}' \
 DB_OK=$(jq -r '.db.ok' /tmp/health.json 2>/dev/null || echo "false")
 if [ "$HEALTH" != "200" ] || [ "$DB_OK" != "true" ]; then
   if should_alert "backend_down"; then
-    send_alert "🔴 RELAX ME · бэк не отвечает" \
+    send_alert "RELAX ME · бэк не отвечает" \
       "Что: GET /api/health/full вернул HTTP $HEALTH, db.ok=$DB_OK
 Когда: $(date '+%F %T %Z')
 Сервер: $(hostname)
@@ -80,10 +80,12 @@ if [ "$HEALTH" != "200" ] || [ "$DB_OK" != "true" ]; then
 fi
 
 # 2. Сервисы
-for svc in meditation-api meditation-cms postgresql caddy; do
+# NB: CMS — это статика, которую раздаёт Caddy (нет systemd-юнита meditation-cms),
+# поэтому проверяем только реальные сервисы. Живость CMS = живость caddy.
+for svc in meditation-api postgresql caddy; do
   if ! systemctl is-active --quiet "$svc"; then
     if should_alert "svc_$svc"; then
-      send_alert "🔴 RELAX ME · сервис $svc остановлен" \
+      send_alert "RELAX ME · сервис $svc остановлен" \
         "Сервис $svc не active.
 $(systemctl status "$svc" --no-pager 2>/dev/null | head -10)
 $(date '+%F %T %Z')"
@@ -95,7 +97,7 @@ done
 DISK_USE=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
 if [ "$DISK_USE" -gt 90 ]; then
   if should_alert "disk_full"; then
-    send_alert "🟠 RELAX ME · диск $DISK_USE%" \
+    send_alert "RELAX ME · диск $DISK_USE%" \
       "Свободно: $(df -h / | awk 'NR==2 {print $4}'). Топ-5 каталогов:
 $(du -sh /opt/* /var/log 2>/dev/null | sort -hr | head -5)"
   fi
@@ -107,7 +109,7 @@ CPU=$(nproc)
 LOAD_LIMIT=$((CPU * 2))
 if [ "$LOAD1" -gt "$LOAD_LIMIT" ]; then
   if should_alert "high_load"; then
-    send_alert "🟠 RELAX ME · нагрузка $LOAD1 (порог $LOAD_LIMIT)" \
+    send_alert "RELAX ME · нагрузка $LOAD1 (порог $LOAD_LIMIT)" \
       "1-min load: $LOAD1, ядер: $CPU. Топ процессов:
 $(ps -eo pid,pcpu,pmem,comm --sort=-pcpu | head -8)"
   fi
@@ -117,7 +119,7 @@ fi
 FREE_MB=$(free -m | awk '/^Mem:/ {print $7}')
 if [ "$FREE_MB" -lt 200 ]; then
   if should_alert "low_mem"; then
-    send_alert "🟠 RELAX ME · мало RAM ($FREE_MB MB)" \
+    send_alert "RELAX ME · мало RAM ($FREE_MB MB)" \
       "Free: $FREE_MB MB. Топ по памяти:
 $(ps -eo pid,pmem,rss,comm --sort=-pmem | head -8)"
   fi
