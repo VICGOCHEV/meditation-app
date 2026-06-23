@@ -10,9 +10,9 @@ import { login } from '../../api/auth'
 // Сохраняем ТОЛЬКО email — пароль никогда в plain text.
 const REMEMBERED_EMAIL_KEY = 'app_remembered_email'
 
-// Логин по email/паролю. TG/VK Mini App auto-login временно отключён —
-// инфра в порядке (relay, webhook, бэк-роуты), но Mini App контекст не
-// активируется без /newapp в BotFather. См. docs/31-tg-integration-2026-06-02.md
+// VK Mini App auto-login делается на app-уровне в usePlatformAuth — до
+// того как router смонтирует роуты. Поэтому здесь только обычная форма.
+
 export default function Login() {
   const navigate = useNavigate()
   const authLogin = useAuthStore((s) => s.login)
@@ -53,9 +53,42 @@ export default function Login() {
     }
   }
 
+  // === Рендер ===============================================================
+  // Пока идёт VK auto-login — показываем красивый прелоадер. Не мигаем
+  // формой, чтобы UX был как в нативном приложении — открыл и оказался
+  // внутри без лишних движений.
+  if (vkAttempting) {
+    return (
+      <AuthShell title="">
+        <div className="flex flex-col items-center gap-6 py-10">
+          <div className="relative flex h-16 w-16 items-center justify-center">
+            <span
+              className="absolute inset-0 rounded-full border-2 border-lilac/15"
+              aria-hidden="true"
+            />
+            <span
+              className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-lilac"
+              style={{ animationDuration: '1.1s' }}
+              aria-hidden="true"
+            />
+          </div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-lilac/70">
+            ВХОДИМ ЧЕРЕЗ VK
+          </div>
+        </div>
+      </AuthShell>
+    )
+  }
+
   return (
     <AuthShell title="Войти">
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        {vkError && (
+          <div className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[12px] text-amber-200/90">
+            {vkError}
+          </div>
+        )}
+
         <Field label="Email">
           <input
             type="email"

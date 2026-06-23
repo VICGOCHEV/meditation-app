@@ -39,7 +39,10 @@ export default function App() {
   const [ready, setReady] = useState(false)
   useTimeTheme()
   // TG/VK auto-auth + BackButton + header colors. No-op в обычном браузере.
-  usePlatformAuth()
+  // vkAuthing=true пока идёт бесшовный VK Mini App auto-login — на это
+  // время не монтируем роуты (юзер видит штатный Preloader, к моменту
+  // его окончания мы уже залогинены).
+  const { vkAuthing } = usePlatformAuth()
   // Routes mount only after the preloader finishes — otherwise onboarding
   // would animate hidden→visible while hidden behind the splash and the
   // user would see the final state on reveal.
@@ -97,8 +100,8 @@ export default function App() {
       <AppBackground />
       <LiquidGlassFilter />
       <AuthGate />
-      {preloaderDone && <AppRoutes />}
-      {preloaderDone && <ShouldShowNav />}
+      {preloaderDone && !vkAuthing && <AppRoutes />}
+      {preloaderDone && !vkAuthing && <ShouldShowNav />}
       <Preloader onDone={() => setPreloaderDone(true)} />
     </>
   )
