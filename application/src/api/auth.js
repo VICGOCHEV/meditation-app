@@ -76,7 +76,8 @@ export async function tgInit(initData) {
 
 // VK Mini App auto-login. Передаём raw query string из location.search
 // (без leading `?`). Сервер проверяет HMAC через VK_SECURE_KEY.
-export async function vkInit(searchParams) {
+// opts.signal — AbortSignal для таймаута (usePlatformAuth ограничивает 8 сек).
+export async function vkInit(searchParams, opts = {}) {
   if (USE_MOCK) {
     await delay(300)
     return {
@@ -85,7 +86,9 @@ export async function vkInit(searchParams) {
       user: { id: 'vk_mock', name: 'VK Mock' },
     }
   }
-  const { data } = await api.post('/auth/vk-init', { searchParams })
+  const { data } = await api.post('/auth/vk-init', { searchParams }, {
+    signal: opts.signal,
+  })
   return data
 }
 

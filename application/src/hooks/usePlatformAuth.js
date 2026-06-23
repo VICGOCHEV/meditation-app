@@ -77,33 +77,47 @@ export default function usePlatformAuth() {
       const raw = detectVkParams()
       if (!raw) return
 
-      // 1. Снимаем splash VK-приложения, чтобы юзер видел наш UI, а не
-      //    логотип VK на белом фоне.
-      try {
-        const bridge = (await import('@vkontakte/vk-bridge')).default
-        await bridge.send('VKWebAppInit').catch(() => {})
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('VK Bridge load failed', e?.message || e)
-      }
-      if (cancelled) return
+      // 1. Снимаем splash VK fire-and-forget. await зависнет если
+      //    Bridge не получит ответ от parent-кабинета (например, наша
+      //    аппка открыта НЕ через vk.com iframe). Без этого юзер
+      //    видел только дым на фоне и больше ничего.
+      import('@vkontakte/vk-bridge')
+        .then((m) => { try { m.default.send('VKWebAppInit') } catch { /* noop */ } })
+        .catch(() => { /* Bridge не загрузился — пофиг, бэк подпись проверит сам */ })
 
-      // 2. Если юзер уже залогинен (вернулся в Mini App с сохранённой
-      //    сессией) — auto-init пропускаем.
+      // 2. Hard safety: если что-то пойдёт совсем не так — через 10с
+      //    принудительно снимаем vkAuthing, юзер увидит обычный Login.
+      //    Лучше показать форму, чем висеть на дыме навечно.
+      const safetyTimer = setTimeout(() => {
+        if (!cancelled) {
+          // eslint-disable-next-line no-console
+          console.warn('VK auto-init: safety timeout, falling back to login form')
+          setVkAuthing(false)
+        }
+      }, 10000)
+
+      if (cancelled) { clearTimeout(safetyTimer); return }
+
+      // 3. Если юзер уже залогинен — пропускаем
       if (useAuthStore.getState().isAuthenticated) {
+        clearTimeout(safetyTimer)
         setVkAuthing(false)
         return
       }
 
-      // 3. Шлём search-params на бэк, бэк проверяет HMAC через
-      //    VK_SECURE_KEY и возвращает JWT.
+      // 4. POST /api/auth/vk-init с явным AbortController-таймаутом 8с
       try {
-        const res = await vkInit(raw)
+        const ctl = new AbortController()
+        const fetchTimer = setTimeout(() => ctl.abort(), 8000)
+        let res
+        try {
+          res = await vkInit(raw, { signal: ctl.signal })
+        } finally {
+          clearTimeout(fetchTimer)
+        }
         if (cancelled) return
         if (res?.token && res?.user) {
           authLogin(res.token, res.user)
-          // Чистим VK-params из адресной строки, чтобы не светить
-          // подпись при навигации/шере. SPA-роутер не трогаем.
           try {
             const cleanPath = window.location.pathname || '/'
             window.history.replaceState({}, '', cleanPath)
@@ -114,6 +128,7 @@ export default function usePlatformAuth() {
         // eslint-disable-next-line no-console
         console.warn('VK auto-init failed', e?.response?.data?.error || e?.message || e)
       } finally {
+        clearTimeout(safetyTimer)
         if (!cancelled) setVkAuthing(false)
       }
     }

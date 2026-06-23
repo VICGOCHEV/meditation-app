@@ -102,6 +102,22 @@ export default function App() {
       <AuthGate />
       {preloaderDone && !vkAuthing && <AppRoutes />}
       {preloaderDone && !vkAuthing && <ShouldShowNav />}
+      {/* Видимый индикатор пока идёт VK auto-login — без него юзер видел
+          только фон с дымом и не понимал что происходит. */}
+      {preloaderDone && vkAuthing && (
+        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-5 pointer-events-none">
+          <div className="relative h-14 w-14">
+            <span className="absolute inset-0 rounded-full border-2 border-lilac/15" />
+            <span
+              className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-lilac"
+              style={{ animationDuration: '1.1s' }}
+            />
+          </div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-lilac/70">
+            ВХОДИМ ЧЕРЕЗ VK
+          </div>
+        </div>
+      )}
       <Preloader onDone={() => setPreloaderDone(true)} />
     </>
   )
