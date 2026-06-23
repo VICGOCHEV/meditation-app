@@ -1,37 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
-import { vkInit } from '../api/auth'
 
-// Инициализация TG и VK Mini App SDK + бесшовный VK auto-login.
+// VK Mini App auto-login + TG SDK init.
 //
-// VK auto-login:
-//   Если URL содержит параметры подписи VK Mini App (`vk_user_id` +
-//   `sign`), это значит юзер пришёл из vk.com/app54600947. Сразу шлём
-//   их на /api/auth/vk-init — бэк валидирует HMAC через VK_SECURE_KEY
-//   и отдаёт JWT. Внутри App.jsx этот хук возвращает `vkAuthing` —
-//   пока true, App не монтирует роуты (юзер видит штатный Preloader,
-//   а к моменту его окончания мы уже залогинены).
+// VK auto-login (бесшовный):
+//   Если в URL есть `vk_user_id` + `sign` — юзер из vk.com/app54600947.
+//   Шлём search-params на /api/auth/vk-init (raw fetch, без axios — не
+//   тянем за собой interceptors / withCredentials), бэк валидирует HMAC
+//   через VK_SECURE_KEY → JWT. Сохраняем JWT в localStorage и делаем
+//   window.location.replace('/') — hard reload без VK-params в URL,
+//   ProtectedRoute видит токен через restoreSession() и пускает.
 //
-// TG auto-login пока не делается — клиент решил, что юзер должен
-// видеть Login-экран с кнопкой. См. /pages/Auth/Login.jsx.
+// Hard safety: 5 секунд. Если ничего не пришло — снимаем флаг,
+// юзер видит обычный Login. Лучше форма, чем пустой экран.
 //
-// Дополнительно хук:
-// 1. Лениво подгружает @twa-dev/sdk и зовёт WebApp.ready/expand —
-//    без этого TG висит «лоадингом» сверху.
-// 2. Подгоняет headerColor/backgroundColor под тёмную тему.
-// 3. Управляет TG BackButton (show/hide + bind to navigate(-1)).
-function detectVkParams() {
-  if (typeof window === 'undefined') return null
-  const search = window.location.search.replace(/^\?/, '')
-  const hashRaw = window.location.hash.replace(/^#/, '')
-  const fromHash = hashRaw.includes('?')
-    ? hashRaw.split('?').slice(1).join('?')
-    : hashRaw
-  const raw = search.includes('vk_user_id') ? search
-            : fromHash.includes('vk_user_id') ? fromHash
-            : ''
-  return raw || null
+// VKWebAppInit: fire-and-forget. Зависающий await раньше блокировал
+// весь flow когда наш фронт открыт НЕ внутри iframe VK.
+
+function hasVkParams(searchString) {
+  if (!searchString) return false
+  const sp = new URLSearchParams(searchString.replace(/^\?/, ''))
+  return sp.has('vk_user_id') && sp.has('sign')
 }
 
 export default function usePlatformAuth() {
@@ -39,21 +29,89 @@ export default function usePlatformAuth() {
   const navigate = useNavigate()
   const tgRef = useRef(null)
 
-  // VK auto-login state. Инициализируется СРАЗУ (sync) — чтобы App.jsx
-  // решил «монтировать роуты или ждать» до первого commit'а.
+  // Инициализируем vkAuthing синхронно — чтобы App.jsx сразу понял,
+  // монтировать роуты или ждать.
   const [vkAuthing, setVkAuthing] = useState(() => {
     if (typeof window === 'undefined') return false
     if (useAuthStore.getState().isAuthenticated) return false
-    return Boolean(detectVkParams())
+    return hasVkParams(window.location.search)
   })
 
-  const authLogin = useAuthStore((s) => s.login)
+  // === VK auto-login (mount once) =========================================
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!hasVkParams(window.location.search)) return
 
-  // === Init: TG SDK + VK Bridge + VK auto-login ============================
+    let alive = true
+
+    // Hard safety: что бы ни случилось — снимем флаг через 5 сек.
+    const safety = setTimeout(() => {
+      if (alive) {
+        // eslint-disable-next-line no-console
+        console.warn('[VK] safety timeout — показываем форму')
+        setVkAuthing(false)
+      }
+    }, 5000)
+
+    // VK Bridge VKWebAppInit — снимает splash VK. Fire-and-forget, мы
+    // НЕ ждём его resolve (может зависнуть если parent-iframe не отвечает).
+    import('@vkontakte/vk-bridge')
+      .then((m) => { try { m.default.send('VKWebAppInit') } catch { /* noop */ } })
+      .catch(() => { /* Bridge не загрузился — не критично */ })
+
+    // Raw fetch — никаких axios-interceptors / cookie / withCredentials.
+    const searchParams = window.location.search.replace(/^\?/, '')
+
+    // eslint-disable-next-line no-console
+    console.log('[VK] auto-login start')
+
+    fetch('/api/auth/vk-init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ searchParams }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error('HTTP ' + r.status)
+        return r.json()
+      })
+      .then((data) => {
+        if (!alive) return
+        if (!data?.token || !data?.user) {
+          throw new Error('no token in response')
+        }
+        // eslint-disable-next-line no-console
+        console.log('[VK] login ok, user.id =', data.user?.id)
+        // Сохраняем в auth-store (он сам пишет в localStorage).
+        useAuthStore.getState().login(data.token, data.user)
+        // Hard navigation на чистый /  — без VK-params в URL и без
+        // react-router. После reload restoreSession() прочитает JWT и
+        // ProtectedRoute сразу пропустит на Home.
+        try {
+          window.location.replace(window.location.pathname || '/')
+        } catch {
+          window.location.href = '/'
+        }
+      })
+      .catch((e) => {
+        // eslint-disable-next-line no-console
+        console.warn('[VK] auto-login failed:', e?.message || e)
+      })
+      .finally(() => {
+        clearTimeout(safety)
+        if (alive) setVkAuthing(false)
+      })
+
+    return () => {
+      alive = false
+      clearTimeout(safety)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // === TG SDK init (отдельно, не блокирует VK) ============================
   useEffect(() => {
     let cancelled = false
-
-    async function initTg() {
+    ;(async () => {
       try {
         const mod = await import('@twa-dev/sdk')
         if (cancelled) return
@@ -71,74 +129,11 @@ export default function usePlatformAuth() {
         // eslint-disable-next-line no-console
         console.warn('TG SDK load failed', e?.message || e)
       }
-    }
-
-    async function initVk() {
-      const raw = detectVkParams()
-      if (!raw) return
-
-      // 1. Снимаем splash VK fire-and-forget. await зависнет если
-      //    Bridge не получит ответ от parent-кабинета (например, наша
-      //    аппка открыта НЕ через vk.com iframe). Без этого юзер
-      //    видел только дым на фоне и больше ничего.
-      import('@vkontakte/vk-bridge')
-        .then((m) => { try { m.default.send('VKWebAppInit') } catch { /* noop */ } })
-        .catch(() => { /* Bridge не загрузился — пофиг, бэк подпись проверит сам */ })
-
-      // 2. Hard safety: если что-то пойдёт совсем не так — через 10с
-      //    принудительно снимаем vkAuthing, юзер увидит обычный Login.
-      //    Лучше показать форму, чем висеть на дыме навечно.
-      const safetyTimer = setTimeout(() => {
-        if (!cancelled) {
-          // eslint-disable-next-line no-console
-          console.warn('VK auto-init: safety timeout, falling back to login form')
-          setVkAuthing(false)
-        }
-      }, 10000)
-
-      if (cancelled) { clearTimeout(safetyTimer); return }
-
-      // 3. Если юзер уже залогинен — пропускаем
-      if (useAuthStore.getState().isAuthenticated) {
-        clearTimeout(safetyTimer)
-        setVkAuthing(false)
-        return
-      }
-
-      // 4. POST /api/auth/vk-init с явным AbortController-таймаутом 8с
-      try {
-        const ctl = new AbortController()
-        const fetchTimer = setTimeout(() => ctl.abort(), 8000)
-        let res
-        try {
-          res = await vkInit(raw, { signal: ctl.signal })
-        } finally {
-          clearTimeout(fetchTimer)
-        }
-        if (cancelled) return
-        if (res?.token && res?.user) {
-          authLogin(res.token, res.user)
-          try {
-            const cleanPath = window.location.pathname || '/'
-            window.history.replaceState({}, '', cleanPath)
-          } catch { /* noop */ }
-          navigate('/', { replace: true })
-        }
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('VK auto-init failed', e?.response?.data?.error || e?.message || e)
-      } finally {
-        clearTimeout(safetyTimer)
-        if (!cancelled) setVkAuthing(false)
-      }
-    }
-
-    initTg()
-    initVk()
+    })()
     return () => { cancelled = true }
-  }, [authLogin, navigate])
+  }, [])
 
-  // === TG BackButton =======================================================
+  // === TG BackButton =====================================================
   useEffect(() => {
     const WebApp = tgRef.current
     if (!WebApp?.BackButton) return
