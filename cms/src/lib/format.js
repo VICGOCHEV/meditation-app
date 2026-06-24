@@ -25,6 +25,7 @@ export function fmtDate(iso) {
 export const BLOCKS = [
   { key: 'relaxation', title: 'Расслабление', note: 'free' },
   { key: 'awareness', title: 'Осознанность', note: 'по подписке' },
+  { key: 'awareness2', title: 'Осознанность · 2', note: 'по подписке' },
   { key: 'author', title: 'Авторский', note: 'поштучно' },
 ]
 

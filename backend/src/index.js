@@ -39,6 +39,7 @@ import { adminDashboardRoutes } from './routes/admin/dashboard.js'
 import { adminSubscriptionsRoutes } from './routes/admin/subscriptions.js'
 import { adminFeedbackRoutes } from './routes/admin/feedback.js'
 import { adminPushPhrasesRoutes } from './routes/admin/pushPhrases.js'
+import { adminBlocksRoutes } from './routes/admin/blocks.js'
 
 // Sentry должен инициализироваться ДО создания Fastify, чтобы перехватывать
 // ошибки на самых ранних стадиях. No-op если SENTRY_DSN не задан.
@@ -129,6 +130,7 @@ await app.register(adminDashboardRoutes, { prefix: '/api' })
 await app.register(adminSubscriptionsRoutes, { prefix: '/api' })
 await app.register(adminFeedbackRoutes, { prefix: '/api' })
 await app.register(adminPushPhrasesRoutes, { prefix: '/api' })
+await app.register(adminBlocksRoutes, { prefix: '/api' })
 await app.register(adminBroadcastRoutes, { prefix: '/api' })
 await app.register(adminPromocodesRoutes, { prefix: '/api' })
 

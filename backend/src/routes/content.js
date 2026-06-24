@@ -7,6 +7,7 @@ import {
   voicePublicForm,
   musicPublicForm,
 } from '../utils/contentShape.js'
+import { BLOCK_KEYS, mergeBlock } from '../utils/blockDefaults.js'
 
 // Публичный контент для аппки — замена Strapi REST. Отдаёт ту же форму,
 // что парсил src/api/cms.js, поэтому фронт переключается сменой VITE_CMS_URL
@@ -22,12 +23,24 @@ export async function contentRoutes(app) {
       include: practiceInclude,
       orderBy: { order: 'asc' },
     })
-    const groups = { relaxation: [], awareness: [], author: [] }
+    const groups = { relaxation: [], awareness: [], awareness2: [], author: [] }
     for (const p of rows) {
       if (!groups[p.block]) continue
       groups[p.block].push(practicePublicForm(p))
     }
     return groups
+  })
+
+  // GET /api/content/blocks → { relaxation:{eyebrow,title,sub,chip,order}, ... }
+  // Заголовки секций главной. Аппка использует их вместо хардкода; CMS «Блоки»
+  // их правит. Отсутствующие в БД ключи падают на дефолт.
+  app.get('/content/blocks', async (_req, reply) => {
+    cache(reply)
+    const rows = await db.blockMeta.findMany()
+    const byKey = Object.fromEntries(rows.map((r) => [r.key, r]))
+    const out = {}
+    for (const key of BLOCK_KEYS) out[key] = mergeBlock(key, byKey[key])
+    return out
   })
 
   // GET /api/content/practices/:slug → одна практика (по публичному slug)

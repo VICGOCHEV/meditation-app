@@ -28,6 +28,13 @@ export async function fetchPracticesFromCMS() {
   return data
 }
 
+// `{ relaxation:{eyebrow,title,sub,chip}, awareness:{...}, ... }` — заголовки
+// секций блоков на главной (правятся в CMS «Блоки»).
+export async function fetchBlocksFromCMS() {
+  const { data } = await cms.get('/blocks')
+  return data
+}
+
 // Одна практика по slug (slug = практика id, кладётся в PracticeCompletion).
 export async function fetchPracticeFromCMS(slug) {
   const { data } = await cms.get(`/practices/${slug}`)

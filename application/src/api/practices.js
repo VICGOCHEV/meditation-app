@@ -41,6 +41,7 @@ export async function fetchPractice(id) {
     const flat = [
       ...grouped.relaxation,
       ...grouped.awareness,
+      ...(grouped.awareness2 || []),
       ...grouped.author,
     ]
     return flat.find((p) => p.id === id) || null

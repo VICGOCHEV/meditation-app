@@ -9,6 +9,7 @@ import OnboardingFog from '../../components/OnboardingFog'
 import AnimatedSubscribeButton from '../../components/ui/AnimatedSubscribeButton'
 import { mockPractices } from '../../api/mock'
 import { fetchPractices } from '../../api/practices'
+import { fetchBlocks, BLOCK_DEFAULTS } from '../../api/blocks'
 import { useCheckinStore } from '../../store/useCheckinStore'
 import { useProgression } from '../../hooks/useProgression'
 
@@ -191,6 +192,9 @@ export default function Home() {
   // Initial paint uses static mockPractices so the page never blanks.
   // Once fetchPractices() resolves (CMS or real-backend), we swap.
   const [practices, setPractices] = useState(mockPractices)
+  // Заголовки секций (eyebrow/title/sub/chip) — редактируются в CMS «Блоки».
+  // Стартуем с дефолтов, чтобы не было мигания, затем подменяем сетевыми.
+  const [blocks, setBlocks] = useState(BLOCK_DEFAULTS)
 
   useEffect(() => {
     if (!todayDone && !redirecting) {
@@ -208,6 +212,7 @@ export default function Home() {
         const hasContent =
           (p.relaxation?.length || 0) +
             (p.awareness?.length || 0) +
+            (p.awareness2?.length || 0) +
             (p.author?.length || 0) >
           0
         if (hasContent) {
@@ -224,6 +229,16 @@ export default function Home() {
         console.warn('fetchPractices failed, using cached/mock list', e?.message || e)
         setContentError(true)
       })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    fetchBlocks().then((b) => {
+      if (alive && b) setBlocks(b)
+    })
     return () => {
       alive = false
     }
@@ -255,10 +270,10 @@ export default function Home() {
 
       <section className="mt-8">
         <SectionHead
-          eyebrow="01 · СТАРТ"
-          title="Точка тишины"
-          sub="Бесплатные практики расслабления — мягкий вход в тело."
-          chip="Бесплатно · 4"
+          eyebrow={blocks.relaxation?.eyebrow}
+          title={blocks.relaxation?.title}
+          sub={blocks.relaxation?.sub}
+          chip={blocks.relaxation?.chip}
         />
         <motion.div
           className="grid grid-cols-2 gap-3"
@@ -280,10 +295,10 @@ export default function Home() {
 
       <section className="mt-10">
         <SectionHead
-          eyebrow="02 · СИСТЕМА"
-          title="Пароль от жизни"
-          sub="Шесть практик осознанности — переход из тревоги в присутствие."
-          chip="По подписке · 6 практик/мес"
+          eyebrow={blocks.awareness?.eyebrow}
+          title={blocks.awareness?.title}
+          sub={blocks.awareness?.sub}
+          chip={blocks.awareness?.chip}
         />
 
         {!subscription.active && (
@@ -321,6 +336,56 @@ export default function Home() {
           })}
         </motion.div>
       </section>
+
+      {/* Второй блок «Осознанность» (block = 'awareness2'). Структура
+          зеркалит секцию 02; записи добавляются через CMS. Закрыт по
+          подписке так же — карточки locked, пока id не в unlockedPractices.
+          Секция не рендерится, пока в блоке нет ни одной практики. */}
+      {(practices.awareness2?.length || 0) > 0 && (
+        <section className="mt-10">
+          <SectionHead
+            eyebrow={blocks.awareness2?.eyebrow}
+            title={blocks.awareness2?.title}
+            sub={blocks.awareness2?.sub}
+            chip={blocks.awareness2?.chip}
+          />
+
+          {!subscription.active && (
+            <div className="mb-3 rounded-md border border-line-2 bg-white/5 p-4">
+              <div className="text-[14px] text-fg-1">
+                Оформи подписку, чтобы открыть все практики
+              </div>
+              <div className="mt-3">
+                <AnimatedSubscribeButton onClick={() => navigate('/subscription')} />
+              </div>
+            </div>
+          )}
+
+          <motion.div
+            className="grid grid-cols-2 gap-3"
+            variants={gridContainer}
+            initial="initial"
+            animate="animate"
+          >
+            {practices.awareness2.map((p, idx) => {
+              const unlocked = subscription.active && isPracticeUnlocked(p.id)
+              const completed = isPracticeCompleted(p.id)
+              return (
+                <motion.div key={p.id} variants={cardItem}>
+                  <Card
+                    title={p.title}
+                    duration={p.duration}
+                    locked={!unlocked}
+                    completed={completed}
+                    lockedLabel={idx === 0 ? 'Заблокировано' : 'Скоро'}
+                    onPlay={() => goPlay(p.id)}
+                  />
+                </motion.div>
+              )
+            })}
+          </motion.div>
+        </section>
+      )}
 
       {/* Блок «Авторские» (вкл. подкаст) — клиент 09.06.2026 поставил
           на паузу до появления ресурса записывать новый контент.

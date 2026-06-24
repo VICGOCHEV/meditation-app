@@ -325,6 +325,22 @@ model Practice {
   @@index([block, order])
 }
 
+// Заголовок секции блока на главной аппки. key — структурный идентификатор
+// (relaxation|awareness|awareness2|author), сами тексты (eyebrow/title/sub/
+// chip) владелец правит в CMS «Блоки» без деплоя. Строки может не быть —
+// тогда отдаём дефолт из utils/blockDefaults.js.
+model BlockMeta {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  eyebrow   String?
+  title     String
+  sub       String?
+  chip      String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // Голос проводника. code ('male'/'female') — то, что хранит фронтовый
 // usePlayerStore.selectedVoice, поэтому unique.
 model Voice {

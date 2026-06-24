@@ -85,7 +85,7 @@ export default function PracticeEditor({ mode }) {
       published,
     }
     payload.price = form.block === 'author' && form.price !== '' ? Number(form.price) : null
-    payload.monthSlot = form.block === 'awareness' && form.monthSlot !== '' ? Number(form.monthSlot) : null
+    payload.monthSlot = (form.block === 'awareness' || form.block === 'awareness2') && form.monthSlot !== '' ? Number(form.monthSlot) : null
     return payload
   }
 
@@ -207,7 +207,7 @@ export default function PracticeEditor({ mode }) {
               />
             </div>
           )}
-          {form.block === 'awareness' && (
+          {(form.block === 'awareness' || form.block === 'awareness2') && (
             <div className="animate-fade-in">
               <label className="label">Слот месяца</label>
               <input

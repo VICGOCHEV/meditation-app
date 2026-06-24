@@ -19,6 +19,10 @@ export const mockPractices = {
     { id: 'a5', title: 'Я здесь',                      duration: '25 мин', block: 'awareness' },
     { id: 'a6', title: 'Личность — Серый кардинал',    duration: '30 мин', block: 'awareness' },
   ],
+  // Второй блок «Осознанность» — пустая структура. Записи добавит
+  // клиент через CMS (block = 'awareness2'). Закрыт по подписке так же,
+  // как awareness: id-шки не попадают в unlockedPractices → карточки locked.
+  awareness2: [],
   author: [],
 }
 
@@ -26,6 +30,7 @@ export function findPractice(id) {
   const all = [
     ...mockPractices.relaxation,
     ...mockPractices.awareness,
+    ...mockPractices.awareness2,
     ...mockPractices.author,
   ]
   return all.find((p) => p.id === id) || null

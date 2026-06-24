@@ -28,10 +28,18 @@ function IconSend(props) {
     </svg>
   )
 }
+function IconHeading(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4 6h16M4 12h10M4 18h7" />
+    </svg>
+  )
+}
 
 const NAV = [
   { group: 'Контент', items: [
     { to: '/practices', label: 'Практики', icon: IconLayers },
+    { to: '/blocks', label: 'Блоки', icon: IconHeading },
     { to: '/voices', label: 'Голоса', icon: IconMic },
     { to: '/music', label: 'Музыка', icon: IconMusic },
     { to: '/push-phrases', label: 'Тексты пушей', icon: IconBell },
@@ -52,6 +60,7 @@ function crumb(pathname) {
   if (pathname.startsWith('/practices/new')) return 'Практики · новая'
   if (pathname.startsWith('/practices/')) return 'Практики · редактор'
   if (pathname.startsWith('/practices')) return 'Практики'
+  if (pathname.startsWith('/blocks')) return 'Блоки'
   if (pathname.startsWith('/voices')) return 'Голоса'
   if (pathname.startsWith('/music')) return 'Музыка'
   if (pathname.startsWith('/users')) return 'Юзеры и подписки'
