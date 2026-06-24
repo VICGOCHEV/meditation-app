@@ -6,8 +6,12 @@ import {
   practiceInclude,
   practiceAdminForm,
 } from '../../utils/contentShape.js'
+import { BLOCK_KEYS } from '../../utils/blockDefaults.js'
 
-const BLOCKS = ['relaxation', 'awareness', 'author']
+// Единый источник списка блоков — blockDefaults.js (relaxation | awareness |
+// awareness2 | author). Раньше тут был отдельный хардкод, из-за чего новый
+// блок не проходил валидацию схемы (Bad Request на сохранении).
+const BLOCKS = BLOCK_KEYS
 
 // Транслит для читаемого slug. Slug = публичный id практики в аппке
 // (PracticeCompletion.practiceId), поэтому стабильный и уникальный.
