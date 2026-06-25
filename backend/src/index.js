@@ -31,6 +31,7 @@ import { adminBroadcastRoutes } from './routes/admin/broadcast.js'
 import { adminPromocodesRoutes } from './routes/admin/promocodes.js'
 import { contentRoutes } from './routes/content.js'
 import { adminAuthRoutes } from './routes/admin/auth.js'
+import { adminAccountRoutes } from './routes/admin/account.js'
 import { adminMediaRoutes } from './routes/admin/media.js'
 import { adminPracticesRoutes } from './routes/admin/practices.js'
 import { adminVoicesRoutes } from './routes/admin/voices.js'
@@ -122,6 +123,7 @@ await app.register(contentRoutes, { prefix: '/api' })
 
 // CMS admin API
 await app.register(adminAuthRoutes, { prefix: '/api' })
+await app.register(adminAccountRoutes, { prefix: '/api' })
 await app.register(adminMediaRoutes, { prefix: '/api' })
 await app.register(adminPracticesRoutes, { prefix: '/api' })
 await app.register(adminVoicesRoutes, { prefix: '/api' })

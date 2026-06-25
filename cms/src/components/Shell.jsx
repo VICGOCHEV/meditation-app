@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../lib/store.js'
 import {
   IconLayers,
@@ -35,6 +35,14 @@ function IconHeading(props) {
     </svg>
   )
 }
+function IconKey(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <circle cx="7.5" cy="15.5" r="4.5" />
+      <path d="M10.5 12.5 19 4M16 7l3 3M14 9l2 2" />
+    </svg>
+  )
+}
 
 const NAV = [
   { group: 'Контент', items: [
@@ -54,6 +62,9 @@ const NAV = [
     { to: '/users', label: 'Юзеры и подписки', icon: IconUsers },
     { to: '/feedback', label: 'Обратная связь', icon: IconMessage },
   ] },
+  { group: 'Система', items: [
+    { to: '/account', label: 'Аккаунт и доступы', icon: IconKey },
+  ] },
 ]
 
 function crumb(pathname) {
@@ -68,6 +79,7 @@ function crumb(pathname) {
   if (pathname.startsWith('/push-phrases')) return 'Тексты пушей'
   if (pathname.startsWith('/promocodes')) return 'Промокоды'
   if (pathname.startsWith('/broadcasts')) return 'Email-рассылки'
+  if (pathname.startsWith('/account')) return 'Аккаунт и доступы'
   return ''
 }
 
@@ -137,7 +149,7 @@ export default function Shell({ children }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-line bg-bg-1/90 px-5 backdrop-blur">
           <div className="text-sm font-medium text-fg-1">{crumb(loc.pathname)}</div>
-          <div className="flex items-center gap-2.5">
+          <Link to="/account" className="flex items-center gap-2.5 rounded-sm px-1 py-1 transition-colors hover:bg-bg-2" title="Аккаунт и доступы">
             <div className="text-right leading-tight">
               <div className="text-xs font-medium text-fg-1">{admin?.name || admin?.email}</div>
               <div className="text-[10px] text-fg-4">{admin?.role === 'admin' ? 'администратор' : 'редактор'}</div>
@@ -145,7 +157,7 @@ export default function Shell({ children }) {
             <span className="grid h-8 w-8 place-items-center rounded-full bg-bg-3 text-xs font-bold text-fg-1">
               {(admin?.name || admin?.email || '?')[0]?.toUpperCase()}
             </span>
-          </div>
+          </Link>
         </header>
 
         <main className="flex-1 px-5 py-6">{children}</main>
