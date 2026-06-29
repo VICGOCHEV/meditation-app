@@ -100,12 +100,18 @@ export default function App() {
       <AppBackground />
       <LiquidGlassFilter />
       <AuthGate />
-      {preloaderDone && !vkAuthing && <AppRoutes />}
-      {preloaderDone && !vkAuthing && <ShouldShowNav />}
-      {/* Видимый индикатор пока идёт VK auto-login — без него юзер видел
-          только фон с дымом и не понимал что происходит. */}
+      {/* AppRoutes рендерим ВСЕГДА (если прелоадер закончился). VK
+          auto-login висит как overlay поверх — чтобы залипший vkAuthing
+          никогда не мог оставить юзера на пустом экране. При успехе
+          VK-флоу делает window.location.replace и UI пересоберётся
+          уже с залогиненным юзером. */}
+      {preloaderDone && <AppRoutes />}
+      {preloaderDone && <ShouldShowNav />}
       {preloaderDone && vkAuthing && (
-        <div className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-5 pointer-events-none">
+        <div
+          className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-5"
+          style={{ background: 'rgba(10, 7, 20, 0.85)', backdropFilter: 'blur(4px)' }}
+        >
           <div className="relative h-14 w-14">
             <span className="absolute inset-0 rounded-full border-2 border-lilac/15" />
             <span
