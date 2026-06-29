@@ -29,6 +29,14 @@ function AuthGate() {
   const isPublic =
     path.startsWith('/onboarding') || path.startsWith('/auth')
   if (!isAuthenticated && !isPublic) {
+    // Если юзер пришёл из VK Mini App (есть vk_user_id+sign в URL),
+    // идём напрямую на /auth/login СОХРАНЯЯ query — там Login.jsx
+    // запустит бесшовный auto-init через /api/auth/vk-init. Без этого
+    // редирект на /onboarding выкинет VK-params и login не сработает.
+    const sp = new URLSearchParams(location.search)
+    if (sp.has('vk_user_id') && sp.has('sign')) {
+      return <Navigate to={`/auth/login${location.search}`} replace />
+    }
     return <Navigate to="/onboarding" replace />
   }
   return null
