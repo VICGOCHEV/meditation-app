@@ -38,11 +38,10 @@ export default function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession)
   const [ready, setReady] = useState(false)
   useTimeTheme()
-  // TG/VK auto-auth + BackButton + header colors. No-op в обычном браузере.
-  // vkAuthing=true пока идёт бесшовный VK Mini App auto-login — на это
-  // время не монтируем роуты (юзер видит штатный Preloader, к моменту
-  // его окончания мы уже залогинены).
-  const { vkAuthing } = usePlatformAuth()
+  // TG SDK init + BackButton. No-op в обычном браузере.
+  // VK auto-login делается на странице /auth/login (Login.jsx) —
+  // не на app-уровне, чтобы не блокировать рендер ни при каких условиях.
+  usePlatformAuth()
   // Routes mount only after the preloader finishes — otherwise onboarding
   // would animate hidden→visible while hidden behind the splash and the
   // user would see the final state on reveal.
@@ -100,30 +99,8 @@ export default function App() {
       <AppBackground />
       <LiquidGlassFilter />
       <AuthGate />
-      {/* AppRoutes рендерим ВСЕГДА (если прелоадер закончился). VK
-          auto-login висит как overlay поверх — чтобы залипший vkAuthing
-          никогда не мог оставить юзера на пустом экране. При успехе
-          VK-флоу делает window.location.replace и UI пересоберётся
-          уже с залогиненным юзером. */}
       {preloaderDone && <AppRoutes />}
       {preloaderDone && <ShouldShowNav />}
-      {preloaderDone && vkAuthing && (
-        <div
-          className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-5"
-          style={{ background: 'rgba(10, 7, 20, 0.85)', backdropFilter: 'blur(4px)' }}
-        >
-          <div className="relative h-14 w-14">
-            <span className="absolute inset-0 rounded-full border-2 border-lilac/15" />
-            <span
-              className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-lilac"
-              style={{ animationDuration: '1.1s' }}
-            />
-          </div>
-          <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-lilac/70">
-            ВХОДИМ ЧЕРЕЗ VK
-          </div>
-        </div>
-      )}
       <Preloader onDone={() => setPreloaderDone(true)} />
     </>
   )

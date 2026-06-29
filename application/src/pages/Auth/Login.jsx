@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthShell, { Field } from './AuthShell'
 import Button from '../../components/ui/Button'
@@ -6,16 +6,24 @@ import PasswordInput from './PasswordInput'
 import { useAuthStore } from '../../store/useAuthStore'
 import { login } from '../../api/auth'
 
-// Persistent email из прошлого входа с галкой «Запомнить меня».
-// Сохраняем ТОЛЬКО email — пароль никогда в plain text.
 const REMEMBERED_EMAIL_KEY = 'app_remembered_email'
 
-// VK Mini App auto-login делается на app-уровне в usePlatformAuth — до
-// того как router смонтирует роуты. Поэтому здесь только обычная форма.
+// Если в URL есть параметры VK Mini App (vk_user_id + sign) — юзер
+// пришёл из vk.com/app54600947. Один раз пробуем бесшовно залогинить.
+function hasVkParams() {
+  if (typeof window === 'undefined') return false
+  const sp = new URLSearchParams(window.location.search.replace(/^\?/, ''))
+  return sp.has('vk_user_id') && sp.has('sign')
+}
 
 export default function Login() {
   const navigate = useNavigate()
   const authLogin = useAuthStore((s) => s.login)
+  const isAuthed = useAuthStore((s) => s.isAuthenticated)
+
+  // vkAuthing — локальный флаг ТОЛЬКО для Login. Не блокирует другие
+  // экраны. Если что-то залипнет — safety 5с снимет, юзер увидит форму.
+  const [vkAuthing, setVkAuthing] = useState(() => !isAuthed && hasVkParams())
 
   const rememberedEmail = (() => {
     try { return localStorage.getItem(REMEMBERED_EMAIL_KEY) || '' } catch { return '' }
@@ -25,6 +33,65 @@ export default function Login() {
   const [remember, setRemember] = useState(Boolean(rememberedEmail))
   const [err, setErr] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // VK auto-login — один раз при mount Login.jsx если есть VK params.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!hasVkParams()) return
+    if (useAuthStore.getState().isAuthenticated) {
+      setVkAuthing(false)
+      return
+    }
+    let alive = true
+
+    // Safety: через 5с снимаем флаг что бы ни случилось — юзер увидит форму.
+    const safety = setTimeout(() => {
+      if (alive) {
+        // eslint-disable-next-line no-console
+        console.warn('[VK] safety timeout — показываем форму')
+        setVkAuthing(false)
+      }
+    }, 5000)
+
+    // Снимаем splash VK fire-and-forget (не блокирует).
+    import('@vkontakte/vk-bridge')
+      .then((m) => { try { m.default.send('VKWebAppInit') } catch { /* noop */ } })
+      .catch(() => { /* noop */ })
+
+    const searchParams = window.location.search.replace(/^\?/, '')
+    // eslint-disable-next-line no-console
+    console.log('[VK] auto-login start')
+
+    fetch('/api/auth/vk-init', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ searchParams }),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error('HTTP ' + r.status)
+        return r.json()
+      })
+      .then((data) => {
+        if (!alive) return
+        if (!data?.token || !data?.user) throw new Error('no token in response')
+        // eslint-disable-next-line no-console
+        console.log('[VK] login ok, user.id =', data.user?.id)
+        useAuthStore.getState().login(data.token, data.user)
+        try { window.history.replaceState({}, '', window.location.pathname || '/') } catch { /* noop */ }
+        try { window.location.replace('/') } catch { window.location.href = '/' }
+      })
+      .catch((e) => {
+        // eslint-disable-next-line no-console
+        console.warn('[VK] auto-login failed:', e?.message || e)
+      })
+      .finally(() => {
+        clearTimeout(safety)
+        if (alive) setVkAuthing(false)
+      })
+
+    return () => { alive = false; clearTimeout(safety) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -53,23 +120,17 @@ export default function Login() {
     }
   }
 
-  // === Рендер ===============================================================
-  // Пока идёт VK auto-login — показываем красивый прелоадер. Не мигаем
-  // формой, чтобы UX был как в нативном приложении — открыл и оказался
-  // внутри без лишних движений.
-  if (vkAttempting) {
+  // Пока идёт VK auto-init — показываем компактный спиннер ВНУТРИ AuthShell.
+  // Не блокирующий, не глобальный, не способный убить ни один другой экран.
+  if (vkAuthing) {
     return (
-      <AuthShell title="">
-        <div className="flex flex-col items-center gap-6 py-10">
-          <div className="relative flex h-16 w-16 items-center justify-center">
-            <span
-              className="absolute inset-0 rounded-full border-2 border-lilac/15"
-              aria-hidden="true"
-            />
+      <AuthShell title="Войти">
+        <div className="flex flex-col items-center gap-5 py-12">
+          <div className="relative h-12 w-12">
+            <span className="absolute inset-0 rounded-full border-2 border-lilac/15" />
             <span
               className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-lilac"
               style={{ animationDuration: '1.1s' }}
-              aria-hidden="true"
             />
           </div>
           <div className="font-mono text-[10px] uppercase tracking-[0.32em] text-lilac/70">
@@ -83,12 +144,6 @@ export default function Login() {
   return (
     <AuthShell title="Войти">
       <form onSubmit={onSubmit} className="flex flex-col gap-4">
-        {vkError && (
-          <div className="rounded-md border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[12px] text-amber-200/90">
-            {vkError}
-          </div>
-        )}
-
         <Field label="Email">
           <input
             type="email"
