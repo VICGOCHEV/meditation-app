@@ -622,18 +622,26 @@ export default function Profile() {
         </form>
       </Section>
 
-      <div className="mt-10 flex flex-col gap-3">
-        <Button variant="secondary" fullWidth onClick={openLogoutFarewell}>
-          Выйти из аккаунта
-        </Button>
-        <button
-          type="button"
-          onClick={() => setDeleteOpen(true)}
-          className="text-center text-[12px] text-fg-3 hover:text-fg-1"
-        >
-          Удалить аккаунт
-        </button>
-      </div>
+      {/* Требование модерации VK от 2026-06-23: «Пользователь не должен
+          иметь возможность выхода из аккаунта в сервисе. После этого
+          действия сервис перестаёт открываться».
+          В VK Mini App аккаунт привязан к vk_user_id — logout выкидывает
+          юзера в пустой /auth/login, где нет VK-подписи и войти нельзя.
+          Прячем обе кнопки: и logout, и удаление аккаунта. */}
+      {user?.source !== 'vk' && (
+        <div className="mt-10 flex flex-col gap-3">
+          <Button variant="secondary" fullWidth onClick={openLogoutFarewell}>
+            Выйти из аккаунта
+          </Button>
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(true)}
+            className="text-center text-[12px] text-fg-3 hover:text-fg-1"
+          >
+            Удалить аккаунт
+          </button>
+        </div>
+      )}
 
       <Modal
         open={manageOpen}
