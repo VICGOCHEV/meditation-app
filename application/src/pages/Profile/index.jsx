@@ -485,26 +485,40 @@ export default function Profile() {
               </p>
             </div>
 
-            <button
-              type="button"
-              role="switch"
-              aria-checked={!!notify?.enabled}
-              disabled={!notify || notifySaving}
-              onClick={() => toggleNotify(!notify.enabled)}
-              className={
-                'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ' +
-                (notify?.enabled
-                  ? 'bg-accent-2'
-                  : 'bg-bg-1 border border-fg-3/20')
-              }
-            >
+            <div className="flex shrink-0 flex-col items-center gap-1.5">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={!!notify?.enabled}
+                aria-label="Пуши в Telegram"
+                disabled={!notify || notifySaving}
+                onClick={() => toggleNotify(!notify.enabled)}
+                className={
+                  'relative inline-flex h-7 w-[52px] shrink-0 items-center rounded-full transition-all duration-300 ' +
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-lilac/60 ' +
+                  (notify?.enabled
+                    ? 'bg-violet shadow-[0_0_0_1px_#6145c2,0_0_18px_-2px_rgba(150,120,255,0.9)]'
+                    : 'bg-white/5 ring-1 ring-inset ring-fg-3/40')
+                }
+              >
+                <span
+                  className={
+                    'inline-block h-5 w-5 transform rounded-full shadow-md transition-all duration-300 ' +
+                    (notify?.enabled
+                      ? 'translate-x-[26px] bg-white'
+                      : 'translate-x-1 bg-fg-2')
+                  }
+                />
+              </button>
               <span
                 className={
-                  'inline-block h-4 w-4 transform rounded-full bg-white transition ' +
-                  (notify?.enabled ? 'translate-x-6' : 'translate-x-1')
+                  'font-mono text-[10px] uppercase tracking-[0.14em] transition-colors ' +
+                  (notify?.enabled ? 'text-lilac' : 'text-fg-3')
                 }
-              />
-            </button>
+              >
+                {notify ? (notify.enabled ? 'Вкл' : 'Выкл') : '···'}
+              </span>
+            </div>
           </div>
 
           {notify && !notify.hasTg && (
@@ -522,7 +536,7 @@ export default function Profile() {
                   value={notify.timezone}
                   onChange={(e) => changeTimezone(e.target.value)}
                   disabled={notifySaving}
-                  className="w-full rounded-xl border border-fg-3/15 bg-bg-1 px-3 py-2 text-[14px] text-fg-0 focus:border-accent-2 focus:outline-none"
+                  className="w-full rounded-xl border border-fg-3/15 bg-bg-1 px-3 py-2 text-[14px] text-fg-0 focus:border-violet focus:outline-none"
                 >
                   <option value="Europe/Kaliningrad">Калининград · UTC+2</option>
                   <option value="Europe/Moscow">Москва, Питер · UTC+3</option>
@@ -583,7 +597,7 @@ export default function Profile() {
                 className={
                   'rounded-full px-3 py-1 text-[13px] transition ' +
                   (fbType === opt.v
-                    ? 'bg-accent-2 text-white'
+                    ? 'bg-violet text-white'
                     : 'bg-bg-1 text-fg-2 hover:text-fg-0')
                 }
               >
@@ -598,7 +612,7 @@ export default function Profile() {
             placeholder="Здесь твои мысли…"
             rows={5}
             maxLength={5000}
-            className="mt-3 w-full rounded-xl border border-fg-3/15 bg-bg-1 px-3 py-2 text-[14px] text-fg-0 placeholder:text-fg-3 focus:border-accent-2 focus:outline-none"
+            className="mt-3 w-full rounded-xl border border-fg-3/15 bg-bg-1 px-3 py-2 text-[14px] text-fg-0 placeholder:text-fg-3 focus:border-violet focus:outline-none"
           />
 
           {fbStatus === 'ok' && (
