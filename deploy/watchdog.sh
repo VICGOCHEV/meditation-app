@@ -20,6 +20,7 @@ LOG=/var/log/relaxme-watchdog.log
 
 CLIENT_EMAIL="rasslablenieiosoznanost@mail.ru"
 ADMIN_EMAIL="gochev.v.o@gmail.com"
+INSIDE_EMAIL="inside.alena@gmail.com"
 
 mkdir -p "$STATE_DIR"
 
@@ -49,12 +50,12 @@ send_alert() {
   curl -sS --max-time 10 -X POST http://127.0.0.1:3001/internal/alert \
     -H 'Content-Type: application/json' \
     -H "X-Internal-Secret: ${INTERNAL_SECRET:-}" \
-    -d "$(jq -nc --arg s "$subject" --arg b "$body" --arg c "$CLIENT_EMAIL" --arg a "$ADMIN_EMAIL" \
-        '{subject:$s, body:$b, to:[$c,$a]}')" >/dev/null 2>&1
+    -d "$(jq -nc --arg s "$subject" --arg b "$body" --arg c "$CLIENT_EMAIL" --arg a "$ADMIN_EMAIL" --arg i "$INSIDE_EMAIL" \
+        '{subject:$s, body:$b, to:[$c,$a,$i]}')" >/dev/null 2>&1
   local rc=$?
   if [ $rc -ne 0 ]; then
     # Fallback на системный mail (нужен mailutils + настроенный smarthost)
-    printf '%s\n' "$body" | mail -s "$subject" "$CLIENT_EMAIL" "$ADMIN_EMAIL" 2>/dev/null || true
+    printf '%s\n' "$body" | mail -s "$subject" "$CLIENT_EMAIL" "$ADMIN_EMAIL" "$INSIDE_EMAIL" 2>/dev/null || true
   fi
 }
 
