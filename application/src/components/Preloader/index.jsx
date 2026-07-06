@@ -45,12 +45,40 @@ export default function Preloader({ onDone }) {
       onDone?.()
     }
 
+    // Разовый разлочер звука: если браузер зарезал автоплей со звуком
+    // (нет user gesture на origin — типовой «холодный» вход в PWA/webview),
+    // видео стартует немым, а первое же касание/скролл/клик врубает звук
+    // вживую. Слушатель одноразовый и снимается сам.
+    const GESTURES = ['pointerdown', 'touchstart', 'click', 'keydown']
+    let unlockAttached = false
+    const attachUnlock = (v) => {
+      if (unlockAttached) return
+      unlockAttached = true
+      const unlock = () => {
+        detachUnlock()
+        if (v.muted) {
+          v.muted = false
+          v.defaultMuted = false
+          // Громкость могла остаться, play() уже идёт — просто снимаем mute.
+          const r = v.play()
+          if (r && typeof r.catch === 'function') r.catch(() => {})
+        }
+      }
+      GESTURES.forEach((e) =>
+        window.addEventListener(e, unlock, { once: true, passive: true })
+      )
+      detachUnlock = () =>
+        GESTURES.forEach((e) => window.removeEventListener(e, unlock))
+    }
+    let detachUnlock = () => {}
+
     const v = videoRef.current
     if (v) {
       // Каскад автоплея для видео со звуком:
       // 1. Пробуем с включённым звуком (если user уже взаимодействовал
       //    со страницей — например, кликнул «Войти» — браузер пустит).
-      // 2. Если отказ — пробуем muted (всегда разрешено).
+      // 2. Если отказ — пробуем muted (всегда разрешено) + вешаем разлочер
+      //    звука на первый жест, чтобы звук догнал при касании.
       // 3. Если и muted отказ — скипаем preloader, чтобы не показывать
       //    tap-to-play overlay.
       v.muted = false
@@ -63,6 +91,7 @@ export default function Preloader({ onDone }) {
           if (tryMuted && typeof tryMuted.catch === 'function') {
             tryMuted.catch(() => finish())
           }
+          attachUnlock(v)
         })
       }
     }
@@ -76,6 +105,7 @@ export default function Preloader({ onDone }) {
     return () => {
       clearTimeout(fallback)
       v?.removeEventListener('ended', onEnded)
+      detachUnlock()
     }
   }, [visible, onDone])
 
