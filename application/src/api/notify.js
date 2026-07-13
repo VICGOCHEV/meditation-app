@@ -20,6 +20,17 @@ export async function updateNotifyPrefs(patch) {
   return data
 }
 
+// POST /api/notify/tg-link → {deepLink, botUsername}
+// Генерит одноразовый deep-link на бота для привязки Telegram к аккаунту.
+export async function requestTgLink() {
+  if (USE_MOCK) {
+    await delay(200)
+    return { deepLink: 'https://t.me/Pause_relax_bot', botUsername: 'Pause_relax_bot' }
+  }
+  const { data } = await api.post('/notify/tg-link', {})
+  return data
+}
+
 // POST /api/notify/test — отправить себе тестовый пуш
 export async function sendTestPush() {
   if (USE_MOCK) {

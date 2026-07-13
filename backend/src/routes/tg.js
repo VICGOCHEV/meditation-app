@@ -1,4 +1,5 @@
 import { sendMessage, webAppKeyboard } from '../utils/tgBot.js'
+import { db } from '../db.js'
 
 // Webhook от Telegram → /api/tg/webhook. Принимает updates (см.
 // https://core.telegram.org/bots/api#update). Реагируем на:
@@ -42,6 +43,54 @@ function isCommand(text, name) {
   return text === `/${name}` || text.startsWith(`/${name} `) || text.startsWith(`/${name}@`)
 }
 
+// Вытаскивает payload из «/start <payload>» (deep-link). Пусто если его нет.
+function startPayload(text) {
+  const m = (text || '').match(/^\/start(?:@\w+)?\s+(.+)$/)
+  return m ? m[1].trim() : ''
+}
+
+const LINK_OK_TEXT = `<b>Готово</b>
+
+Твой Telegram привязан к аккаунту. Теперь напоминания о практике будут
+приходить сюда. Управлять ими можно в приложении: Профиль → Напоминания.`
+
+const LINK_EXPIRED_TEXT = `Ссылка привязки устарела или уже использована.
+
+Открой приложение → Профиль → Напоминания → «Подключить Telegram» и
+попробуй ещё раз (ссылка живёт 15 минут).`
+
+// Привязываем tgUserId к аккаунту, который сгенерил код в Профиле.
+// Возвращает true если код валиден и привязка прошла.
+async function linkTelegramByCode(code, from) {
+  if (!code || !from?.id) return false
+  const target = await db.user.findFirst({
+    where: { tgLinkCode: code, tgLinkCodeExp: { gt: new Date() } },
+  })
+  if (!target) return false
+
+  const tgId = BigInt(from.id)
+  await db.$transaction(async (tx) => {
+    // Если этот tgUserId уже привязан к другому аккаунту (например,
+    // авто-шелл, созданный старым /auth/tg-init) — отвязываем оттуда,
+    // иначе упрёмся в unique-constraint. Осознанный выбор: последняя
+    // явная привязка из Профиля побеждает.
+    const holder = await tx.user.findUnique({ where: { tgUserId: tgId } })
+    if (holder && holder.id !== target.id) {
+      await tx.user.update({ where: { id: holder.id }, data: { tgUserId: null } })
+    }
+    await tx.user.update({
+      where: { id: target.id },
+      data: { tgUserId: tgId, tgLinkCode: null, tgLinkCodeExp: null },
+    })
+    await tx.notifyPrefs.upsert({
+      where: { userId: target.id },
+      create: { userId: target.id, enabled: true },
+      update: { enabled: true },
+    })
+  })
+  return true
+}
+
 export async function tgRoutes(app) {
   app.post('/tg/webhook', async (req, reply) => {
     // Проверка подписи (если задан секрет)
@@ -75,7 +124,14 @@ export async function tgRoutes(app) {
     }, 'tg webhook message')
 
     try {
-      if (isCommand(text, 'start')) {
+      const payload = startPayload(text)
+      if (isCommand(text, 'start') && payload.startsWith('link_')) {
+        // Deep-link привязки Telegram к аккаунту из Профиля.
+        const ok = await linkTelegramByCode(payload.slice('link_'.length), msg.from)
+        await sendMessage(chatId, ok ? LINK_OK_TEXT : LINK_EXPIRED_TEXT, {
+          reply_markup: webAppKeyboard(MINI_APP_URL, 'Открыть приложение'),
+        })
+      } else if (isCommand(text, 'start')) {
         await sendMessage(chatId, WELCOME_TEXT, {
           reply_markup: webAppKeyboard(MINI_APP_URL, 'Открыть приложение'),
         })

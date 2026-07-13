@@ -17,7 +17,11 @@ export default function ScreenShell({
       >
         <div
           className={[
-            'mx-auto flex h-full w-full max-w-md flex-col px-5 py-6',
+            // pt учитывает env(safe-area-inset-top): в standalone-PWA на
+            // iPhone статус-бар (black-translucent) лежит ПОВЕРХ контента,
+            // и без этого верхний прогресс-бар уезжал под индикатор батареи
+            // (жалоба со скриншотом). +1.5rem — прежний визуальный отступ.
+            'mx-auto flex h-full w-full max-w-md flex-col px-5 pb-6 pt-[calc(env(safe-area-inset-top)+1.5rem)]',
             withBottomNav ? 'pb-24' : '',
             className,
           ].join(' ')}
@@ -32,7 +36,8 @@ export default function ScreenShell({
     <div className="min-h-dvh w-full overflow-x-hidden">
       <div
         className={[
-          'mx-auto w-full max-w-md px-5 pt-6',
+          // pt с safe-area-inset-top — см. коммент в fixed-ветке выше.
+          'mx-auto w-full max-w-md px-5 pt-[calc(env(safe-area-inset-top)+1.5rem)]',
           withBottomNav ? 'pb-28' : 'pb-10',
           className,
         ].join(' ')}

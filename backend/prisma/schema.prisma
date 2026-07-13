@@ -19,6 +19,12 @@ model User {
   name              String?
   // Telegram Mini App identity (если зашёл из бота)
   tgUserId          BigInt?              @unique @map("tg_user_id")
+  // Привязка Telegram для пушей через deep-link бота: юзер жмёт «Подключить
+  // Telegram» в Профиле → генерим одноразовый код → он уходит в бота как
+  // /start link_<code> → webhook находит юзера по коду и проставляет tgUserId.
+  // Так пуши доходят и до PWA-юзеров, которые НЕ открывали Mini App.
+  tgLinkCode        String?              @unique @map("tg_link_code")
+  tgLinkCodeExp     DateTime?            @map("tg_link_code_exp")
   // VK Mini App identity (если зашёл из vk.com/app54600947)
   vkUserId          BigInt?              @unique @map("vk_user_id")
   createdAt         DateTime             @default(now())

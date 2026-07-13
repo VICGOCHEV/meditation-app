@@ -61,12 +61,31 @@
     <meta name="apple-mobile-web-app-title" content="RELAX ME" />
     <meta name="application-name" content="RELAX ME" />
 
+    <!-- Шрифты грузим НЕ блокируя первый рендер. Раньше это был обычный
+         `<link rel=stylesheet>` — он render-blocking: пока fonts.googleapis.com
+         не ответит, браузер не рисует НИЧЕГО (белый экран). Внутри Telegram
+         Mini App при VPN/прокси путь до Google идёт через заграничный exit и
+         может залипнуть/резаться DPI → приложение «зависает» на белом, пока
+         запрос не отвалится по таймауту (десятки секунд). Отсюда жалоба
+         «с VPN зависает, без VPN грузит».
+         Приём media=print → onload='this.media=all': ссылка скачивается
+         асинхронно, рендер идёт сразу на системном фолбэке (font-display:swap
+         подменит шрифт когда/если он придёт). Даже если Google недоступен —
+         приложение полностью работает. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      />
+    </noscript>
 
     <!-- Yandex.Metrika counter — id 109442488 -->
     <script>

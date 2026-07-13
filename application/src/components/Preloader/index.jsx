@@ -4,6 +4,9 @@ import { useThemeStore } from '../../store/useThemeStore'
 
 const SESSION_KEY = 'preloader_played'
 const FALLBACK_TIMEOUT = 8000
+// Пока показан тап-гейт — не завершаем сплэш этим таймером (ждём касание),
+// но и не залипаем навсегда, если юзер отвлёкся.
+const GATE_SAFETY = 20000
 
 // Вычисляем «слот по времени», когда тема в режиме auto. Логика такая
 // же как в useTimeTheme.js (05/11/17/22 границы), но без 30-мин
@@ -23,6 +26,12 @@ export default function Preloader({ onDone }) {
     if (typeof window === 'undefined') return false
     return sessionStorage.getItem(SESSION_KEY) !== '1'
   })
+  // Тап-гейт «Нажми, чтобы начать» — показывается ТОЛЬКО когда браузер
+  // зарезал автоплей со звуком (типовой холодный вход в PWA/webview на iOS,
+  // где нет user-gesture на origin). Тап пользователя разблокирует звук и
+  // запускает видео с музыкой. На desktop / где жест уже был — автоплей
+  // со звуком проходит сразу, гейт не показывается.
+  const [gate, setGate] = useState(false)
   const videoRef = useRef(null)
 
   // Слот выбираем один раз при монтировании, чтобы не дёргать src
@@ -39,75 +48,56 @@ export default function Preloader({ onDone }) {
       return
     }
 
+    const v = videoRef.current
+    let finished = false
     const finish = () => {
+      if (finished) return
+      finished = true
       sessionStorage.setItem(SESSION_KEY, '1')
       setVisible(false)
       onDone?.()
     }
 
-    // Разовый разлочер звука: если браузер зарезал автоплей со звуком
-    // (нет user gesture на origin — типовой «холодный» вход в PWA/webview),
-    // видео стартует немым, а первое же касание/скролл/клик врубает звук
-    // вживую. Слушатель одноразовый и снимается сам.
-    const GESTURES = ['pointerdown', 'touchstart', 'click', 'keydown']
-    let unlockAttached = false
-    const attachUnlock = (v) => {
-      if (unlockAttached) return
-      unlockAttached = true
-      const unlock = () => {
-        detachUnlock()
-        if (v.muted) {
-          v.muted = false
-          v.defaultMuted = false
-          // Громкость могла остаться, play() уже идёт — просто снимаем mute.
-          const r = v.play()
-          if (r && typeof r.catch === 'function') r.catch(() => {})
-        }
-      }
-      GESTURES.forEach((e) =>
-        window.addEventListener(e, unlock, { once: true, passive: true })
-      )
-      detachUnlock = () =>
-        GESTURES.forEach((e) => window.removeEventListener(e, unlock))
-    }
-    let detachUnlock = () => {}
-
-    const v = videoRef.current
-    if (v) {
-      // Каскад автоплея для видео со звуком:
-      // 1. Пробуем с включённым звуком (если user уже взаимодействовал
-      //    со страницей — например, кликнул «Войти» — браузер пустит).
-      // 2. Если отказ — пробуем muted (всегда разрешено) + вешаем разлочер
-      //    звука на первый жест, чтобы звук догнал при касании.
-      // 3. Если и muted отказ — скипаем preloader, чтобы не показывать
-      //    tap-to-play overlay.
-      v.muted = false
-      const tryUnmuted = v.play()
-      if (tryUnmuted && typeof tryUnmuted.catch === 'function') {
-        tryUnmuted.catch(() => {
-          v.muted = true
-          v.defaultMuted = true
-          const tryMuted = v.play()
-          if (tryMuted && typeof tryMuted.catch === 'function') {
-            tryMuted.catch(() => finish())
-          }
-          attachUnlock(v)
-        })
-      }
-    }
-
-    const fallback = setTimeout(finish, FALLBACK_TIMEOUT)
+    let fallback = setTimeout(finish, FALLBACK_TIMEOUT)
     const onEnded = () => {
       clearTimeout(fallback)
       finish()
     }
     v?.addEventListener('ended', onEnded)
+
+    // Пробуем автоплей СО звуком. Пустил браузер (desktop / был жест) —
+    // сплэш звучит сразу. Зарезал (iOS cold) — показываем одноразовый
+    // тап-гейт, чтобы звук гарантированно заиграл после касания.
+    if (v) {
+      v.muted = false
+      v.defaultMuted = false
+      const p = v.play()
+      if (p && typeof p.catch === 'function') {
+        p.catch(() => {
+          setGate(true)
+          clearTimeout(fallback)
+          fallback = setTimeout(finish, GATE_SAFETY)
+        })
+      }
+    }
+
     return () => {
       clearTimeout(fallback)
       v?.removeEventListener('ended', onEnded)
-      detachUnlock()
     }
   }, [visible, onDone])
+
+  // Тап по гейту — жест разблокирует звук, запускаем видео с музыкой.
+  const startWithSound = () => {
+    setGate(false)
+    const v = videoRef.current
+    if (v) {
+      v.muted = false
+      v.defaultMuted = false
+      const p = v.play()
+      if (p && typeof p.catch === 'function') p.catch(() => {})
+    }
+  }
 
   return (
     <AnimatePresence>
@@ -127,7 +117,6 @@ export default function Preloader({ onDone }) {
             // мы здесь крутим обратно. Net = 0deg. Видео остаётся в
             // оригинальной палитре (уже снято под нужный цвет суток).
             style={{ filter: 'hue-rotate(calc(-1 * var(--app-hue, 0deg)))' }}
-            autoPlay
             playsInline
             webkit-playsinline="true"
             x5-playsinline="true"
@@ -136,6 +125,33 @@ export default function Preloader({ onDone }) {
             disableRemotePlayback
             disablePictureInPicture
           />
+
+          <AnimatePresence>
+            {gate && (
+              <motion.button
+                type="button"
+                onClick={startWithSound}
+                aria-label="Нажми, чтобы начать со звуком"
+                className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-bg-0/55 backdrop-blur-[2px]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.5 }}
+              >
+                <motion.span
+                  className="block h-16 w-16 rounded-full border border-fg-2/50"
+                  animate={{ scale: [1, 1.12, 1], opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                <span className="font-serif text-[19px] font-light tracking-wide text-fg-0">
+                  Нажми, чтобы начать
+                </span>
+                <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-fg-3">
+                  со звуком
+                </span>
+              </motion.button>
+            )}
+          </AnimatePresence>
         </motion.div>
       )}
     </AnimatePresence>

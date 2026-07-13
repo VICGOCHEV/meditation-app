@@ -1,8 +1,13 @@
+import crypto from 'node:crypto'
 import { db } from '../db.js'
 
 // GET  /api/notify/prefs       — текущие настройки юзера (или дефолты)
 // PATCH /api/notify/prefs      — обновить enabled / timezone
+// POST /api/notify/tg-link     — сгенерить deep-link для привязки Telegram
 // POST /api/notify/test        — отправить себе тестовый пуш прямо сейчас
+
+const BOT_USERNAME = process.env.TG_BOT_USERNAME || 'Pause_relax_bot'
+const LINK_TTL_MS = 15 * 60 * 1000 // код живёт 15 минут
 //
 // Все эндпоинты требуют auth (поле req.user.id заполняется через jwtVerify
 // в preHandler). НЕ требуем active subscription — настройки и тест-пуш
@@ -75,6 +80,30 @@ export async function notifyRoutes(app) {
       }
     }
   )
+
+  // Привязка Telegram для пушей. Генерим одноразовый код, кладём на юзера,
+  // возвращаем deep-link на бота. Юзер жмёт Start → бот получает
+  // /start link_<code> → webhook (routes/tg.js) находит юзера по коду и
+  // проставляет tgUserId. Работает и для PWA-юзеров вне Telegram.
+  app.post('/notify/tg-link', async (req) => {
+    const code = crypto.randomBytes(9).toString('base64url') // ~12 url-safe символов
+    const exp = new Date(Date.now() + LINK_TTL_MS)
+    await db.user.update({
+      where: { id: req.user.id },
+      data: { tgLinkCode: code, tgLinkCodeExp: exp },
+    })
+    // Гарантируем NotifyPrefs(enabled=true) заранее — чтобы сразу после
+    // привязки первый же слот отстрелил, без лишнего клика по тумблеру.
+    await db.notifyPrefs.upsert({
+      where: { userId: req.user.id },
+      create: { userId: req.user.id, enabled: true },
+      update: {},
+    })
+    return {
+      deepLink: `https://t.me/${BOT_USERNAME}?start=link_${code}`,
+      botUsername: BOT_USERNAME,
+    }
+  })
 
   // Тест-пуш — даёт юзеру убедиться что пуши доходят. Берёт случайную фразу
   // для слота 12:00 (default) — короткая и нейтральная.

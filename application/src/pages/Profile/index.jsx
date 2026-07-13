@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import ScreenShell from '../../components/ui/ScreenShell'
@@ -45,7 +45,7 @@ function plural(n) {
 import { useProgression } from '../../hooks/useProgression'
 import { deleteAccount } from '../../api/auth'
 import { sendFeedback } from '../../api/feedback'
-import { getNotifyPrefs, updateNotifyPrefs, sendTestPush } from '../../api/notify'
+import { getNotifyPrefs, updateNotifyPrefs, sendTestPush, requestTgLink } from '../../api/notify'
 import { fetchMusicFromCMS } from '../../api/cms'
 
 function Section({ title, children, trailing }) {
@@ -170,6 +170,10 @@ export default function Profile() {
   const [notifyTestSending, setNotifyTestSending] = useState(false)
   const [notifyTestStatus, setNotifyTestStatus] = useState(null) // 'ok'|'err'|null
   const [notifyTestMsg, setNotifyTestMsg] = useState('')
+  // Привязка Telegram (для юзеров без tgUserId — в т.ч. PWA вне Telegram).
+  const [tgLink, setTgLink] = useState(null) // deep-link на бота
+  const [tgWaiting, setTgWaiting] = useState(false) // ждём подтверждения привязки
+  const tgPollRef = useRef(null)
 
   useEffect(() => {
     let cancelled = false
@@ -178,6 +182,44 @@ export default function Profile() {
       .catch(() => { if (!cancelled) setNotify({ enabled: true, timezone: 'Europe/Moscow', hasTg: false }) })
     return () => { cancelled = true }
   }, [])
+
+  // Как только знаем что аккаунт НЕ связан с Telegram — заранее готовим
+  // deep-link, чтобы кнопка была настоящей ссылкой (без popup-блокировок).
+  useEffect(() => {
+    if (!notify || notify.hasTg || tgLink) return
+    let cancelled = false
+    requestTgLink()
+      .then((r) => { if (!cancelled) setTgLink(r.deepLink) })
+      .catch(() => { /* покажем кнопку-ретрай */ })
+    return () => { cancelled = true }
+  }, [notify, tgLink])
+
+  // Чистим поллинг привязки при размонтировании.
+  useEffect(() => () => { if (tgPollRef.current) clearInterval(tgPollRef.current) }, [])
+
+  // Юзер тапнул «Подключить Telegram» — ссылка уже открывает бота (anchor),
+  // а здесь мы начинаем опрашивать сервер: как только webhook привяжет
+  // tgUserId, prefs.hasTg станет true и мы покажем настройки пушей.
+  function startTgLinkPolling() {
+    setTgWaiting(true)
+    const started = Date.now()
+    if (tgPollRef.current) clearInterval(tgPollRef.current)
+    tgPollRef.current = setInterval(async () => {
+      try {
+        const p = await getNotifyPrefs()
+        if (p.hasTg) {
+          clearInterval(tgPollRef.current)
+          tgPollRef.current = null
+          setNotify(p)
+          setTgWaiting(false)
+        } else if (Date.now() - started > 150000) {
+          clearInterval(tgPollRef.current)
+          tgPollRef.current = null
+          setTgWaiting(false)
+        }
+      } catch { /* держим поллинг */ }
+    }, 3000)
+  }
 
   async function toggleNotify(nextEnabled) {
     if (notifySaving || !notify) return
@@ -474,6 +516,10 @@ export default function Profile() {
         </div>
       </Section>
 
+      {/* Пуши идут через Telegram-бота. Для VK Mini App это «увод на другую
+          площадку» — п. 4.1.8 mini-apps-rules (модератор VK прислал скрин
+          именно этой секции). Поэтому скрываем весь блок для VK-юзеров. */}
+      {user?.source !== 'vk' && (
       <Section title="Напоминания">
         <div className="panel">
           <div className="flex items-start justify-between gap-4">
@@ -522,9 +568,31 @@ export default function Profile() {
           </div>
 
           {notify && !notify.hasTg && (
-            <div className="mt-3 rounded-md border border-fg-3/15 bg-bg-1 px-3 py-2 text-[12px] text-fg-2">
-              Зайди в приложение через Telegram-бота, чтобы пуши доходили.
-              Сейчас твой аккаунт не связан с Telegram.
+            <div className="mt-3 rounded-md border border-fg-3/15 bg-bg-1 px-3 py-3">
+              <p className="text-[13px] text-fg-2">
+                Чтобы получать напоминания, привяжи Telegram — бот будет
+                присылать их тебе в личные сообщения. Работает и когда
+                приложение открыто с рабочего стола.
+              </p>
+              {tgLink ? (
+                <a
+                  href={tgLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={startTgLinkPolling}
+                  className="mt-3 inline-flex w-full items-center justify-center rounded-xl bg-violet px-4 py-2 text-[13px] font-medium text-white shadow-[0_0_0_1px_#6145c2,0_0_18px_-4px_rgba(150,120,255,0.9)] transition hover:brightness-110"
+                >
+                  Подключить Telegram
+                </a>
+              ) : (
+                <div className="mt-3 text-[12px] text-fg-3">Готовим ссылку…</div>
+              )}
+              {tgWaiting && (
+                <p className="mt-2 text-[12px] text-lilac">
+                  Открой бота, нажми «Старт» — и вернись сюда. Ждём
+                  подтверждения…
+                </p>
+              )}
             </div>
           )}
 
@@ -576,6 +644,7 @@ export default function Profile() {
           )}
         </div>
       </Section>
+      )}
 
       <Section title="Связаться">
         <form onSubmit={onSubmitFeedback} className="panel">
