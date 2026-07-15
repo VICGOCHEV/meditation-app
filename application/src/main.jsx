@@ -2,7 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './app/App.jsx'
+import { vkInit } from './lib/vk'
 import './index.css'
+
+// Снимаем VK splash до рендера React — иначе иконка висит поверх всего.
+vkInit()
 
 // Sentry активируется только если в build-time задан VITE_SENTRY_DSN.
 // Без DSN импорт SDK и init пропускается — bundle не растёт.

@@ -53,11 +53,7 @@ export default function Login() {
       }
     }, 5000)
 
-    // Снимаем splash VK fire-and-forget (не блокирует).
-    import('@vkontakte/vk-bridge')
-      .then((m) => { try { m.default.send('VKWebAppInit') } catch { /* noop */ } })
-      .catch(() => { /* noop */ })
-
+    // VKWebAppInit шлётся из main.jsx на старте приложения — здесь не нужен.
     const searchParams = window.location.search.replace(/^\?/, '')
     // eslint-disable-next-line no-console
     console.log('[VK] auto-login start')
