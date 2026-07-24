@@ -13,6 +13,34 @@ export function isAllowedAudio(mime) {
   return AUDIO_MIME.has((mime || '').toLowerCase())
 }
 
+// Картинки для broadcast-пушей (оффлайн-мероприятия). jpeg/png/webp.
+const IMAGE_MIME = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+}
+
+export function isAllowedImage(mime) {
+  return !!IMAGE_MIME[(mime || '').toLowerCase()]
+}
+
+// Стримит загруженную картинку в UPLOAD_DIR. Возвращает { filename, sizeBytes }.
+export async function saveImageStream(fileStream, mime) {
+  await ensureUploadDir()
+  const ext = IMAGE_MIME[(mime || '').toLowerCase()] || 'jpg'
+  const filename = `${crypto.randomBytes(12).toString('hex')}.${ext}`
+  const absPath = path.join(config.uploadDir, filename)
+  try {
+    await pipeline(fileStream, createWriteStream(absPath))
+  } catch (e) {
+    await deleteAudioFile(filename)
+    throw e
+  }
+  const stat = await fs.stat(absPath)
+  return { filename, absPath, sizeBytes: stat.size }
+}
+
 // Гарантируем, что папка загрузок существует (idempotent).
 export async function ensureUploadDir() {
   await fs.mkdir(config.uploadDir, { recursive: true })

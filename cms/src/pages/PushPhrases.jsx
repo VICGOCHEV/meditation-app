@@ -1,20 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, errText } from '../lib/api.js'
 import { useToast } from '../ui/Toast.jsx'
-import { IconPlus, IconTrash, IconCheck, IconClose } from '../ui/icons.jsx'
+import { IconPlus, IconTrash, IconClose, IconCheck } from '../ui/icons.jsx'
 
-// Тексты пушей — раздел CMS для редактирования фраз, которые крон-воркер
-// шлёт юзерам в Telegram (потом VK/MAX когда добавим эти каналы).
-// Структура: 4 слота (08/12/16/20) × 2 аудитории (free/paid).
-// notifier.js каждую минуту выбирает случайную active фразу из (slot, audience).
+// Тексты пушей на «начало практики» — раздел CMS для редактирования фраз,
+// которые крон-воркер шлёт юзерам в Telegram по фазам дня.
+// Фаза дня: утро / день / вечер (чекбоксы — одна фраза может относиться к
+// нескольким фазам). Аудитория: без подписки / подписчики.
+// notifier.js в наступившую фазу выбирает случайную active-фразу (phase, audience).
 
-const SLOTS = ['08:00', '12:00', '16:00', '20:00']
-const SLOT_TIME_LABEL = {
-  '08:00': 'утро',
-  '12:00': 'полдень',
-  '16:00': 'день',
-  '20:00': 'вечер',
-}
+const PHASES = [
+  { key: 'morning', label: 'утро', time: '09:00' },
+  { key: 'day', label: 'день', time: '14:00' },
+  { key: 'evening', label: 'вечер', time: '20:00' },
+]
+const PHASE_LABEL = Object.fromEntries(PHASES.map((p) => [p.key, p.label]))
+
 const AUDIENCES = [
   {
     value: 'paid',
@@ -28,6 +29,21 @@ const AUDIENCES = [
   },
 ]
 
+function PhaseChips({ phases }) {
+  return (
+    <div className="mt-1.5 flex flex-wrap gap-1">
+      {PHASES.filter((p) => phases.includes(p.key)).map((p) => (
+        <span
+          key={p.key}
+          className="rounded-full bg-violet/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-violet"
+        >
+          {p.label} · {p.time}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function PhraseRow({ phrase, onEdit, onToggle, onDelete }) {
   return (
     <div
@@ -40,6 +56,7 @@ function PhraseRow({ phrase, onEdit, onToggle, onDelete }) {
         <div className="text-sm leading-relaxed text-fg-0 whitespace-pre-wrap">
           {phrase.text}
         </div>
+        <PhaseChips phases={phrase.phases} />
         {!phrase.active && (
           <div className="mt-1 text-[10px] uppercase tracking-wider text-fg-3">
             выключена
@@ -71,15 +88,21 @@ function PhraseRow({ phrase, onEdit, onToggle, onDelete }) {
   )
 }
 
-function PhraseEditor({ phrase, slot, audience, onSave, onClose }) {
+function PhraseEditor({ phrase, audience, onSave, onClose }) {
   const [text, setText] = useState(phrase?.text || '')
-  const [chosenSlot, setChosenSlot] = useState(phrase?.slot || slot)
+  const [phases, setPhases] = useState(phrase?.phases?.length ? phrase.phases : ['morning'])
   const [chosenAudience, setChosenAudience] = useState(phrase?.audience || audience)
   const [active, setActive] = useState(phrase?.active !== false)
   const [saving, setSaving] = useState(false)
 
   const isNew = !phrase
-  const canSave = text.trim().length > 0 && !saving
+  const canSave = text.trim().length > 0 && phases.length > 0 && !saving
+
+  function togglePhase(key) {
+    setPhases((cur) =>
+      cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]
+    )
+  }
 
   async function submit() {
     if (!canSave) return
@@ -87,7 +110,7 @@ function PhraseEditor({ phrase, slot, audience, onSave, onClose }) {
     try {
       await onSave({
         text: text.trim(),
-        slot: chosenSlot,
+        phases,
         audience: chosenAudience,
         active,
       })
@@ -117,7 +140,7 @@ function PhraseEditor({ phrase, slot, audience, onSave, onClose }) {
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Например: «Полдень. Самое время остановить гонку ума…»"
+              placeholder="Например: «Время остановиться и выдохнуть. Загляни на пару минут…»"
               rows={5}
               maxLength={2000}
               className="w-full rounded-sm border border-line bg-bg-2 px-3 py-2 text-sm text-fg-0 placeholder:text-fg-3 focus:border-violet focus:outline-none"
@@ -127,31 +150,53 @@ function PhraseEditor({ phrase, slot, audience, onSave, onClose }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Время дня</label>
-              <select
-                value={chosenSlot}
-                onChange={(e) => setChosenSlot(e.target.value)}
-                className="w-full rounded-sm border border-line bg-bg-2 px-3 py-2 text-sm text-fg-0 focus:border-violet focus:outline-none"
-              >
-                {SLOTS.map((s) => (
-                  <option key={s} value={s}>{s} · {SLOT_TIME_LABEL[s]}</option>
-                ))}
-              </select>
+          <div>
+            <label className="label">Фазы дня</label>
+            <div className="mt-1 grid grid-cols-3 gap-2">
+              {PHASES.map((p) => {
+                const on = phases.includes(p.key)
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => togglePhase(p.key)}
+                    className={
+                      'flex items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm transition ' +
+                      (on
+                        ? 'border-violet bg-violet/10 text-fg-0'
+                        : 'border-line bg-bg-2 text-fg-2 hover:border-fg-3/40')
+                    }
+                  >
+                    <span
+                      className={
+                        'grid h-4 w-4 place-items-center rounded-[4px] border ' +
+                        (on ? 'border-violet bg-violet text-white' : 'border-fg-3')
+                      }
+                    >
+                      {on && <IconCheck size={11} />}
+                    </span>
+                    <span className="capitalize">{p.label}</span>
+                    <span className="text-[10px] text-fg-3">{p.time}</span>
+                  </button>
+                )
+              })}
             </div>
-            <div>
-              <label className="label">Аудитория</label>
-              <select
-                value={chosenAudience}
-                onChange={(e) => setChosenAudience(e.target.value)}
-                className="w-full rounded-sm border border-line bg-bg-2 px-3 py-2 text-sm text-fg-0 focus:border-violet focus:outline-none"
-              >
-                {AUDIENCES.map((a) => (
-                  <option key={a.value} value={a.value}>{a.label}</option>
-                ))}
-              </select>
+            <div className="mt-1 text-[11px] text-fg-3">
+              Фраза уйдёт юзеру в каждую отмеченную фазу дня (по его часовому поясу).
             </div>
+          </div>
+
+          <div>
+            <label className="label">Аудитория</label>
+            <select
+              value={chosenAudience}
+              onChange={(e) => setChosenAudience(e.target.value)}
+              className="w-full rounded-sm border border-line bg-bg-2 px-3 py-2 text-sm text-fg-0 focus:border-violet focus:outline-none"
+            >
+              {AUDIENCES.map((a) => (
+                <option key={a.value} value={a.value}>{a.label}</option>
+              ))}
+            </select>
           </div>
 
           <label className="flex items-center gap-2 cursor-pointer text-sm text-fg-1">
@@ -190,7 +235,7 @@ export default function PushPhrases() {
   const [rows, setRows] = useState([])
   const [activeAudience, setActiveAudience] = useState('paid')
   const [loading, setLoading] = useState(true)
-  // null — закрыто; {phrase, slot, audience} — открыт редактор
+  // null — закрыто; {phrase, audience} — открыт редактор
   const [editing, setEditing] = useState(null)
 
   async function load() {
@@ -207,16 +252,10 @@ export default function PushPhrases() {
 
   useEffect(() => { load() }, [])
 
-  const grouped = useMemo(() => {
-    const out = {}
-    for (const slot of SLOTS) out[slot] = []
-    for (const r of rows) {
-      if (r.audience !== activeAudience) continue
-      out[r.slot] = out[r.slot] || []
-      out[r.slot].push(r)
-    }
-    return out
-  }, [rows, activeAudience])
+  const visible = useMemo(
+    () => rows.filter((r) => r.audience === activeAudience),
+    [rows, activeAudience]
+  )
 
   async function savePhrase(data) {
     try {
@@ -254,17 +293,18 @@ export default function PushPhrases() {
     }
   }
 
-  const audienceObj = AUDIENCES.find((a) => a.value === activeAudience)
-
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-fg-0">Тексты пушей</h1>
           <p className="mt-1 text-sm text-fg-3">
-            Сообщения, которые бот шлёт юзерам в Telegram в фиксированные моменты
-            дня. Для каждого слота крон-воркер каждую минуту выбирает случайную
-            <span className="text-fg-1"> active</span> фразу.
+            Напоминания «начать практику», которые бот шлёт в Telegram по фазам
+            дня — <span className="text-fg-1">утро {PHASES[0].time}</span>,{' '}
+            <span className="text-fg-1">день {PHASES[1].time}</span>,{' '}
+            <span className="text-fg-1">вечер {PHASES[2].time}</span> (по часовому
+            поясу юзера). Для наступившей фазы крон выбирает случайную{' '}
+            <span className="text-fg-1">active</span> фразу.
           </p>
         </div>
       </div>
@@ -295,52 +335,38 @@ export default function PushPhrases() {
         ))}
       </div>
 
+      <div className="flex items-center justify-between border-b border-line pb-2">
+        <div className="text-[11px] text-fg-3">
+          {visible.length} {visible.length === 1 ? 'фраза' :
+            visible.length >= 2 && visible.length <= 4 ? 'фразы' : 'фраз'}
+          {' · '}
+          {visible.filter((r) => r.active).length} в ротации
+        </div>
+        <button
+          onClick={() => setEditing({ phrase: null, audience: activeAudience })}
+          className="flex items-center gap-1.5 rounded-sm bg-primary-btn px-3 py-1.5 text-sm text-white shadow-btn-primary hover:opacity-90"
+        >
+          <IconPlus size={14} /> Добавить фразу
+        </button>
+      </div>
+
       {loading ? (
         <div className="card px-4 py-10 text-center text-fg-3">Загружаем…</div>
+      ) : visible.length === 0 ? (
+        <div className="card px-4 py-8 text-center text-fg-3 text-sm">
+          Нет фраз для этой аудитории. Добавь хотя бы одну — иначе бот не пришлёт
+          напоминание в эти фазы дня.
+        </div>
       ) : (
-        <div className="space-y-6">
-          {SLOTS.map((slot) => (
-            <div key={slot}>
-              <div className="mb-3 flex items-center justify-between border-b border-line pb-2">
-                <div>
-                  <div className="text-lg font-semibold text-fg-0">
-                    {slot} · <span className="text-fg-3">{SLOT_TIME_LABEL[slot]}</span>
-                  </div>
-                  <div className="text-[11px] text-fg-3">
-                    {grouped[slot].length} {grouped[slot].length === 1 ? 'фраза' :
-                     grouped[slot].length >= 2 && grouped[slot].length <= 4 ? 'фразы' : 'фраз'}
-                    {' · '}
-                    {grouped[slot].filter((r) => r.active).length} активн
-                    {grouped[slot].filter((r) => r.active).length === 1 ? 'а' : 'ых'}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setEditing({ phrase: null, slot, audience: activeAudience })}
-                  className="flex items-center gap-1.5 rounded-sm bg-primary-btn px-3 py-1.5 text-sm text-white shadow-btn-primary hover:opacity-90"
-                >
-                  <IconPlus size={14} /> Добавить
-                </button>
-              </div>
-
-              {grouped[slot].length === 0 ? (
-                <div className="card px-4 py-6 text-center text-fg-3 text-sm">
-                  Нет фраз для этого слота. Notifier пропустит этот час до тех пор,
-                  пока не добавишь хотя бы одну.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {grouped[slot].map((p) => (
-                    <PhraseRow
-                      key={p.id}
-                      phrase={p}
-                      onEdit={(ph) => setEditing({ phrase: ph, slot, audience: activeAudience })}
-                      onToggle={togglePhrase}
-                      onDelete={deletePhrase}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+        <div className="space-y-2">
+          {visible.map((p) => (
+            <PhraseRow
+              key={p.id}
+              phrase={p}
+              onEdit={(ph) => setEditing({ phrase: ph, audience: activeAudience })}
+              onToggle={togglePhrase}
+              onDelete={deletePhrase}
+            />
           ))}
         </div>
       )}
@@ -348,7 +374,6 @@ export default function PushPhrases() {
       {editing && (
         <PhraseEditor
           phrase={editing.phrase}
-          slot={editing.slot}
           audience={editing.audience}
           onSave={savePhrase}
           onClose={() => setEditing(null)}

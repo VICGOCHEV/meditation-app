@@ -56,7 +56,7 @@ const NAV = [
     { to: '/promocodes', label: 'Промокоды', icon: IconTag },
   ] },
   { group: 'Связь с юзерами', items: [
-    { to: '/broadcasts', label: 'Email-рассылки', icon: IconSend },
+    { to: '/broadcasts', label: 'Пуш/email рассылка', icon: IconSend },
   ] },
   { group: 'Данные', items: [
     { to: '/users', label: 'Юзеры и подписки', icon: IconUsers },
@@ -78,7 +78,7 @@ function crumb(pathname) {
   if (pathname.startsWith('/feedback')) return 'Обратная связь'
   if (pathname.startsWith('/push-phrases')) return 'Тексты пушей'
   if (pathname.startsWith('/promocodes')) return 'Промокоды'
-  if (pathname.startsWith('/broadcasts')) return 'Email-рассылки'
+  if (pathname.startsWith('/broadcasts')) return 'Пуш/email рассылка'
   if (pathname.startsWith('/account')) return 'Аккаунт и доступы'
   return ''
 }

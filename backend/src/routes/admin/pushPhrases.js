@@ -1,17 +1,18 @@
 import { db } from '../../db.js'
 import { adminAuthenticate } from '../../middlewares/adminAuth.js'
+import { PHASE_KEYS, parsePhases, serializePhases } from '../../utils/pushPhases.js'
 
-// CMS: тексты пушей. Notifier (backend/src/jobs/notifier.js) каждую минуту
-// читает active фразы из этой таблицы и выбирает случайную для (slot, audience).
-// Клиент может править фразы без деплоя — изменения подхватываются на лету.
+// CMS: тексты пушей на «начало практики». Notifier (backend/src/jobs/notifier.js)
+// каждую минуту читает active-фразы и для наступившей фазы дня (утро/день/вечер)
+// выбирает случайную из (phase, audience). Клиент правит фразы и фазы (чекбоксы)
+// без деплоя — изменения подхватываются на лету.
 
-const SLOTS = ['08:00', '12:00', '16:00', '20:00']
 const AUDIENCES = ['free', 'paid']
 
 function form(p) {
   return {
     id: p.id,
-    slot: p.slot,
+    phases: parsePhases(p.phases),
     audience: p.audience,
     text: p.text,
     order: p.order,
@@ -24,25 +25,22 @@ function form(p) {
 export async function adminPushPhrasesRoutes(app) {
   app.addHook('preHandler', adminAuthenticate)
 
-  // GET /api/admin/push-phrases?slot=08:00&audience=paid
-  // Без фильтров — все фразы, отсортированы по (audience, slot, order).
+  // GET /api/admin/push-phrases?audience=paid
+  // Без фильтров — все фразы, отсортированы по (audience, order).
   app.get('/admin/push-phrases', async (req) => {
     const where = {}
-    if (typeof req.query?.slot === 'string' && SLOTS.includes(req.query.slot)) {
-      where.slot = req.query.slot
-    }
     if (typeof req.query?.audience === 'string' && AUDIENCES.includes(req.query.audience)) {
       where.audience = req.query.audience
     }
     const rows = await db.pushPhrase.findMany({
       where,
-      orderBy: [{ audience: 'asc' }, { slot: 'asc' }, { order: 'asc' }, { id: 'asc' }],
+      orderBy: [{ audience: 'asc' }, { order: 'asc' }, { id: 'asc' }],
     })
     return { items: rows.map(form) }
   })
 
   const phraseProps = {
-    slot:     { type: 'string', enum: SLOTS },
+    phases:   { type: 'array', items: { type: 'string', enum: PHASE_KEYS }, minItems: 1, maxItems: 3 },
     audience: { type: 'string', enum: AUDIENCES },
     text:     { type: 'string', minLength: 1, maxLength: 2000 },
     order:    { type: 'integer', minimum: 0 },
@@ -54,22 +52,24 @@ export async function adminPushPhrasesRoutes(app) {
     schema: {
       body: {
         type: 'object',
-        required: ['slot', 'audience', 'text'],
+        required: ['phases', 'audience', 'text'],
         properties: phraseProps,
         additionalProperties: false,
       },
     },
-  }, async (req) => {
+  }, async (req, reply) => {
     const b = req.body
-    // order по умолчанию — в конец группы (slot+audience)
+    const phases = serializePhases(b.phases)
+    if (!phases) return reply.code(400).send({ error: 'Выбери хотя бы одну фазу дня' })
+    // order по умолчанию — в конец группы (audience)
     const last = await db.pushPhrase.findFirst({
-      where: { slot: b.slot, audience: b.audience },
+      where: { audience: b.audience },
       orderBy: { order: 'desc' },
       select: { order: true },
     })
     const created = await db.pushPhrase.create({
       data: {
-        slot: b.slot,
+        phases,
         audience: b.audience,
         text: b.text,
         order: b.order ?? (last ? last.order + 1 : 0),
@@ -93,34 +93,16 @@ export async function adminPushPhrasesRoutes(app) {
     const existing = await db.pushPhrase.findUnique({ where: { id } })
     if (!existing) return reply.code(404).send({ error: 'Фраза не найдена' })
     const data = {}
-    for (const k of ['slot', 'audience', 'text', 'order', 'active']) {
+    if ('phases' in req.body) {
+      const phases = serializePhases(req.body.phases)
+      if (!phases) return reply.code(400).send({ error: 'Выбери хотя бы одну фазу дня' })
+      data.phases = phases
+    }
+    for (const k of ['audience', 'text', 'order', 'active']) {
       if (k in req.body) data[k] = req.body[k]
     }
     const updated = await db.pushPhrase.update({ where: { id }, data })
     return { phrase: form(updated) }
-  })
-
-  // POST /api/admin/push-phrases/reorder — {slot, audience, orderedIds: [id,...]}
-  app.post('/admin/push-phrases/reorder', {
-    schema: {
-      body: {
-        type: 'object',
-        required: ['slot', 'audience', 'orderedIds'],
-        properties: {
-          slot: { type: 'string', enum: SLOTS },
-          audience: { type: 'string', enum: AUDIENCES },
-          orderedIds: { type: 'array', items: { type: 'integer' }, maxItems: 500 },
-        },
-      },
-    },
-  }, async (req) => {
-    const { orderedIds } = req.body
-    await db.$transaction(
-      orderedIds.map((id, i) =>
-        db.pushPhrase.update({ where: { id }, data: { order: i } }),
-      ),
-    )
-    return { ok: true }
   })
 
   // DELETE /api/admin/push-phrases/:id

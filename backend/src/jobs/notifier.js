@@ -1,39 +1,30 @@
-// Notifier — крон-воркер для пуш-уведомлений через Telegram.
+// Notifier — крон-воркер для пуш-уведомлений «начало практики» через Telegram.
 //
 // Алгоритм (каждую минуту):
 //   1. Берём всех юзеров где tgUserId != null и NotifyPrefs.enabled = true
 //   2. Для каждого: вычисляем «сейчас» в его таймзоне
-//   3. Если минута=00 и час ∈ {8, 12, 16, 20} — кандидат
-//   4. Проверяем lastSlotKey (`YYYY-MM-DD-HH:MM` в локальной TZ) — если совпал,
-//      этот слот уже отстреливали сегодня, пропускаем
+//   3. Если минута=00 и час совпал с одной из фаз (утро/день/вечер) — кандидат
+//   4. Проверяем lastSlotKey (`YYYY-MM-DD-<phase>` в локальной TZ) — если совпал,
+//      эту фазу уже отстреливали сегодня, пропускаем
 //   5. Определяем audience: 'paid' если active subscription, иначе 'free'
-//   6. Берём случайную active фразу для (slot, audience)
+//   6. Берём случайную active фразу, у которой в phases есть эта фаза, (audience)
 //   7. Шлём sendMessage через relay (CF Worker, см. tgBot.js)
 //   8. Обновляем lastSlotKey
 //
 // Безопасность от спама/двойников:
-//   - lastSlotKey по локальной TZ юзера: если пуш отправили в 08:00 МСК,
-//     то даже если cron запустится снова в 08:00 МСК — slotKey совпадёт
-//     и шлём не будем
+//   - lastSlotKey по локальной TZ юзера: если пуш отправили в фазу «утро»,
+//     то даже если cron запустится снова в тот же час — ключ совпадёт и
+//     шлём не будем
 //   - Ошибка sendMessage (например, юзер заблокировал бота) логируется,
 //     не пишем lastSlotKey, попробуем в следующий тик (но из-за минута=00
-//     условия это будет следующий слот, не дубль)
-//
-// Производительность: для каждого юзера 1 SELECT (по prefs+sub в include),
-// 1 SELECT по фразам (с кэшем-однажды если оптимизируем), 1 HTTP-call, 1 UPDATE.
-// При ~10к активных юзеров с пушами это ~10к запросов в минуту в моменты слотов.
-// На MVP-нагрузке норм; если упрёмся — добавим батчинг и индекс по «next push at».
+//     условия это будет следующая фаза, не дубль)
 
 import cron from 'node-cron'
 import { db } from '../db.js'
 import { sendMessage } from '../utils/tgBot.js'
+import { PHASES, parsePhases } from '../utils/pushPhases.js'
 
-const SLOT_HOURS = [8, 12, 16, 20]
 const MINI_APP_URL = process.env.TG_MINI_APP_URL || 'https://all-relaxme.ru/'
-
-function pad2(n) {
-  return String(n).padStart(2, '0')
-}
 
 // Возвращает {hour, minute, dateStr} для TZ юзера. dateStr = YYYY-MM-DD.
 function localParts(date, timeZone) {
@@ -60,8 +51,7 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
-async function tick(app) {
-  const now = new Date()
+async function tick(app, now = new Date()) {
 
   // Берём всех с tgUserId и включёнными пушами + subscription для audience
   const users = await db.user.findMany({
@@ -85,10 +75,10 @@ async function tick(app) {
     }
 
     if (parts.minute !== 0) continue
-    if (!SLOT_HOURS.includes(parts.hour)) continue
+    const phase = PHASES.find((p) => p.hour === parts.hour)
+    if (!phase) continue
 
-    const slot = `${pad2(parts.hour)}:00`
-    const slotKey = `${parts.dateStr}-${slot}`
+    const slotKey = `${parts.dateStr}-${phase.key}`
     if (u.notifyPrefs.lastSlotKey === slotKey) continue
 
     const isPaid =
@@ -96,11 +86,14 @@ async function tick(app) {
       (!u.subscription.expiresAt || u.subscription.expiresAt > now)
     const audience = isPaid ? 'paid' : 'free'
 
-    const phrases = await db.pushPhrase.findMany({
-      where: { slot, audience, active: true },
+    // Фразы этой аудитории, у которых в phases есть текущая фаза.
+    // Фильтруем в приложении (phases — comma-join, немного строк на аудиторию).
+    const candidates = await db.pushPhrase.findMany({
+      where: { audience, active: true },
     })
+    const phrases = candidates.filter((p) => parsePhases(p.phases).includes(phase.key))
     if (phrases.length === 0) {
-      app.log.warn({ slot, audience }, 'no push phrases configured')
+      app.log.warn({ phase: phase.key, audience }, 'no push phrases configured')
       continue
     }
 
@@ -119,12 +112,12 @@ async function tick(app) {
         data: { lastSlotKey: slotKey },
       })
       app.log.info(
-        { userId: u.id, tg: u.tgUserId?.toString(), slot, audience },
+        { userId: u.id, tg: u.tgUserId?.toString(), phase: phase.key, audience },
         'push sent'
       )
     } catch (e) {
       app.log.warn(
-        { err: e.message, userId: u.id, tg: u.tgUserId?.toString(), slot },
+        { err: e.message, userId: u.id, tg: u.tgUserId?.toString(), phase: phase.key },
         'push failed'
       )
     }
@@ -145,7 +138,10 @@ export function startNotifier(app) {
       app.log.error({ err: e.message, stack: e.stack }, 'notifier tick crashed')
     }
   })
-  app.log.info('notifier started (every minute, slots 08/12/16/20)')
+  app.log.info(
+    { phases: PHASES.map((p) => `${p.key}@${p.hour}:00`) },
+    'notifier started (every minute, day-phases)'
+  )
   return task
 }
 

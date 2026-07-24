@@ -1,28 +1,41 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api, errText } from '../lib/api.js'
 import { useToast } from '../ui/Toast.jsx'
 import { IconPlus, IconCheck, IconClose } from '../ui/icons.jsx'
 
-// Массовые email-рассылки. Поток: создаёшь job с subject/body/audience,
-// он попадает в очередь, воркер бэка шлёт пачками по 25 писем в минуту.
-// Прогресс виден в списке (sent/totalCount), статус пуллится каждые 5 сек
-// для активной рассылки.
+// Пуш/email рассылка. Два канала:
+//   • email    — фирменное HTML-письмо всем/сегменту с email.
+//   • telegram — пуш об оффлайн-мероприятии всем/сегменту, привязавшим TG,
+//                опционально с картинкой.
+// Поток: создаёшь job → очередь → воркер шлёт пачками по 25 в минуту.
+// Прогресс пуллится каждые 5 сек для активной рассылки.
+
+const CHANNELS = [
+  { value: 'email', label: 'Email-письмо', desc: 'Фирменное HTML-письмо на почту.' },
+  { value: 'telegram', label: 'Telegram-пуш', desc: 'Пуш в бота (можно с картинкой).' },
+]
 
 const AUDIENCES = [
-  { value: 'all', label: 'Все юзеры', desc: 'Все, у кого есть email.' },
-  { value: 'paid', label: 'С активной подпиской', desc: 'Только платящие.' },
-  { value: 'free', label: 'Без подписки', desc: 'Зарегистрированные, но без активной подписки.' },
+  { value: 'all', label: 'Все', desc: 'Все с этим каналом.' },
+  { value: 'paid', label: 'С подпиской', desc: 'Только платящие.' },
+  { value: 'free', label: 'Без подписки', desc: 'Без активной подписки.' },
 ]
 
 export default function Broadcasts() {
   const toast = useToast()
+  const fileRef = useRef(null)
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [channel, setChannel] = useState('email')
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [audience, setAudience] = useState('all')
+  const [imageUrl, setImageUrl] = useState('')
+  const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState(null)
   const [busy, setBusy] = useState(false)
+
+  const isTg = channel === 'telegram'
 
   async function load() {
     try {
@@ -46,30 +59,60 @@ export default function Broadcasts() {
     // eslint-disable-next-line
   }, [jobs])
 
-  async function fetchPreview(aud) {
-    setAudience(aud)
+  async function fetchPreview(aud, ch) {
     try {
-      const { data } = await api.post('/admin/broadcasts/preview', { audience: aud })
+      const { data } = await api.post('/admin/broadcasts/preview', {
+        audience: aud,
+        channel: ch,
+      })
       setPreview(data.totalCount)
     } catch {
       setPreview(null)
     }
   }
 
-  useEffect(() => { fetchPreview('all') }, []) // eslint-disable-line
+  // Пересчитываем охват при смене аудитории/канала
+  useEffect(() => { fetchPreview(audience, channel) }, [audience, channel]) // eslint-disable-line
+
+  async function onPickImage(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const { data } = await api.post('/admin/broadcasts/image', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setImageUrl(data.url)
+      toast.ok('Картинка загружена')
+    } catch (err) {
+      toast.err(errText(err))
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
 
   async function create(e) {
     e?.preventDefault?.()
     if (!subject.trim() || !body.trim()) return
-    if (!confirm(`Точно отправить рассылку «${subject.trim()}» на ${preview ?? '?'} получателей?`)) return
+    const chLabel = CHANNELS.find((c) => c.value === channel)?.label
+    if (!confirm(`Точно отправить «${chLabel}» — «${subject.trim()}» на ${preview ?? '?'} получателей?`)) return
     setBusy(true)
     try {
-      await api.post('/admin/broadcasts', { subject: subject.trim(), body: body.trim(), audience })
-      setSubject(''); setBody('')
+      await api.post('/admin/broadcasts', {
+        subject: subject.trim(),
+        body: body.trim(),
+        audience,
+        channel,
+        imageUrl: isTg && imageUrl ? imageUrl : undefined,
+      })
+      setSubject(''); setBody(''); setImageUrl('')
       toast.ok('Рассылка создана — отправка пошла')
       load()
-    } catch (e) {
-      toast.err(errText(e))
+    } catch (err) {
+      toast.err(errText(err))
     } finally {
       setBusy(false)
     }
@@ -77,15 +120,39 @@ export default function Broadcasts() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
-      <h1 className="mb-2 text-xl font-bold text-fg-0">Email-рассылки</h1>
+      <h1 className="mb-2 text-xl font-bold text-fg-0">Пуш/email рассылка</h1>
       <p className="mb-5 text-sm text-fg-3">
-        Массовое письмо всем юзерам или сегменту. Отправляется пачками
-        по 25 писем в минуту, чтобы не упереться в лимиты SMTP-провайдера.
-        Прогресс видишь ниже.
+        Массовое сообщение всем или сегменту — фирменным письмом на email или
+        пушем в Telegram (например, об оффлайн-мероприятии, с картинкой).
+        Отправляется пачками по 25 в минуту, прогресс виден ниже.
       </p>
 
       <form onSubmit={create} className="panel mb-6">
         <h2 className="mb-3 text-sm font-bold text-fg-0">Новая рассылка</h2>
+
+        {/* Канал */}
+        <label className="mb-3 block">
+          <span className="label">Канал</span>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            {CHANNELS.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => setChannel(c.value)}
+                className={[
+                  'rounded-md border px-3 py-2 text-left transition',
+                  channel === c.value
+                    ? 'border-lilac bg-lilac/15 text-fg-0'
+                    : 'border-line-2 text-fg-2 hover:bg-white/5',
+                ].join(' ')}
+              >
+                <div className="text-sm font-medium">{c.label}</div>
+                <div className="mt-0.5 text-[11px] text-fg-3">{c.desc}</div>
+              </button>
+            ))}
+          </div>
+        </label>
+
         <div className="grid grid-cols-1 gap-3">
           <label className="block">
             <span className="label">Кому</span>
@@ -94,7 +161,7 @@ export default function Broadcasts() {
                 <button
                   key={a.value}
                   type="button"
-                  onClick={() => fetchPreview(a.value)}
+                  onClick={() => setAudience(a.value)}
                   className={[
                     'rounded-md border px-3 py-2 text-left transition',
                     audience === a.value
@@ -109,41 +176,81 @@ export default function Broadcasts() {
             </div>
             {preview !== null && (
               <div className="mt-2 text-xs text-fg-2">
-                Улетит писем: <span className="font-mono text-fg-0">{preview}</span>
+                Получателей: <span className="font-mono text-fg-0">{preview}</span>
+                {isTg && (
+                  <span className="text-fg-3"> · только те, кто привязал Telegram</span>
+                )}
               </div>
             )}
           </label>
+
           <label className="block">
-            <span className="label">Тема письма</span>
+            <span className="label">{isTg ? 'Заголовок' : 'Тема письма'}</span>
             <input
               type="text"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Новая практика в каталоге"
+              placeholder={isTg ? 'Оффлайн-встреча в субботу' : 'Новая практика в каталоге'}
               maxLength={200}
               className="input mt-1"
               required
             />
           </label>
+
           <label className="block">
-            <span className="label">Текст письма</span>
+            <span className="label">Текст</span>
             <textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              rows={8}
+              rows={isTg ? 5 : 8}
               maxLength={5000}
-              placeholder="Привет! Мы добавили новую практику…"
+              placeholder={isTg ? 'Ждём вас в субботу в 18:00…' : 'Привет! Мы добавили новую практику…'}
               className="input mt-1 resize-none"
               required
             />
             <span className="mt-1 block text-xs text-fg-3">
-              Plain text — мы автоматически обернём в HTML в дизайне аппки.
-              Переносы строк сохраняются.
+              {isTg
+                ? 'Уйдёт как пуш в бота с кнопкой «Открыть приложение».'
+                : 'Plain text — обернём в HTML в дизайне аппки. Переносы строк сохраняются.'}
             </span>
           </label>
+
+          {/* Картинка — только для Telegram */}
+          {isTg && (
+            <div className="block">
+              <span className="label">Картинка (опционально)</span>
+              <div className="mt-1 flex items-center gap-3">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={onPickImage}
+                  className="text-xs text-fg-2 file:mr-3 file:rounded-md file:border-0 file:bg-bg-2 file:px-3 file:py-1.5 file:text-fg-1"
+                />
+                {uploading && <span className="text-xs text-fg-3">Загрузка…</span>}
+              </div>
+              {imageUrl && (
+                <div className="mt-2 flex items-start gap-2">
+                  <img
+                    src={imageUrl}
+                    alt=""
+                    className="h-20 w-20 rounded-md border border-line-2 object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl('')}
+                    className="rounded-sm bg-bg-2 px-2 py-1 text-xs text-fg-2 hover:text-rose-300"
+                  >
+                    убрать
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+
         <div className="mt-4 flex justify-end">
-          <button type="submit" className="btn-primary" disabled={busy}>
+          <button type="submit" className="btn-primary" disabled={busy || uploading}>
             <IconPlus /> Запустить рассылку
           </button>
         </div>
@@ -167,7 +274,12 @@ export default function Broadcasts() {
                 <div key={j.id} className="rounded-md border border-line-2 bg-white/[0.02] p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-fg-0 truncate">{j.subject}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-bg-2 px-2 py-0.5 text-[10px] uppercase tracking-wider text-fg-2">
+                          {j.channel === 'telegram' ? 'Telegram' : 'Email'}
+                        </span>
+                        <span className="truncate text-sm font-medium text-fg-0">{j.subject}</span>
+                      </div>
                       <div className="mt-1 text-xs text-fg-3">
                         {AUDIENCES.find((a) => a.value === j.audience)?.label || j.audience}
                         {' · '}{new Date(j.createdAt).toLocaleString('ru-RU')}

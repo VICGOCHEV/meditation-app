@@ -1,9 +1,12 @@
 import crypto from 'node:crypto'
 import { db } from '../db.js'
+import { verifyTgInitData } from '../utils/platformAuth.js'
+import { parsePhases } from '../utils/pushPhases.js'
 
 // GET  /api/notify/prefs       — текущие настройки юзера (или дефолты)
 // PATCH /api/notify/prefs      — обновить enabled / timezone
 // POST /api/notify/tg-link     — сгенерить deep-link для привязки Telegram
+// POST /api/notify/tg-capture  — привязать tgUserId по initData Mini App (авто)
 // POST /api/notify/test        — отправить себе тестовый пуш прямо сейчас
 
 const BOT_USERNAME = process.env.TG_BOT_USERNAME || 'Pause_relax_bot'
@@ -105,8 +108,67 @@ export async function notifyRoutes(app) {
     }
   })
 
+  // Авто-привязка Telegram при запуске Mini App. Фронт после рендера тихо
+  // шлёт сюда WebApp.initData (fire-and-forget). Мы проверяем HMAC-подпись
+  // через TG_BOT_TOKEN и проставляем tgUserId ТЕКУЩЕМУ залогиненному юзеру —
+  // это чинит «пуши доходят только разработчику» без единого клика юзера и
+  // без изменения момента старта приложения. Работает только внутри Telegram
+  // (в PWA/браузере initData пустой — фронт сюда не ходит).
+  app.post(
+    '/notify/tg-capture',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['initData'],
+          properties: { initData: { type: 'string', maxLength: 4096 } },
+        },
+      },
+    },
+    async (req, reply) => {
+      const botToken = process.env.TG_BOT_TOKEN
+      if (!botToken) return reply.code(503).send({ error: 'TG bot не сконфигурирован' })
+
+      const tgUser = verifyTgInitData(req.body.initData, botToken)
+      if (!tgUser?.id) return reply.code(401).send({ error: 'Невалидная подпись initData' })
+
+      const tgId = BigInt(tgUser.id)
+      const me = await db.user.findUnique({
+        where: { id: req.user.id },
+        select: { tgUserId: true },
+      })
+
+      // Уже привязан к этому же tg — только гарантируем NotifyPrefs.
+      if (me?.tgUserId != null && me.tgUserId === tgId) {
+        await db.notifyPrefs.upsert({
+          where: { userId: req.user.id },
+          create: { userId: req.user.id, enabled: true },
+          update: {},
+        })
+        return { ok: true, linked: true, already: true }
+      }
+
+      await db.$transaction(async (tx) => {
+        // Если этот tgUserId висит на другом аккаунте (авто-шелл старого
+        // /auth/tg-init) — отвязываем, иначе упрёмся в unique-constraint.
+        const holder = await tx.user.findUnique({ where: { tgUserId: tgId } })
+        if (holder && holder.id !== req.user.id) {
+          await tx.user.update({ where: { id: holder.id }, data: { tgUserId: null } })
+        }
+        await tx.user.update({ where: { id: req.user.id }, data: { tgUserId: tgId } })
+        await tx.notifyPrefs.upsert({
+          where: { userId: req.user.id },
+          create: { userId: req.user.id, enabled: true },
+          update: {},
+        })
+      })
+
+      return { ok: true, linked: true }
+    }
+  )
+
   // Тест-пуш — даёт юзеру убедиться что пуши доходят. Берёт случайную фразу
-  // для слота 12:00 (default) — короткая и нейтральная.
+  // фазы «день» (нейтральная); если таких нет — любую active для аудитории.
   app.post('/notify/test', async (req, reply) => {
     const u = await db.user.findUnique({
       where: { id: req.user.id },
@@ -124,9 +186,9 @@ export async function notifyRoutes(app) {
       (!u.subscription.expiresAt || u.subscription.expiresAt > now)
     const audience = isPaid ? 'paid' : 'free'
 
-    const phrases = await db.pushPhrase.findMany({
-      where: { slot: '12:00', audience, active: true },
-    })
+    const all = await db.pushPhrase.findMany({ where: { audience, active: true } })
+    const dayPhrases = all.filter((p) => parsePhases(p.phases).includes('day'))
+    const phrases = dayPhrases.length ? dayPhrases : all
     if (!phrases.length) return reply.code(500).send({ error: 'фразы не настроены' })
 
     const phrase = phrases[Math.floor(Math.random() * phrases.length)]

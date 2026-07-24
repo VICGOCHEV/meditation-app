@@ -62,7 +62,7 @@ export default function App() {
             className="pointer-events-auto mono text-xs uppercase tracking-[0.2em] text-fg-1 transition-colors hover:text-lilac"
             data-hover
           >
-            Meditation · 2026
+            Relax Me · 2026
           </a>
           <button
             type="button"

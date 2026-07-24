@@ -47,6 +47,19 @@ export async function sendMessage(chatId, text, extra = {}) {
   })
 }
 
+// Отправка фото с подписью. `photo` — абсолютный https-URL (Telegram сам
+// подтянет картинку). Используется для broadcast-пушей об оффлайн-мероприятиях.
+// caption ограничен 1024 символами на стороне Telegram — обрезаем заранее.
+export async function sendPhoto(chatId, photo, caption = '', extra = {}) {
+  return call('sendPhoto', {
+    chat_id: chatId,
+    photo,
+    caption: caption ? caption.slice(0, 1024) : undefined,
+    parse_mode: 'HTML',
+    ...extra,
+  })
+}
+
 export async function setWebhook(url, secretToken) {
   return call('setWebhook', {
     url,

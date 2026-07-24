@@ -4,7 +4,7 @@ export default function AuthShell({ children, title, back }) {
   return (
     <ScreenShell>
       <div className="mb-8 text-center">
-        <div className="label-mono mb-2 text-lilac">Meditation</div>
+        <div className="label-mono mb-2 text-lilac">Relax Me</div>
       </div>
       {back && <div className="mb-4">{back}</div>}
       <h2 className="mb-6 text-center font-serif text-[28px] text-fg-0">{title}</h2>

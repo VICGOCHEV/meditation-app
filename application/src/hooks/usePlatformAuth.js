@@ -1,8 +1,37 @@
 import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { captureTgUser } from '../api/notify.js'
 
-// Только TG SDK init + BackButton. VK auto-login вынесен в Login.jsx,
-// чтобы НЕ блокировать рендер App.jsx ни при каких обстоятельствах.
+// Только TG SDK init + BackButton + тихая привязка tgUserId для пушей.
+// VK auto-login вынесен в Login.jsx, чтобы НЕ блокировать рендер App.jsx.
+
+// Тихо привязывает tgUserId текущего залогиненного юзера по initData, чтобы
+// пуши доходили ВСЕМ TG-юзерам, а не только тем, кто вручную нажал
+// «Подключить Telegram». Fire-and-forget, ПОСЛЕ старта приложения — момент
+// начала работы не трогаем. Если юзер ещё не залогинен (токена нет) — ждём
+// и повторяем несколько раз (логин обычно происходит сразу после открытия).
+function scheduleTgCapture(initData) {
+  if (!initData) return () => {} // не в Telegram
+  if (sessionStorage.getItem('tg_captured') === '1') return () => {}
+  let cancelled = false
+  let tries = 0
+  let timer = null
+  const attempt = async () => {
+    if (cancelled) return
+    if (!localStorage.getItem('auth_token')) {
+      if (tries++ < 15) timer = setTimeout(attempt, 2000) // до ~30с ждём логина
+      return
+    }
+    try {
+      await captureTgUser(initData)
+      sessionStorage.setItem('tg_captured', '1')
+    } catch {
+      /* не критично: остаётся ручной deep-link в Профиле */
+    }
+  }
+  timer = setTimeout(attempt, 1500)
+  return () => { cancelled = true; if (timer) clearTimeout(timer) }
+}
 
 export default function usePlatformAuth() {
   const location = useLocation()
@@ -12,6 +41,7 @@ export default function usePlatformAuth() {
   // TG SDK init — отдельным useEffect, без блокирующих await.
   useEffect(() => {
     let cancelled = false
+    let cancelCapture = () => {}
     ;(async () => {
       try {
         const mod = await import('@twa-dev/sdk')
@@ -25,13 +55,16 @@ export default function usePlatformAuth() {
             WebApp.setHeaderColor?.('#0a0714')
             WebApp.setBackgroundColor?.('#11101a')
           } catch { /* non-fatal */ }
+          // Привязка для пушей — только если реально внутри Telegram (initData
+          // непустой). Не мешает старту, не блокирует рендер.
+          cancelCapture = scheduleTgCapture(WebApp.initData)
         }
       } catch (e) {
         // eslint-disable-next-line no-console
         console.warn('TG SDK load failed', e?.message || e)
       }
     })()
-    return () => { cancelled = true }
+    return () => { cancelled = true; cancelCapture() }
   }, [])
 
   // TG BackButton: показываем когда не на /, скрываем на /

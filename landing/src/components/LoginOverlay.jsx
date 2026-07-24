@@ -77,7 +77,7 @@ export default function LoginOverlay({ open, onClose }) {
             <motion.div variants={row} className="text-center">
               <p className="eyebrow mb-3">Вход</p>
               <h2 className="font-display text-3xl font-extralight leading-tight text-fg-0 sm:text-4xl">
-                Открой Meditation<span className="text-violet">.</span>
+                Открой Relax Me<span className="text-violet">.</span>
               </h2>
               <p className="mx-auto mt-3 max-w-xs text-sm leading-relaxed text-fg-2">
                 Выбери, где тебе удобнее — приложение откроется там же.

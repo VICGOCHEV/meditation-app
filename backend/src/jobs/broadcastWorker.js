@@ -1,11 +1,25 @@
 import cron from 'node-cron'
 import { db } from '../db.js'
 import { sendMail } from '../utils/mailer.js'
+import { sendMessage, sendPhoto, webAppKeyboard } from '../utils/tgBot.js'
 import { buildAudienceWhere } from '../routes/admin/broadcast.js'
 
-// Сколько писем шлём за один тик (каждую минуту).
-// Selectel SMTP лимит ~30/мин — берём 25 с запасом.
+// Сколько адресатов обрабатываем за один тик (каждую минуту).
+// Email: Selectel SMTP лимит ~30/мин — берём 25 с запасом.
+// Telegram: лимит бота ~30 msg/сек, но relay + вежливость → та же пачка 25.
 const BATCH_PER_TICK = 25
+
+const MINI_APP_URL = process.env.TG_MINI_APP_URL || 'https://all-relaxme.ru/'
+
+const escapeHtml = (s) => String(s)
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+
+// Текст telegram-пуша: жирный заголовок (subject) + тело.
+function buildTgText({ subject, body }) {
+  return `<b>${escapeHtml(subject)}</b>\n\n${escapeHtml(body)}`
+}
 
 // Шаблон-обёртка для broadcast'а: subject + plain body → HTML письмо
 // в дизайн-системе аппки. Минимум разметки чтобы Mail.ru не порезал.
@@ -28,7 +42,7 @@ function buildHtml({ subject, body }) {
       <div style="font-size:15px;line-height:1.55;color:#d9d2f0;">${safeBody}</div>
       <hr style="margin:24px 0;border:none;border-top:1px solid rgba(180,160,255,0.16);">
       <p style="margin:0;font-size:12px;color:#6e6290;">
-        Сообщение от команды Meditation · <a href="https://all-relaxme.ru/" style="color:#b4a0ff;text-decoration:none;">all-relaxme.ru</a>
+        Сообщение от команды Relax Me · <a href="https://all-relaxme.ru/" style="color:#b4a0ff;text-decoration:none;">all-relaxme.ru</a>
       </p>
     </td></tr>
   </table>
@@ -51,6 +65,9 @@ export function startBroadcastWorker(app) {
   app.log.info('broadcast worker started (every minute)')
 }
 
+// Ручной прогон одного тика (для скриптов/тестов) — как runOnce у notifier.js.
+export { tick as runOnce }
+
 async function tick(app) {
   // Берём один активный job (pending или running с самой ранней датой создания).
   const job = await db.broadcastJob.findFirst({
@@ -67,12 +84,14 @@ async function tick(app) {
     })
   }
 
+  const isTelegram = job.channel === 'telegram'
+
   // Выгребаем следующих получателей. Offset = sentCount + failedCount.
   const offset = job.sentCount + job.failedCount
-  const where = buildAudienceWhere(job.audience)
+  const where = buildAudienceWhere(job.audience, job.channel)
   const recipients = await db.user.findMany({
     where,
-    select: { id: true, email: true, name: true },
+    select: { id: true, email: true, name: true, tgUserId: true },
     orderBy: { id: 'asc' },
     skip: offset,
     take: BATCH_PER_TICK,
@@ -90,19 +109,41 @@ async function tick(app) {
 
   let sent = 0
   let failed = 0
-  const html = buildHtml({ subject: job.subject, body: job.body })
-  for (const r of recipients) {
-    try {
-      await sendMail({
-        to: r.email,
-        subject: job.subject,
-        text: job.body,
-        html,
-      })
-      sent++
-    } catch (e) {
-      failed++
-      app.log.warn({ err: e?.message, userId: r.id }, 'broadcast send failed')
+
+  if (isTelegram) {
+    const text = buildTgText({ subject: job.subject, body: job.body })
+    const keyboard = webAppKeyboard(MINI_APP_URL, 'Открыть приложение')
+    for (const r of recipients) {
+      if (r.tgUserId == null) { failed++; continue }
+      try {
+        if (job.imageUrl) {
+          await sendPhoto(Number(r.tgUserId), job.imageUrl, text, {
+            reply_markup: keyboard,
+          })
+        } else {
+          await sendMessage(Number(r.tgUserId), text, { reply_markup: keyboard })
+        }
+        sent++
+      } catch (e) {
+        failed++
+        app.log.warn({ err: e?.message, userId: r.id }, 'broadcast tg send failed')
+      }
+    }
+  } else {
+    const html = buildHtml({ subject: job.subject, body: job.body })
+    for (const r of recipients) {
+      try {
+        await sendMail({
+          to: r.email,
+          subject: job.subject,
+          text: job.body,
+          html,
+        })
+        sent++
+      } catch (e) {
+        failed++
+        app.log.warn({ err: e?.message, userId: r.id }, 'broadcast send failed')
+      }
     }
   }
 

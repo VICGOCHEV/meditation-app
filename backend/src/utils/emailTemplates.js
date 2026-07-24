@@ -1,4 +1,4 @@
-// HTML-шаблоны писем в дизайн-системе Meditation.
+// HTML-шаблоны писем в дизайн-системе Relax Me.
 //
 // Принципы:
 // - Inline styles (большинство почтовых клиентов вырезают <style> в head)
@@ -81,7 +81,7 @@ function shell({ title, intro, contentHtml, ctaLabel, ctaUrl, footer }) {
             <td align="center" style="padding: 28px 32px 0;">
               <div style="font-family: 'SF Mono', 'Courier New', monospace; font-size: 11px;
                           letter-spacing: 0.18em; color: ${BRAND.lilacLight}; text-transform: uppercase;">
-                Meditation
+                Relax Me
               </div>
             </td>
           </tr>
@@ -171,10 +171,10 @@ export function passwordReset({ name, resetUrl } = {}) {
   const hello = name ? `Привет, ${escapeHtml(name)}.` : 'Привет.'
   const safeUrl = resetUrl || 'https://all-relaxme.ru/auth/login'
   return {
-    subject: 'Восстановление пароля · Meditation',
+    subject: 'Восстановление пароля · Relax Me',
     text:
       `${name ? `Привет, ${name}.` : 'Привет.'}\n\n` +
-      'Кто-то запросил восстановление пароля к твоему аккаунту в Meditation.\n\n' +
+      'Кто-то запросил восстановление пароля к твоему аккаунту в Relax Me.\n\n' +
       'Чтобы задать новый пароль, открой ссылку ниже (она действует 1 час):\n' +
       `${safeUrl}\n\n` +
       'Если это не ты — просто проигнорируй это письмо. Пароль не изменится, ' +
@@ -185,7 +185,7 @@ export function passwordReset({ name, resetUrl } = {}) {
       contentHtml: `
         <p style="margin: 0 0 16px;">${hello}</p>
         <p style="margin: 0 0 16px;">
-          Кто-то запросил восстановление пароля к твоему аккаунту в Meditation.
+          Кто-то запросил восстановление пароля к твоему аккаунту в Relax Me.
           Нажми кнопку ниже, чтобы задать новый пароль. Ссылка действует
           <strong>1 час</strong>.
         </p>
@@ -209,7 +209,7 @@ export function welcomeEmail({ name } = {}) {
     ? `Привет, ${escapeHtml(name)}.`
     : 'Привет.'
   return {
-    subject: 'Добро пожаловать в Meditation',
+    subject: 'Добро пожаловать в Relax Me',
     text:
       `${name ? `Привет, ${name}.` : 'Привет.'}\n\n` +
       'Ты с нами — рады знакомству.\n\n' +
@@ -222,7 +222,7 @@ export function welcomeEmail({ name } = {}) {
       'Если возникнут вопросы — просто ответь на это письмо, мы прочитаем.',
     html: shell({
       title: 'Добро пожаловать',
-      intro: 'Спасибо что присоединились к Meditation',
+      intro: 'Спасибо что присоединились к Relax Me',
       contentHtml: `
         <p style="margin: 0 0 16px;">${hello}</p>
         <p style="margin: 0 0 18px;">
@@ -300,7 +300,7 @@ export function subscriptionExpiring({ name, expiresAt, daysLeft = 3 } = {}) {
     : daysLeft < 5 ? `${daysLeft} дня` : `${daysLeft} дней`
 
   return {
-    subject: `Подписка кончается через ${daysLabel} · Meditation`,
+    subject: `Подписка кончается через ${daysLabel} · Relax Me`,
     text:
       `${name ? `Привет, ${name}.` : 'Привет.'}\n\n` +
       `Твоя подписка на курс «Осознанность» заканчивается ${dateStr ? dateStr + ' ' : ''}` +
@@ -352,7 +352,7 @@ export function feedbackNotification({ type, message, fromName, fromEmail, userI
     : (fromEmail || 'аноним')
 
   return {
-    subject: `Meditation · ${typeLabel.toLowerCase()} от ${fromName || fromEmail || 'аноним'}`,
+    subject: `Relax Me · ${typeLabel.toLowerCase()} от ${fromName || fromEmail || 'аноним'}`,
     text:
       `Тип: ${typeLabel}\n` +
       `От: ${fromName || ''}${fromEmail ? ` <${fromEmail}>` : ''}\n` +

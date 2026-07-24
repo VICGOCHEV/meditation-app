@@ -31,6 +31,18 @@ export async function requestTgLink() {
   return data
 }
 
+// POST /api/notify/tg-capture {initData} — тихая авто-привязка Telegram при
+// запуске Mini App. Проставляет tgUserId текущему юзеру, чтобы пуши доходили
+// всем, а не только тем, кто вручную нажал «Подключить Telegram».
+export async function captureTgUser(initData) {
+  if (USE_MOCK) {
+    await delay(100)
+    return { ok: true, linked: true }
+  }
+  const { data } = await api.post('/notify/tg-capture', { initData })
+  return data
+}
+
 // POST /api/notify/test — отправить себе тестовый пуш
 export async function sendTestPush() {
   if (USE_MOCK) {

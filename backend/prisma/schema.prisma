@@ -76,15 +76,20 @@ model NotifyPrefs {
   updatedAt   DateTime @updatedAt
 }
 
-// Тексты пушей. Слот — окно дня (08:00 / 12:00 / 16:00 / 20:00).
+// Тексты пушей на «начало практики». phases — список фаз дня, к которым
+// привязана фраза: 'morning' (утро) / 'day' (день) / 'evening' (вечер),
+// хранится comma-join'ом (напр. "morning,evening"). Одна фраза может
+// относиться к нескольким фазам сразу (чекбоксы в CMS).
 // Аудитория — 'paid' для подписчиков Осознанности, 'free' для остальных.
-// Для каждой пары (slot, audience) хранится один или несколько вариантов
-// текста, ротация выбирает случайный из active=true. Через CMS клиент
-// сможет редактировать тексты без деплоя.
+// Ротация выбирает случайную active-фразу для (phase, audience). Через CMS
+// клиент правит тексты и фазы без деплоя.
+// `slot` — legacy-колонка старой схемы (4 фиксированных времени), оставлена
+// nullable для zero-downtime миграции; notifier её больше не читает.
 model PushPhrase {
   id        Int      @id @default(autoincrement())
-  // '08:00' | '12:00' | '16:00' | '20:00'
-  slot      String
+  slot      String?
+  // comma-join фаз: 'morning' | 'day' | 'evening'
+  phases    String   @default("")
   // 'paid' | 'free'
   audience  String
   text      String
@@ -93,7 +98,7 @@ model PushPhrase {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([slot, audience, active])
+  @@index([audience, active])
 }
 
 // Обратная связь от юзера: форма в Profile («Связаться / отзыв / вопрос»).
@@ -182,6 +187,11 @@ model BroadcastJob {
   id          Int      @id @default(autoincrement())
   subject     String
   body        String   // plain text — обернётся в HTML-шаблон автоматом
+  // Канал доставки: 'email' (фирменное письмо) | 'telegram' (пуш в бота).
+  channel     String   @default("email")
+  // Для telegram-пуша об оффлайн-мероприятии — опциональная картинка
+  // (абсолютный https-URL, Telegram сам её подтягивает через sendPhoto).
+  imageUrl    String?  @map("image_url")
   // 'all' / 'paid' / 'free' / 'specific' (на будущее, фильтры)
   audience    String
   // pending / running / done / failed
