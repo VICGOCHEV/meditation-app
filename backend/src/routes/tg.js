@@ -30,6 +30,7 @@ const WELCOME_TEXT = `<b>Привет</b>
 const HELP_TEXT = `<b>Что я умею:</b>
 
 /start — открыть приложение
+/stop — отключить напоминания
 /help — это сообщение
 
 Внутри приложения:
@@ -59,6 +60,36 @@ const LINK_EXPIRED_TEXT = `Ссылка привязки устарела или
 Открой приложение → Профиль → Напоминания → «Подключить Telegram» и
 попробуй ещё раз (ссылка живёт 15 минут).`
 
+const STOP_TEXT = `Напоминания отключены. Больше писать не буду.
+
+Захочешь вернуть — жми /start или включи «Напоминания» в приложении
+(Профиль → Напоминания).`
+
+// Апсертим подписчика бота на любое входящее сообщение: chat_id — это и есть
+// аудитория пушей («слать всем, кто в боте»). У существующих enabled НЕ трогаем
+// (уважаем прежний /stop), только обновляем мету и lastSeenAt. reEnable=true
+// (явный /start) снова включает доставку.
+async function touchSubscriber(from, chatId, { reEnable = false, enabled } = {}) {
+  const chat = BigInt(chatId)
+  const meta = {
+    username: from?.username || null,
+    firstName: from?.first_name || null,
+    lastSeenAt: new Date(),
+  }
+  const update = { ...meta }
+  if (reEnable || enabled === true) update.enabled = true
+  if (enabled === false) update.enabled = false
+  try {
+    await db.tgSubscriber.upsert({
+      where: { chatId: chat },
+      create: { chatId: chat, enabled: enabled === false ? false : true, ...meta },
+      update,
+    })
+  } catch {
+    // Подписчик — вспомогательная запись, не роняем обработку вебхука из-за неё.
+  }
+}
+
 // Привязываем tgUserId к аккаунту, который сгенерил код в Профиле.
 // Возвращает true если код валиден и привязка прошла.
 async function linkTelegramByCode(code, from) {
@@ -86,6 +117,18 @@ async function linkTelegramByCode(code, from) {
       where: { userId: target.id },
       create: { userId: target.id, enabled: true },
       update: { enabled: true },
+    })
+    // Привязываем подписчика бота к аккаунту. Сперва снимаем userId с любого
+    // чужого подписчика этого аккаунта (userId @unique), затем апсертим по
+    // chat_id и включаем доставку.
+    await tx.tgSubscriber.updateMany({
+      where: { userId: target.id, chatId: { not: tgId } },
+      data: { userId: null },
+    })
+    await tx.tgSubscriber.upsert({
+      where: { chatId: tgId },
+      create: { chatId: tgId, userId: target.id, enabled: true },
+      update: { userId: target.id, enabled: true },
     })
   })
   return true
@@ -125,16 +168,29 @@ export async function tgRoutes(app) {
 
     try {
       const payload = startPayload(text)
-      if (isCommand(text, 'start') && payload.startsWith('link_')) {
+      const isStart = isCommand(text, 'start')
+      const isStop = isCommand(text, 'stop')
+
+      // Захватываем/обновляем подписчика бота на каждое сообщение — это и есть
+      // аудитория пушей. /start включает доставку, /stop выключает, прочее не
+      // трогает enabled (сохраняем прежний выбор юзера).
+      await touchSubscriber(msg.from, chatId, {
+        reEnable: isStart,
+        enabled: isStop ? false : undefined,
+      })
+
+      if (isStart && payload.startsWith('link_')) {
         // Deep-link привязки Telegram к аккаунту из Профиля.
         const ok = await linkTelegramByCode(payload.slice('link_'.length), msg.from)
         await sendMessage(chatId, ok ? LINK_OK_TEXT : LINK_EXPIRED_TEXT, {
           reply_markup: webAppKeyboard(MINI_APP_URL, 'Открыть приложение'),
         })
-      } else if (isCommand(text, 'start')) {
+      } else if (isStart) {
         await sendMessage(chatId, WELCOME_TEXT, {
           reply_markup: webAppKeyboard(MINI_APP_URL, 'Открыть приложение'),
         })
+      } else if (isStop) {
+        await sendMessage(chatId, STOP_TEXT)
       } else if (isCommand(text, 'help') || isCommand(text, 'menu')) {
         await sendMessage(chatId, HELP_TEXT, {
           reply_markup: webAppKeyboard(MINI_APP_URL, 'Открыть приложение'),

@@ -32,9 +32,30 @@ async function call(method, body) {
   })
   const data = await res.json()
   if (!data.ok) {
-    throw new Error(`TG ${method}: ${data.description || res.status}`)
+    const err = new Error(`TG ${method}: ${data.description || res.status}`)
+    // Прокидываем код/описание Telegram, чтобы вызывающий мог отличить
+    // «юзер заблокировал бота» от временной сетевой ошибки (см. isDeadChatError).
+    err.code = data.error_code
+    err.description = data.description || ''
+    throw err
   }
   return data.result
+}
+
+// true, если этому chat_id слать больше нет смысла: юзер заблокировал бота,
+// удалил аккаунт, или чат не найден. Такого подписчика гасим (enabled=false),
+// чтобы не долбить мёртвый чат на каждой фазе.
+// Docs: api.telegram.org отвечает 403 "Forbidden: bot was blocked by the user"
+// / "Forbidden: user is deactivated"; 400 "Bad Request: chat not found".
+export function isDeadChatError(e) {
+  const d = (e?.description || e?.message || '').toLowerCase()
+  return (
+    e?.code === 403 ||
+    d.includes('bot was blocked') ||
+    d.includes('user is deactivated') ||
+    d.includes('chat not found') ||
+    d.includes('user not found')
+  )
 }
 
 export async function sendMessage(chatId, text, extra = {}) {

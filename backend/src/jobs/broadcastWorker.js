@@ -2,7 +2,7 @@ import cron from 'node-cron'
 import { db } from '../db.js'
 import { sendMail } from '../utils/mailer.js'
 import { sendMessage, sendPhoto, webAppKeyboard } from '../utils/tgBot.js'
-import { buildAudienceWhere } from '../routes/admin/broadcast.js'
+import { buildEmailWhere, buildTgSubscriberWhere } from '../routes/admin/broadcast.js'
 
 // Сколько адресатов обрабатываем за один тик (каждую минуту).
 // Email: Selectel SMTP лимит ~30/мин — берём 25 с запасом.
@@ -87,15 +87,24 @@ async function tick(app) {
   const isTelegram = job.channel === 'telegram'
 
   // Выгребаем следующих получателей. Offset = sentCount + failedCount.
+  // Telegram-канал шлёт ПОДПИСЧИКАМ БОТА (все, кто в боте), email — юзерам
+  // с почтой. Пагинация по стабильному set'у (enabled не мутируем в процессе).
   const offset = job.sentCount + job.failedCount
-  const where = buildAudienceWhere(job.audience, job.channel)
-  const recipients = await db.user.findMany({
-    where,
-    select: { id: true, email: true, name: true, tgUserId: true },
-    orderBy: { id: 'asc' },
-    skip: offset,
-    take: BATCH_PER_TICK,
-  })
+  const recipients = isTelegram
+    ? await db.tgSubscriber.findMany({
+        where: buildTgSubscriberWhere(job.audience),
+        select: { id: true, chatId: true },
+        orderBy: { id: 'asc' },
+        skip: offset,
+        take: BATCH_PER_TICK,
+      })
+    : await db.user.findMany({
+        where: buildEmailWhere(job.audience),
+        select: { id: true, email: true, name: true },
+        orderBy: { id: 'asc' },
+        skip: offset,
+        take: BATCH_PER_TICK,
+      })
 
   if (recipients.length === 0) {
     // Аудитория исчерпана — помечаем как done
@@ -114,19 +123,21 @@ async function tick(app) {
     const text = buildTgText({ subject: job.subject, body: job.body })
     const keyboard = webAppKeyboard(MINI_APP_URL, 'Открыть приложение')
     for (const r of recipients) {
-      if (r.tgUserId == null) { failed++; continue }
       try {
         if (job.imageUrl) {
-          await sendPhoto(Number(r.tgUserId), job.imageUrl, text, {
+          await sendPhoto(Number(r.chatId), job.imageUrl, text, {
             reply_markup: keyboard,
           })
         } else {
-          await sendMessage(Number(r.tgUserId), text, { reply_markup: keyboard })
+          await sendMessage(Number(r.chatId), text, { reply_markup: keyboard })
         }
         sent++
       } catch (e) {
+        // Мёртвые чаты НЕ гасим здесь: пагинация тика идёт по skip/offset над
+        // enabled-set'ом — если убрать строки в процессе, окно съедет и живые
+        // получатели пропустятся. Заблокировавших вычистит notifier по фазам.
         failed++
-        app.log.warn({ err: e?.message, userId: r.id }, 'broadcast tg send failed')
+        app.log.warn({ err: e?.message, subId: r.id }, 'broadcast tg send failed')
       }
     }
   } else {

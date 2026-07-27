@@ -43,8 +43,7 @@ export async function adminBroadcastRoutes(app) {
     const channel = req.body.channel || 'email'
     const imageUrl = channel === 'telegram' ? (req.body.imageUrl || null) : null
     // Считаем потенциальную аудиторию заранее — сколько улетит.
-    const where = buildAudienceWhere(audience, channel)
-    const totalCount = await db.user.count({ where })
+    const totalCount = await countAudience(audience, channel)
 
     const job = await db.broadcastJob.create({
       data: {
@@ -115,24 +114,45 @@ export async function adminBroadcastRoutes(app) {
       },
     },
   }, async (req) => {
-    const totalCount = await db.user.count({
-      where: buildAudienceWhere(req.body.audience, req.body.channel || 'email'),
-    })
+    const totalCount = await countAudience(req.body.audience, req.body.channel || 'email')
     return { totalCount }
   })
 }
 
-export function buildAudienceWhere(audience, channel = 'email') {
-  // Базовое: наличие канала доставки. email → нужен email, telegram → tgUserId.
-  const base = channel === 'telegram'
-    ? { tgUserId: { not: null } }
-    : { email: { not: null } }
-  if (audience === 'all') return base
-  if (audience === 'paid') {
-    return { ...base, subscription: { active: true } }
-  }
+// Email-аудитория — по таблице User (нужен email + фильтр по подписке).
+export function buildEmailWhere(audience) {
+  const base = { email: { not: null } }
+  if (audience === 'paid') return { ...base, subscription: { active: true } }
   if (audience === 'free') {
     return { ...base, OR: [{ subscription: null }, { subscription: { active: false } }] }
   }
   return base
+}
+
+// Telegram-аудитория — по подписчикам бота (TgSubscriber), «все, кто в боте».
+// paid/free считаются по подписке привязанного аккаунта; bot-only (userId=null)
+// попадают в 'free' и в 'all'.
+export function buildTgSubscriberWhere(audience) {
+  const base = { enabled: true }
+  if (audience === 'paid') {
+    return { ...base, user: { subscription: { active: true } } }
+  }
+  if (audience === 'free') {
+    return {
+      ...base,
+      OR: [
+        { userId: null },
+        { user: { subscription: null } },
+        { user: { subscription: { active: false } } },
+      ],
+    }
+  }
+  return base
+}
+
+// Универсальный подсчёт охвата по каналу.
+export function countAudience(audience, channel = 'email') {
+  return channel === 'telegram'
+    ? db.tgSubscriber.count({ where: buildTgSubscriberWhere(audience) })
+    : db.user.count({ where: buildEmailWhere(audience) })
 }

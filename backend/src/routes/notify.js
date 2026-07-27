@@ -76,6 +76,19 @@ export async function notifyRoutes(app) {
         create: { userId: req.user.id, ...data },
         update: data,
       })
+
+      // Зеркалим настройки в подписчика бота (если аккаунт привязан): тумблер
+      // «Напоминания» и таймзона из апп — авторитетны для доставки пушей.
+      const mirror = {}
+      if (typeof data.enabled === 'boolean') mirror.enabled = data.enabled
+      if (typeof data.timezone === 'string') mirror.timezone = data.timezone
+      if (Object.keys(mirror).length) {
+        await db.tgSubscriber.updateMany({
+          where: { userId: req.user.id },
+          data: mirror,
+        })
+      }
+
       return {
         ok: true,
         enabled: prefs.enabled,
@@ -138,12 +151,40 @@ export async function notifyRoutes(app) {
         select: { tgUserId: true },
       })
 
-      // Уже привязан к этому же tg — только гарантируем NotifyPrefs.
+      // tgId — это и chat_id приватного чата с ботом: делаем юзера подписчиком.
+      const prefsTz = (await db.notifyPrefs.findUnique({
+        where: { userId: req.user.id },
+        select: { enabled: true, timezone: true },
+      }))
+
+      // Апсерт подписчика бота: chat_id = tgId, привязка к аккаунту. Сначала
+      // снимаем userId с любого другого подписчика этого аккаунта (userId @unique).
+      async function linkSubscriber(tx) {
+        await tx.tgSubscriber.updateMany({
+          where: { userId: req.user.id, chatId: { not: tgId } },
+          data: { userId: null },
+        })
+        await tx.tgSubscriber.upsert({
+          where: { chatId: tgId },
+          create: {
+            chatId: tgId,
+            userId: req.user.id,
+            enabled: prefsTz?.enabled ?? true,
+            timezone: prefsTz?.timezone ?? 'Europe/Moscow',
+          },
+          update: { userId: req.user.id },
+        })
+      }
+
+      // Уже привязан к этому же tg — только гарантируем NotifyPrefs + подписчика.
       if (me?.tgUserId != null && me.tgUserId === tgId) {
-        await db.notifyPrefs.upsert({
-          where: { userId: req.user.id },
-          create: { userId: req.user.id, enabled: true },
-          update: {},
+        await db.$transaction(async (tx) => {
+          await tx.notifyPrefs.upsert({
+            where: { userId: req.user.id },
+            create: { userId: req.user.id, enabled: true },
+            update: {},
+          })
+          await linkSubscriber(tx)
         })
         return { ok: true, linked: true, already: true }
       }
@@ -161,6 +202,7 @@ export async function notifyRoutes(app) {
           create: { userId: req.user.id, enabled: true },
           update: {},
         })
+        await linkSubscriber(tx)
       })
 
       return { ok: true, linked: true }

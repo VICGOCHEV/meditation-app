@@ -178,7 +178,7 @@ export default function Broadcasts() {
               <div className="mt-2 text-xs text-fg-2">
                 Получателей: <span className="font-mono text-fg-0">{preview}</span>
                 {isTg && (
-                  <span className="text-fg-3"> · только те, кто привязал Telegram</span>
+                  <span className="text-fg-3"> · все, кто в боте (не нажимал /stop)</span>
                 )}
               </div>
             )}

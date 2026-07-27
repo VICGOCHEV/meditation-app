@@ -39,6 +39,36 @@ model User {
   feedback          Feedback[]
   notifyPrefs       NotifyPrefs?
   payments          Payment[]
+  tgSubscriber      TgSubscriber?
+}
+
+// Подписчик Telegram-бота = любой chat_id, который писал боту (жал Start).
+// Это ИСТОЧНИК аудитории для пушей: «слать всем, кто в боте», а не только
+// привязанным к аккаунту. Заполняется вебхуком (routes/tg.js) на каждое
+// входящее сообщение и авто-capture'ом при запуске Mini App.
+//
+// enabled — доставлять ли пуши. Ставится false, если юзер прислал боту /stop
+// или выключил тумблер «Напоминания» в приложении (для привязанных зеркалим
+// из NotifyPrefs), или если бот получил «bot was blocked»/«deactivated».
+// userId — привязка к аккаунту, когда тот же tg-юзер залогинен в апп: тогда
+// timezone/enabled зеркалятся из NotifyPrefs, а audience (free/paid) считается
+// по его подписке. У bot-only подписчиков userId=null → дефолт МСК / free.
+// lastSlotKey — антидубль по фазе дня ("YYYY-MM-DD-<phase>" в TZ подписчика).
+model TgSubscriber {
+  id          Int       @id @default(autoincrement())
+  chatId      BigInt    @unique @map("chat_id")
+  enabled     Boolean   @default(true)
+  timezone    String    @default("Europe/Moscow")
+  lastSlotKey String?   @map("last_slot_key")
+  userId      Int?      @unique @map("user_id")
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  username    String?
+  firstName   String?   @map("first_name")
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
+  updatedAt   DateTime  @updatedAt
+
+  @@index([enabled])
 }
 
 // Лог транзакций ЮKassa. Каждое payment.succeeded из webhook'а пишется
