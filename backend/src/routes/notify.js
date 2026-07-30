@@ -228,7 +228,10 @@ export async function notifyRoutes(app) {
       (!u.subscription.expiresAt || u.subscription.expiresAt > now)
     const audience = isPaid ? 'paid' : 'free'
 
-    const all = await db.pushPhrase.findMany({ where: { audience, active: true } })
+    // Фолбэк на все активные фразы: подписок с 2026-07-30 нет, поэтому
+    // аудитория всегда 'free', а у клиента фразы могут быть заведены на 'paid'.
+    let all = await db.pushPhrase.findMany({ where: { audience, active: true } })
+    if (!all.length) all = await db.pushPhrase.findMany({ where: { active: true } })
     const dayPhrases = all.filter((p) => parsePhases(p.phases).includes('day'))
     const phrases = dayPhrases.length ? dayPhrases : all
     if (!phrases.length) return reply.code(500).send({ error: 'фразы не настроены' })

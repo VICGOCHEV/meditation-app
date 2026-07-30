@@ -11,36 +11,24 @@ import { useAuthStore } from '../../store/useAuthStore'
 import { useProgressStore } from '../../store/useProgressStore'
 import { usePlayerStore } from '../../store/usePlayerStore'
 import { useThemeStore } from '../../store/useThemeStore'
-import { consecutiveStreak, formatRuDate } from '../../utils/dateHelpers'
+import { consecutiveStreak } from '../../utils/dateHelpers'
 
 // Текст под заголовком блока, когда DA в данный момент недоступен —
-// поясняет, что мешает (4-дневный кулдаун, не прослушана, нет
-// тракер-марки, и т.д.). Зеркалит причины с бэка из nextAwarenessUnlock.
+// поясняет, что мешает. Зеркалит причины с бэка из nextAwarenessUnlock
+// (редакция правил 2026-07-30: остались только free-not-completed
+// и prev-not-completed).
 function daHelpText(next) {
   if (!next) return 'Замер откроется на ключевых точках курса.'
   switch (next.reason) {
-    case 'sub-not-active':
-      return 'Замер открывается после активации подписки.'
-    case 'cycle-not-elapsed':
-      return `Следующая практика откроется через ${next.daysLeft} ${plural(next.daysLeft)}.`
+    case 'free-not-completed':
+      return 'Прослушайте практики блока «Точка тишины» — после этого откроется курс.'
     case 'prev-not-completed':
-      return 'Допроходи предыдущую практику до конца.'
-    case 'no-tracker-mark':
-      return 'Отметь день прослушивания в трекере.'
-    case 'mid-da-required':
-      return 'Промежуточный замер откроется после 3-й практики.'
+      return 'Прослушайте предыдущую практику до конца.'
     case 'all-unlocked':
       return 'Курс пройден. Финальный замер уже сделан.'
     default:
       return 'Замер откроется на ключевых точках курса.'
   }
-}
-function plural(n) {
-  const m10 = n % 10
-  const m100 = n % 100
-  if (m10 === 1 && m100 !== 11) return 'день'
-  if ([2, 3, 4].includes(m10) && ![12, 13, 14].includes(m100)) return 'дня'
-  return 'дней'
 }
 import { useProgression } from '../../hooks/useProgression'
 import { deleteAccount } from '../../api/auth'
@@ -65,7 +53,6 @@ export default function Profile() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
 
-  const subscription = useProgressStore((s) => s.subscription)
   const trackerDays = useProgressStore((s) => s.trackerDays)
   const completedPractices = useProgressStore((s) => s.completedPractices)
   const lastKT = useProgressStore((s) => s.lastKT)
@@ -127,11 +114,6 @@ export default function Profile() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const [deleting, setDeleting] = useState(false)
-
-  // Управление активной подпиской. Полноценный self-serve cancel через
-  // YooKassa API ещё не подключён (нужен токен от клиента) — пока даём
-  // ссылку на support-email из оферты, чтобы юзер мог отписаться вручную.
-  const [manageOpen, setManageOpen] = useState(false)
 
   // Однократная подсказка над календарём: «Дни закрашиваются после
   // полностью прослушанной практики». Показываем пока юзер не закроет
@@ -327,26 +309,8 @@ export default function Profile() {
         <div className="text-[13px] text-fg-3">{user?.email || '—'}</div>
       </header>
 
-      <Section title="Подписка">
-        <div className="panel flex items-center justify-between">
-          <div>
-            {subscription.active ? (
-              <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[12px]" style={{ background: 'oklch(0.72 0.13 160 / 0.15)', color: 'oklch(0.82 0.13 160)', border: '1px solid oklch(0.82 0.13 160)' }}>
-                Активна до {formatRuDate(subscription.expiresAt)}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-2 rounded-full border border-fg-3 bg-white/5 px-3 py-1 text-[12px] text-fg-3">
-                Не активна
-              </span>
-            )}
-          </div>
-          {subscription.active ? (
-            <Button size="sm" variant="secondary" onClick={() => setManageOpen(true)}>Управление</Button>
-          ) : (
-            <Button size="sm" onClick={() => navigate('/subscription')}>Оформить</Button>
-          )}
-        </div>
-      </Section>
+      {/* Секция «Подписка» снята 2026-07-30 (docs/38): подписки как механики
+          доступа больше нет, весь контент бесплатный. */}
 
       <Section title="Мои практики">
         {trackerHintOpen && (
@@ -726,36 +690,8 @@ export default function Profile() {
         </div>
       )}
 
-      <Modal
-        open={manageOpen}
-        onClose={() => setManageOpen(false)}
-        title="Управление подпиской"
-      >
-        <p className="text-[14px] text-fg-1">
-          Подписка <strong className="text-fg-0">«Осознанность»</strong> активна
-          до {subscription.active ? formatRuDate(subscription.expiresAt) : '—'}.
-          Списание автоматическое — 199 ₽ в месяц.
-        </p>
-        <p className="mt-3 text-[13px] text-fg-2">
-          Чтобы отменить автопродление, напиши нам — мы остановим списание
-          сегодня же. Текущий оплаченный период до{' '}
-          {subscription.active ? formatRuDate(subscription.expiresAt) : '—'}{' '}
-          остаётся доступным.
-        </p>
-        <div className="mt-5 flex flex-col gap-3">
-          <a
-            href="mailto:rasslablenieiosoznanost@mail.ru?subject=Отмена%20подписки%20RELAX%20ME&body=Здравствуйте.%20Прошу%20отменить%20автопродление%20моей%20подписки."
-            className="block w-full"
-          >
-            <Button variant="secondary" fullWidth>
-              Написать на почту
-            </Button>
-          </a>
-          <Button fullWidth onClick={() => setManageOpen(false)}>
-            Закрыть
-          </Button>
-        </div>
-      </Modal>
+      {/* Модалка «Управление подпиской» снята вместе с секцией подписки
+          (2026-07-30, docs/38) — отменять больше нечего. */}
 
       <Modal
         open={deleteOpen}
@@ -767,8 +703,8 @@ export default function Profile() {
         title="Удалить аккаунт?"
       >
         <p className="text-[14px] text-fg-1">
-          Это необратимо. Прогресс, история КТ, подписка и трекер
-          удалятся. Восстановить нельзя.
+          Это необратимо. Прогресс, история КТ и трекер удалятся.
+          Восстановить нельзя.
         </p>
         <p className="mt-3 text-[13px] text-fg-2">
           Для подтверждения введи слово <strong className="text-fg-0">УДАЛИТЬ</strong>.

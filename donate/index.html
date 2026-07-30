@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="robots" content="noindex" />
+<title>Поддержать проект — Relax Me</title>
+<meta name="theme-color" content="#0a0714" />
+<!--
+  Страница добровольного доната. Живёт ВНЕ приложения (отдельный путь
+  /donate/, открывается во внешнем браузере) — решение клиента 2026-07-30,
+  docs/38.
+
+  Почему отдельная страница, а не экран в аппке: правила ВК (письмо модерации
+  30.07.2026) запрещают на клиентах iOS/Android оплату, уводы и подсказки, как
+  и где оплатить, а также разрешают только одобренные ВК способы оплаты.
+  Внутри VK Mini App кнопка доната не рендерится вообще
+  (application/src/lib/donate.js).
+
+  Никаких внешних ресурсов: шрифты системные, скриптов с CDN нет, кроме
+  виджета ЮKassa, который и есть платёжная форма.
+-->
+<style>
+  :root {
+    --bg-0: #0a0714;
+    --bg-1: #11101a;
+    --line: #2a1f4d;
+    --fg-0: #f4f0ff;
+    --fg-1: #cec6e8;
+    --fg-2: #9a90bb;
+    --fg-3: #6b6390;
+    --accent: #6145c2;
+    --lilac: #b4a0ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    min-height: 100dvh;
+    background:
+      radial-gradient(120% 80% at 50% 0%, #231a42 0%, var(--bg-0) 60%),
+      var(--bg-0);
+    color: var(--fg-0);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding: max(32px, env(safe-area-inset-top)) 20px max(40px, env(safe-area-inset-bottom));
+  }
+  .wrap { max-width: 460px; margin: 0 auto; }
+  .eyebrow {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px; letter-spacing: .32em; text-transform: uppercase;
+    color: var(--lilac); opacity: .8;
+  }
+  h1 { margin: 12px 0 0; font-size: 30px; line-height: 1.15; font-weight: 500; }
+  h1 span { color: var(--lilac); }
+  .lead { margin-top: 14px; color: var(--fg-1); font-size: 14.5px; }
+  .note { margin-top: 10px; color: var(--fg-2); font-size: 13px; }
+
+  .panel {
+    margin-top: 28px; padding: 20px;
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--line); border-radius: 14px;
+  }
+  .label {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--fg-3);
+  }
+  .amounts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .amount {
+    appearance: none; cursor: pointer;
+    padding: 13px 0; border-radius: 10px;
+    border: 1px solid var(--line); background: rgba(255,255,255,.03);
+    color: var(--fg-1); font-size: 15px; font-family: inherit;
+    transition: border-color .18s, background .18s, color .18s;
+  }
+  .amount:hover { background: rgba(255,255,255,.07); }
+  .amount[aria-pressed="true"] {
+    border-color: var(--lilac); color: var(--fg-0);
+    background: rgba(97,69,194,.28);
+  }
+  .custom { margin-top: 12px; display: flex; align-items: center; gap: 10px; }
+  .custom input {
+    flex: 1; min-width: 0;
+    padding: 13px 14px; border-radius: 10px;
+    border: 1px solid var(--line); background: rgba(255,255,255,.03);
+    color: var(--fg-0); font-size: 15px; font-family: inherit;
+  }
+  .custom input:focus { outline: none; border-color: var(--lilac); }
+  .custom span { color: var(--fg-3); font-size: 15px; }
+
+  .cta {
+    margin-top: 18px; width: 100%; padding: 15px 0;
+    border: none; border-radius: 999px; cursor: pointer;
+    background: var(--accent); color: var(--fg-0);
+    font-size: 15px; font-family: inherit; font-weight: 500;
+    box-shadow: 0 0 28px -6px rgba(97,69,194,.85);
+    transition: filter .18s, opacity .18s;
+  }
+  .cta:hover { filter: brightness(1.1); }
+  .cta[disabled] { opacity: .5; cursor: default; box-shadow: none; }
+
+  .msg { margin-top: 14px; font-size: 13px; min-height: 20px; }
+  .msg.error { color: #ffb4b4; }
+  .msg.ok { color: #9be6c0; }
+
+  #yukassa-widget { margin-top: 18px; }
+  .hidden { display: none !important; }
+
+  .back {
+    display: inline-block; margin-top: 26px;
+    color: var(--fg-2); font-size: 13px; text-decoration: none;
+    border-bottom: 1px solid rgba(154,144,187,.35);
+  }
+  .back:hover { color: var(--fg-0); }
+
+  footer { margin-top: 40px; text-align: center; }
+  footer a, footer span {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 10px; letter-spacing: .18em; text-transform: uppercase;
+    color: var(--fg-3); text-decoration: none;
+  }
+  footer a:hover { color: var(--fg-1); }
+  footer .req { display: block; margin-top: 12px; font-size: 9px; opacity: .7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Поддержка</div>
+  <h1>Спасибо, что <span>дошли до конца</span></h1>
+  <p class="lead">
+    Все практики Relax Me бесплатны и открываются по мере прослушивания.
+    Оплата ничего не открывает и никогда не потребуется.
+  </p>
+  <p class="note">
+    Если практики оказались для вас полезными — можно поддержать развитие
+    проекта добровольным донатом. Это никак не влияет на доступ к контенту.
+  </p>
+
+  <div class="panel" id="form">
+    <div class="label">Сумма поддержки</div>
+    <div class="amounts">
+      <button type="button" class="amount" data-amount="200">200 ₽</button>
+      <button type="button" class="amount" data-amount="500" aria-pressed="true">500 ₽</button>
+      <button type="button" class="amount" data-amount="1000">1000 ₽</button>
+    </div>
+    <div class="custom">
+      <input id="custom" type="number" inputmode="numeric" min="50" max="30000" placeholder="Своя сумма, от 50 ₽" />
+      <span>₽</span>
+    </div>
+    <button type="button" class="cta" id="pay">Поддержать проект</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div id="yukassa-widget"></div>
+
+  <a class="back" href="/">Вернуться в приложение</a>
+
+  <footer>
+    <a href="/docs/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Оферта</a>
+    <span> · </span>
+    <a href="/docs/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политика конфиденциальности</a>
+    <span class="req">ИП Смирнов А. В. · ИНН 590772796420</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var MIN = 50, MAX = 30000
+  var selected = 500
+  var busy = false
+
+  var msgEl = document.getElementById('msg')
+  var payBtn = document.getElementById('pay')
+  var customEl = document.getElementById('custom')
+  var formEl = document.getElementById('form')
+  var buttons = Array.prototype.slice.call(document.querySelectorAll('.amount'))
+
+  function say(text, kind) {
+    msgEl.textContent = text || ''
+    msgEl.className = 'msg' + (kind ? ' ' + kind : '')
+  }
+
+  function selectPreset(amount) {
+    selected = amount
+    customEl.value = ''
+    buttons.forEach(function (b) {
+      b.setAttribute('aria-pressed', String(Number(b.dataset.amount) === amount))
+    })
+    say('')
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () { selectPreset(Number(b.dataset.amount)) })
+  })
+
+  customEl.addEventListener('input', function () {
+    buttons.forEach(function (b) { b.setAttribute('aria-pressed', 'false') })
+    selected = Math.floor(Number(customEl.value) || 0)
+    say('')
+  })
+
+  // Виджет ЮKassa грузим только по клику — до этого момента страница
+  // не тянет ни одного внешнего скрипта.
+  function loadWidget() {
+    if (window.YooMoneyCheckoutWidget) return Promise.resolve()
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script')
+      s.src = 'https://yookassa.ru/checkout-widget/v1/checkout-widget.js'
+      s.async = true
+      s.onload = resolve
+      s.onerror = function () { reject(new Error('Не удалось загрузить форму оплаты')) }
+      document.head.appendChild(s)
+    })
+  }
+
+  payBtn.addEventListener('click', function () {
+    if (busy) return
+    if (!selected || selected < MIN || selected > MAX) {
+      say('Сумма должна быть от ' + MIN + ' до ' + MAX + ' ₽', 'error')
+      return
+    }
+    busy = true
+    payBtn.disabled = true
+    say('Готовим форму оплаты…')
+
+    fetch('/api/donate/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: selected })
+    })
+      .then(function (r) {
+        return r.json().then(function (data) {
+          if (!r.ok) throw new Error(data && data.error ? data.error : 'Не удалось создать платёж')
+          return data
+        })
+      })
+      .then(function (data) {
+        if (!data.confirmationToken) throw new Error('Платёжная форма недоступна')
+        return loadWidget().then(function () {
+          var widget = new window.YooMoneyCheckoutWidget({
+            confirmation_token: data.confirmationToken,
+            customization: {
+              colors: {
+                control_primary: '#6145c2',
+                control_primary_content: '#f4f0ff',
+                background: '#11101a',
+                text: '#f4f0ff',
+                border: '#2a1f4d'
+              }
+            },
+            error_callback: function () {
+              say('Не удалось загрузить форму оплаты. Попробуйте ещё раз.', 'error')
+              busy = false
+              payBtn.disabled = false
+              formEl.classList.remove('hidden')
+            }
+          })
+          widget.on('success', function () {
+            try { widget.destroy() } catch (e) { /* noop */ }
+            document.getElementById('yukassa-widget').innerHTML = ''
+            formEl.classList.remove('hidden')
+            payBtn.disabled = false
+            busy = false
+            say('Спасибо за поддержку. Платёж принят.', 'ok')
+          })
+          widget.on('fail', function () {
+            try { widget.destroy() } catch (e) { /* noop */ }
+            document.getElementById('yukassa-widget').innerHTML = ''
+            formEl.classList.remove('hidden')
+            payBtn.disabled = false
+            busy = false
+            say('Платёж не прошёл. Попробуйте ещё раз.', 'error')
+          })
+          formEl.classList.add('hidden')
+          say('')
+          widget.render('yukassa-widget')
+        })
+      })
+      .catch(function (err) {
+        busy = false
+        payBtn.disabled = false
+        formEl.classList.remove('hidden')
+        say(err.message || 'Что-то пошло не так', 'error')
+      })
+  })
+})()
+</script>
+</body>
+</html>

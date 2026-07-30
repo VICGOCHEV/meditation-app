@@ -1,12 +1,14 @@
 import { db } from '../db.js'
 import { todayDateOnly } from '../utils/dateHelpers.js'
-import { nextAwarenessUnlock } from '../utils/progressionRules.js'
+import { nextUnlock } from '../utils/progressionRules.js'
+import { loadChain } from '../utils/practiceChain.js'
 
 export async function practicesRoutes(app) {
   // POST /api/practices/:id/complete
-  // Помимо отметки прохождения и трекер-дня — пересчитывает, можно ли
-  // открыть следующую awareness. Условия задаются клиентом 2026-05-20:
-  // 4 дня + предыдущая completed + трекер-марк + mid-DA (для a4).
+  // Отмечает прохождение + трекер-день и сразу проверяет, открывается ли
+  // следующая практика. Единственное условие открытия (редакция клиента
+  // 2026-07-30) — полное прослушивание предыдущей; для входа в цепочку
+  // нужно прослушать весь бесплатный блок «Точка тишины».
   app.post('/practices/:id/complete', {
     preHandler: app.authenticate,
     schema: {
@@ -33,26 +35,23 @@ export async function practicesRoutes(app) {
       update: {},
     })
 
-    // После записи completion+tracker сразу проверяем,
-    // открывается ли следующая awareness.
-    const [unlockedRows, completions, trackerDays, ktCount] = await Promise.all([
-      db.unlockedAwareness.findMany({ where: { userId }, orderBy: { unlockedAt: 'asc' } }),
+    const [unlockedRows, completions, chain] = await Promise.all([
+      db.unlockedAwareness.findMany({ where: { userId }, select: { practiceId: true } }),
       db.practiceCompletion.findMany({ where: { userId }, select: { practiceId: true } }),
-      db.trackerDay.findMany({ where: { userId }, select: { date: true } }),
-      db.ktEntry.count({ where: { userId } }),
+      loadChain(),
     ])
+    const unlockedSet = new Set(unlockedRows.map((r) => r.practiceId))
     const completedSet = new Set(completions.map((r) => r.practiceId))
-    const trackerSet = new Set(trackerDays.map((r) => r.date.toISOString().slice(0, 10)))
-    const next = nextAwarenessUnlock({
-      unlockedRows,
-      completedSet,
-      trackerSet,
-      ktCount,
-    })
+
+    const next = nextUnlock({ chain, unlockedSet, completedSet })
     let newlyUnlockedId = null
     if (next.id) {
-      await db.unlockedAwareness.create({
-        data: { userId, practiceId: next.id },
+      // upsert, а не create: два параллельных complete'а одной практики
+      // (offline-очередь + повтор) не должны падать на unique-констрейнте.
+      await db.unlockedAwareness.upsert({
+        where: { userId_practiceId: { userId, practiceId: next.id } },
+        create: { userId, practiceId: next.id },
+        update: {},
       })
       newlyUnlockedId = next.id
     }

@@ -10,6 +10,7 @@ import { fetchPractice } from '../../api/practices'
 import { usePlayerStore } from '../../store/usePlayerStore'
 import { useProgressStore } from '../../store/useProgressStore'
 import { formatTime } from '../../hooks/useAudio'
+import { isDonateAllowed, openDonate } from '../../lib/donate'
 
 // Карта (voice + musicId) → ключ в practice.audioByVariant. Та же
 // нотация что использует CMS (см. backend/utils/contentShape.js).
@@ -76,7 +77,12 @@ export default function Player() {
   const [practice, setPractice] = useState(() => findFromMock(id))
   const [practiceLoaded, setPracticeLoaded] = useState(false)
   const [completed, setCompleted] = useState(false)
+  // Открылась ли следующая практика этим прослушиванием — приходит с сервера
+  // в ответе на complete (backend/utils/progressionRules.js).
+  const [unlockedNext, setUnlockedNext] = useState(false)
   const [finishConfirm, setFinishConfirm] = useState(false)
+  // Донат показываем только там, где это разрешает площадка (не в VK).
+  const donateAllowed = isDonateAllowed()
   // Intro-модалка с правилами «без паузы и перемотки». Клиент 10.06:
   // показывать её КАЖДЫЙ раз при заходе в плеер, а не только при первом
   // (раньше localStorage-флаг хоронил её после первого закрытия). Юзер
@@ -136,7 +142,8 @@ export default function Player() {
     // markPracticeComplete is now async — it does both completion +
     // today's tracker entry in a single server call.
     try {
-      await markComplete(id)
+      const res = await markComplete(id)
+      setUnlockedNext(!!res?.newlyUnlockedId)
     } catch {
       /* progress saved locally even on network failure */
     }
@@ -210,19 +217,46 @@ export default function Player() {
         </div>
       </div>
 
+      {/* Финал практики. Донат добровольный и на открытие следующей практики
+          не влияет — формулировки клиента 2026-07-30. В VK-запуске блок
+          доната не рендерится совсем (правила ВК 5.4.1/5.4.2, см. lib/donate). */}
       <Modal
         open={completed}
         onClose={() => exit('/')}
         title="Практика завершена"
       >
-        <p className="text-[14px] text-fg-1">
-          Отмечено в трекере. Путь продолжается.
+        <p className="text-[14px] leading-relaxed text-fg-1">
+          Спасибо, что прошли её до конца.
+          {donateAllowed && (
+            <>
+              {' '}
+              Если эта практика была для вас полезной, вы можете поддержать
+              развитие проекта добровольным донатом.
+            </>
+          )}
         </p>
-        <div className="mt-5">
-          <Button fullWidth onClick={() => exit('/')}>
-            На главную
-          </Button>
-        </div>
+        {unlockedNext && (
+          <p className="mt-3 text-[13px] text-lilac">
+            Следующая практика уже доступна.
+          </p>
+        )}
+
+        {donateAllowed ? (
+          <div className="mt-5 flex flex-col gap-3">
+            <Button fullWidth onClick={openDonate}>
+              Поддержать проект
+            </Button>
+            <Button variant="secondary" fullWidth onClick={() => exit('/')}>
+              Продолжить без доната
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-5">
+            <Button fullWidth onClick={() => exit('/')}>
+              Продолжить
+            </Button>
+          </div>
+        )}
       </Modal>
 
       {/* Confirm «остановить практику» — клиент 03.06: при клике на ×
@@ -236,7 +270,7 @@ export default function Player() {
           Ты действительно хочешь остановить практику?
         </p>
         <p className="mt-2 text-[13px] text-fg-2">
-          Но она не будет отмечена в трекере.
+          Тогда она не будет завершена и следующая практика не откроется.
         </p>
         <div className="mt-5 flex gap-3">
           <Button variant="secondary" fullWidth onClick={() => setFinishConfirm(false)}>
@@ -272,9 +306,10 @@ export default function Player() {
           <h2 className="mt-3 font-serif text-[28px] leading-tight text-fg-0">
             Практика — <span className="text-lilac">это поток</span>
           </h2>
-          <p className="mt-4 max-w-[34ch] text-[13.5px] leading-relaxed text-fg-2">
-            Чтобы голос проводника действительно вёл — мы убрали возможность
-            ставить на паузу и перематывать.
+          <p className="mt-4 max-w-[36ch] text-[13.5px] leading-relaxed text-fg-2">
+            Вы можете выбрать голос и вариант звучания. Перемотка во время
+            практики недоступна. Прослушайте её до конца, чтобы завершить
+            практику и открыть следующую.
           </p>
 
           <div className="mt-7 w-full max-w-sm">
@@ -285,7 +320,7 @@ export default function Player() {
                     <path d="M8 5v14l11-7z" />
                   </svg>
                 ),
-                text: 'Жмёшь play — и слушаешь до конца.',
+                text: 'Нажимаете play — и слушаете до конца: так практика засчитывается и открывает следующую.',
               },
               {
                 icon: (
@@ -293,7 +328,7 @@ export default function Player() {
                     <path d="M6 6l12 12M18 6L6 18" />
                   </svg>
                 ),
-                text: 'Чтобы остановить раньше — есть крестик в центре, с подтверждением.',
+                text: 'Остановить раньше можно крестиком в центре, с подтверждением — но практика не будет завершена.',
               },
               {
                 icon: (
@@ -301,7 +336,7 @@ export default function Player() {
                     <path d="M3 12h2M19 12h2M7 6v12M11 3v18M15 6v12" />
                   </svg>
                 ),
-                text: 'Голос проводника и фоновое звучание выбирай ниже на плеере.',
+                text: 'Голос проводника и вариант звучания выбираются ниже на плеере.',
               },
             ].map((row, i, arr) => (
               <div key={i}>

@@ -10,6 +10,14 @@ const TIERS = {
 
 const ONE_MONTH_MS = 30 * 86400000
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ПРОДАЖА ПОДПИСКИ ОТКЛЮЧЕНА — решение клиента 2026-07-30 (docs/38).
+// Создание платежей из приложения запрещено; webhook оставлен рабочим, чтобы
+// корректно закрыть платежи, созданные до выкатки, и не потерять их в логе.
+// Добровольные донаты живут отдельно — routes/donations.js + страница /donate/.
+// ─────────────────────────────────────────────────────────────────────────────
+const SALES_DISABLED = true
+
 export async function paymentRoutes(app) {
   // POST /api/payments/yookassa/create {tier}
   // Возвращает confirmation_token для embedded-виджета. Платёж создан
@@ -30,6 +38,12 @@ export async function paymentRoutes(app) {
       },
     },
     async (req, reply) => {
+      if (SALES_DISABLED) {
+        return reply.code(410).send({
+          error: 'Оплата отключена: все практики доступны бесплатно',
+          code: 'sales-disabled',
+        })
+      }
       const userId = req.user.id
       const { tier, promoCode } = req.body
       const t = TIERS[tier]
@@ -65,11 +79,8 @@ export async function paymentRoutes(app) {
             create: { userId, active: true, expiresAt, tier, expirationNotifiedAt: null },
             update: { active: true, expiresAt, tier, expirationNotifiedAt: null },
           })
-          await db.unlockedAwareness.upsert({
-            where: { userId_practiceId: { userId, practiceId: 'a1' } },
-            create: { userId, practiceId: 'a1' },
-            update: {},
-          })
+          // a1 здесь больше НЕ открываем: доступ к практикам с 2026-07-30
+          // не зависит от оплаты (см. utils/progressionRules.js).
           // Пометить промокод как использованный
           const promo = await db.promoCode.findUnique({ where: { code: promoMetadata.promoCode } })
           if (promo) {
@@ -130,6 +141,25 @@ export async function paymentRoutes(app) {
       const actual = await getPayment(paymentObj.id)
       if (actual.status !== 'succeeded') {
         return { ok: true, ignored: 'not-actually-succeeded' }
+      }
+
+      // Добровольный донат со страницы /donate/ — не привязан к юзеру и
+      // ничего не открывает. Пишем в лог донатов и выходим.
+      if (actual.metadata?.kind === 'donate') {
+        const amountKopecks = Math.round(parseFloat(actual.amount?.value || '0') * 100)
+        await db.donation.upsert({
+          where: { yookassaId: actual.id },
+          create: {
+            yookassaId: actual.id,
+            amount: amountKopecks,
+            currency: actual.amount?.currency || 'RUB',
+            status: actual.status,
+            paidAt: actual.captured_at ? new Date(actual.captured_at) : new Date(),
+          },
+          update: { status: actual.status },
+        })
+        app.log.info({ paymentId: actual.id, amountKopecks }, 'donation received')
+        return { ok: true, donation: true }
       }
 
       const userId = parseInt(actual.metadata?.userId || '0', 10)
@@ -205,12 +235,8 @@ export async function paymentRoutes(app) {
         }
       }
 
-      // Auto-unlock первой awareness-практики
-      await db.unlockedAwareness.upsert({
-        where: { userId_practiceId: { userId, practiceId: 'a1' } },
-        create: { userId, practiceId: 'a1' },
-        update: {},
-      })
+      // Auto-unlock первой awareness-практики снят: с 2026-07-30 открытие
+      // практик не связано с оплатой (см. utils/progressionRules.js).
 
       app.log.info({ userId, tier, paymentId: paymentObj.id }, 'subscription activated')
       return { ok: true, activated: true }

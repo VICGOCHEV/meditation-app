@@ -6,12 +6,11 @@ import Button from '../../components/ui/Button'
 import Card from '../../components/ui/Card'
 import VoiceMusicModal from '../../components/VoiceMusicModal'
 import OnboardingFog from '../../components/OnboardingFog'
-import AnimatedSubscribeButton from '../../components/ui/AnimatedSubscribeButton'
 import { mockPractices } from '../../api/mock'
 import { fetchPractices } from '../../api/practices'
 import { fetchBlocks, BLOCK_DEFAULTS } from '../../api/blocks'
 import { useCheckinStore } from '../../store/useCheckinStore'
-import { useProgression } from '../../hooks/useProgression'
+import { useProgression, LOCKED_HINT } from '../../hooks/useProgression'
 
 const EASE = [0.22, 0.8, 0.36, 1]
 const gridContainer = {
@@ -147,6 +146,28 @@ function SectionHead({ eyebrow, title, sub, chip }) {
   )
 }
 
+// Подсказка возле заблокированных практик. Заменила блок «Оформи подписку»
+// после отказа от платного доступа (клиент 2026-07-30). Показывается только
+// если в секции реально есть закрытые карточки.
+function LockedHint() {
+  return (
+    <div className="mb-3 flex items-start gap-3 rounded-md border border-line-2 bg-white/5 px-4 py-3">
+      <svg
+        viewBox="0 0 24 24"
+        className="mt-[2px] h-4 w-4 shrink-0 text-lilac"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        aria-hidden="true"
+      >
+        <rect x="5" y="10" width="14" height="10" rx="2" />
+        <path d="M8 10V7a4 4 0 1 1 8 0v3" />
+      </svg>
+      <span className="text-[13px] leading-snug text-fg-1">{LOCKED_HINT}</span>
+    </div>
+  )
+}
+
 function IconButton({ onClick, label, children }) {
   return (
     <button
@@ -181,11 +202,7 @@ function ProfileIcon() {
 export default function Home() {
   const navigate = useNavigate()
   const todayDone = useCheckinStore((s) => s.todayCheckinDone)
-  const {
-    subscription,
-    isPracticeUnlocked,
-    isPracticeCompleted,
-  } = useProgression()
+  const { isPracticeUnlocked, isPracticeCompleted } = useProgression()
 
   const [redirecting, setRedirecting] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -281,11 +298,15 @@ export default function Home() {
           initial="initial"
           animate="animate"
         >
+          {/* Стартовый блок открыт целиком, порядок прослушивания любой.
+              Галочка «пройдено» здесь важна: пока не прослушаны все практики
+              блока, не открывается первая практика «Пароля от жизни». */}
           {practices.relaxation.map((p) => (
             <motion.div key={p.id} variants={cardItem}>
               <Card
                 title={p.title}
                 duration={p.duration}
+                completed={isPracticeCompleted(p.id)}
                 onPlay={() => goPlay(p.id)}
               />
             </motion.div>
@@ -301,16 +322,7 @@ export default function Home() {
           chip={blocks.awareness?.chip}
         />
 
-        {!subscription.active && (
-          <div className="mb-3 rounded-md border border-line-2 bg-white/5 p-4">
-            <div className="text-[14px] text-fg-1">
-              Оформи подписку, чтобы открыть все практики
-            </div>
-            <div className="mt-3">
-              <AnimatedSubscribeButton onClick={() => navigate('/subscription')} />
-            </div>
-          </div>
-        )}
+        {practices.awareness.some((p) => !isPracticeUnlocked(p.id)) && <LockedHint />}
 
         <motion.div
           className="grid grid-cols-2 gap-3"
@@ -318,8 +330,8 @@ export default function Home() {
           initial="initial"
           animate="animate"
         >
-          {practices.awareness.map((p, idx) => {
-            const unlocked = subscription.active && isPracticeUnlocked(p.id)
+          {practices.awareness.map((p) => {
+            const unlocked = isPracticeUnlocked(p.id)
             const completed = isPracticeCompleted(p.id)
             return (
               <motion.div key={p.id} variants={cardItem}>
@@ -328,7 +340,7 @@ export default function Home() {
                   duration={p.duration}
                   locked={!unlocked}
                   completed={completed}
-                  lockedLabel={idx === 0 ? 'Заблокировано' : 'Скоро'}
+                  lockedLabel="Закрыто"
                   onPlay={() => goPlay(p.id)}
                 />
               </motion.div>
@@ -338,8 +350,9 @@ export default function Home() {
       </section>
 
       {/* Второй блок «Осознанность» (block = 'awareness2'). Структура
-          зеркалит секцию 02; записи добавляются через CMS. Закрыт по
-          подписке так же — карточки locked, пока id не в unlockedPractices.
+          зеркалит секцию 02; записи добавляются через CMS. Продолжает ту же
+          сквозную цепочку открытия — карточка locked, пока id не пришёл
+          в unlockedPractices.
           Секция не рендерится, пока в блоке нет ни одной практики. */}
       {(practices.awareness2?.length || 0) > 0 && (
         <section className="mt-10">
@@ -350,16 +363,7 @@ export default function Home() {
             chip={blocks.awareness2?.chip}
           />
 
-          {!subscription.active && (
-            <div className="mb-3 rounded-md border border-line-2 bg-white/5 p-4">
-              <div className="text-[14px] text-fg-1">
-                Оформи подписку, чтобы открыть все практики
-              </div>
-              <div className="mt-3">
-                <AnimatedSubscribeButton onClick={() => navigate('/subscription')} />
-              </div>
-            </div>
-          )}
+          {practices.awareness2.some((p) => !isPracticeUnlocked(p.id)) && <LockedHint />}
 
           <motion.div
             className="grid grid-cols-2 gap-3"
@@ -367,8 +371,8 @@ export default function Home() {
             initial="initial"
             animate="animate"
           >
-            {practices.awareness2.map((p, idx) => {
-              const unlocked = subscription.active && isPracticeUnlocked(p.id)
+            {practices.awareness2.map((p) => {
+              const unlocked = isPracticeUnlocked(p.id)
               const completed = isPracticeCompleted(p.id)
               return (
                 <motion.div key={p.id} variants={cardItem}>
@@ -377,7 +381,7 @@ export default function Home() {
                     duration={p.duration}
                     locked={!unlocked}
                     completed={completed}
-                    lockedLabel={idx === 0 ? 'Заблокировано' : 'Скоро'}
+                    lockedLabel="Закрыто"
                     onPlay={() => goPlay(p.id)}
                   />
                 </motion.div>

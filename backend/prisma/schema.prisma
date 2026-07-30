@@ -93,6 +93,21 @@ model Payment {
   @@index([status])
 }
 
+// Добровольный донат со страницы /donate/ (решение клиента 2026-07-30).
+// Анонимный: страница живёт вне Mini App и не знает про авторизацию, поэтому
+// связи с User нет. Ничего не открывает — только учёт поступлений.
+model Donation {
+  id         String    @id @default(cuid())
+  yookassaId String    @unique @map("yookassa_id")
+  amount     Int       // в копейках
+  currency   String    @default("RUB")
+  status     String
+  paidAt     DateTime? @map("paid_at")
+  createdAt  DateTime  @default(now())
+
+  @@index([status])
+}
+
 // Настройки пуш-уведомлений юзера. Один тумблер вкл/выкл + IANA-таймзона.
 // Кулдаун от дублей: lastSlotKey хранит последний «YYYY-MM-DD-HH:MM», для
 // которого мы юзеру что-то отправили. Cron'у дёргается каждую минуту,

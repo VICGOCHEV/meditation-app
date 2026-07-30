@@ -1,41 +1,27 @@
 import { db } from '../db.js'
 
-const ONE_MONTH_MS = 30 * 86400000
-const VALID_TIERS = ['awareness', 'all-inclusive']
+// ─────────────────────────────────────────────────────────────────────────────
+// ПОДПИСКА ОТКЛЮЧЕНА — решение клиента 2026-07-30 (docs/38).
+// Весь контент бесплатный, доступ открывается прослушиванием предыдущей
+// практики (см. utils/progressionRules.js). Продать/активировать подписку
+// из приложения больше нельзя.
+//
+// Роут НЕ удалён намеренно: старые собранные клиенты (PWA в кэше, не
+// обновившийся VK/TG Mini App) продолжают его дёргать, и им нужен внятный
+// ответ вместо 404. Плюс это точка отката, если решение отменят.
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function subscriptionRoutes(app) {
-  // POST /api/subscription — activate / extend by 30 days.
-  // Body: { tier?: 'awareness' | 'all-inclusive' }, default 'awareness'.
-  app.post('/subscription', { preHandler: app.authenticate }, async (req) => {
-    const userId = req.user.id
-    const now = new Date()
-
-    const rawTier = req.body?.tier
-    const tier = VALID_TIERS.includes(rawTier) ? rawTier : 'awareness'
-
-    const sub = await db.subscription.findUnique({ where: { userId } })
-    const base = sub?.active && sub.expiresAt && sub.expiresAt > now
-      ? sub.expiresAt
-      : now
-    const expiresAt = new Date(base.getTime() + ONE_MONTH_MS)
-
-    await db.subscription.upsert({
-      where: { userId },
-      create: { userId, active: true, expiresAt, tier },
-      update: { active: true, expiresAt, tier },
+  // POST /api/subscription — больше не активирует ничего.
+  app.post('/subscription', { preHandler: app.authenticate }, async (_req, reply) => {
+    return reply.code(410).send({
+      error: 'Подписка отключена: все практики доступны бесплатно',
+      code: 'subscription-disabled',
     })
-
-    // Auto-unlock first awareness practice on activation
-    await db.unlockedAwareness.upsert({
-      where: { userId_practiceId: { userId, practiceId: 'a1' } },
-      create: { userId, practiceId: 'a1' },
-      update: {},
-    })
-
-    return { ok: true, tier, expiresAt: expiresAt.toISOString() }
   })
 
-  // DELETE /api/subscription — flip active=false, keep expiresAt
+  // DELETE /api/subscription — оставлен рабочим: у части юзеров в БД лежит
+  // active=true с прошлой механики, и снять флаг должно быть можно.
   app.delete('/subscription', { preHandler: app.authenticate }, async (req) => {
     const userId = req.user.id
     await db.subscription.updateMany({ where: { userId }, data: { active: false } })

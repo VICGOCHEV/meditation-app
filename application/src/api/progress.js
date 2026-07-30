@@ -4,7 +4,9 @@ import { api, USE_MOCK, delay } from './client'
 // for a brand-new user). Used when VITE_USE_MOCK=true so the app
 // keeps working without a backend during dev.
 const emptyProgress = {
-  subscription: { active: false, autoRenew: false, expiresAt: null },
+  // Подписки как механики доступа больше нет (2026-07-30) — весь контент
+  // бесплатный, поле осталось только для совместимости старых кэшей.
+  subscription: { active: true, autoRenew: false, expiresAt: null },
   unlockedPractices: [],
   completedPractices: [],
   trackerDays: [],
@@ -12,7 +14,7 @@ const emptyProgress = {
   lastKT: null,
   ktHistory: [],
   daCheckpoint: null,
-  nextAwarenessUnlock: { id: null, reason: 'sub-not-active' },
+  nextAwarenessUnlock: { id: null, reason: 'free-not-completed' },
 }
 
 // GET /api/progress — full user state. Returns null on auth failure

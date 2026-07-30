@@ -38,12 +38,9 @@ export async function adminSubscriptionsRoutes(app) {
       create: { userId, active: true, expiresAt, tier },
       update: { active: true, expiresAt, tier },
     })
-    // как при обычной активации — открываем первую awareness
-    await db.unlockedAwareness.upsert({
-      where: { userId_practiceId: { userId, practiceId: 'a1' } },
-      create: { userId, practiceId: 'a1' },
-      update: {},
-    })
+    // Открытие первой awareness убрано 2026-07-30: доступ к практикам больше
+    // не зависит от подписки, цепочка открывается прослушиванием
+    // (utils/progressionRules.js). Роут оставлен для учёта/отката.
 
     return { ok: true, tier, expiresAt: expiresAt.toISOString() }
   })

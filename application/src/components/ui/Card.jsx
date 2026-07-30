@@ -1,5 +1,3 @@
-import Button from './Button'
-
 function PlayIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden="true">
@@ -27,7 +25,9 @@ function SunIcon() {
 }
 
 // The same inner layout for both visual variants — keeps text/icons identical.
-function CardContent({ title, duration, locked, badge, completed, price, onPlay, onBuy, lockedLabel }) {
+// Поштучная покупка (price + onBuy) убрана 2026-07-30: платного открытия
+// отдельных практик больше нет, весь контент бесплатный (docs/38).
+function CardContent({ title, duration, locked, badge, completed, onPlay, lockedLabel }) {
   return (
     <>
       {badge && (
@@ -74,12 +74,8 @@ function CardContent({ title, duration, locked, badge, completed, price, onPlay,
         </span>
         {locked ? (
           <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-fg-3">
-            {lockedLabel || 'Заблокировано'}
+            {lockedLabel || 'Закрыто'}
           </span>
-        ) : price ? (
-          <Button size="sm" variant="secondary" onClick={onBuy}>
-            {price}
-          </Button>
         ) : (
           <button
             type="button"

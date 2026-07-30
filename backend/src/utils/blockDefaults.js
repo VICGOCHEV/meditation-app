@@ -11,7 +11,7 @@ export const BLOCK_DEFAULTS = {
     eyebrow: '01 · СТАРТ',
     title: 'Точка тишины',
     sub: 'Бесплатные практики расслабления — мягкий вход в тело.',
-    chip: 'Бесплатно · 4',
+    chip: 'Бесплатно',
     order: 1,
   },
   awareness: {
@@ -19,7 +19,7 @@ export const BLOCK_DEFAULTS = {
     eyebrow: '02 · СИСТЕМА',
     title: 'Пароль от жизни',
     sub: 'Шесть практик осознанности — переход из тревоги в присутствие.',
-    chip: 'По подписке · 6 практик/мес',
+    chip: 'Бесплатно · по порядку',
     order: 2,
   },
   awareness2: {
@@ -27,7 +27,7 @@ export const BLOCK_DEFAULTS = {
     eyebrow: '03 · СИСТЕМА',
     title: 'Глубже в тишину',
     sub: 'Второй цикл практик осознанности — продолжение пути в присутствие.',
-    chip: 'По подписке',
+    chip: 'Бесплатно · по порядку',
     order: 3,
   },
   author: {
@@ -35,7 +35,7 @@ export const BLOCK_DEFAULTS = {
     eyebrow: '04 · АВТОРСКОЕ',
     title: 'Авторские',
     sub: '',
-    chip: 'Поштучно',
+    chip: 'Бесплатно',
     order: 4,
   },
 }

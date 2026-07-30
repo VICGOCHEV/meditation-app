@@ -20,6 +20,7 @@ import { checkinRoutes } from './routes/checkin.js'
 import { deepAnalysisRoutes } from './routes/deepAnalysis.js'
 import { subscriptionRoutes } from './routes/subscription.js'
 import { paymentRoutes } from './routes/payments.js'
+import { donationRoutes } from './routes/donations.js'
 import { tgRoutes } from './routes/tg.js'
 import { feedbackRoutes } from './routes/feedback.js'
 import { notifyRoutes } from './routes/notify.js'
@@ -113,6 +114,7 @@ await app.register(checkinRoutes, { prefix: '/api' })
 await app.register(deepAnalysisRoutes, { prefix: '/api' })
 await app.register(subscriptionRoutes, { prefix: '/api' })
 await app.register(paymentRoutes, { prefix: '/api' })
+await app.register(donationRoutes, { prefix: '/api' })
 await app.register(tgRoutes, { prefix: '/api' })
 await app.register(feedbackRoutes, { prefix: '/api' })
 await app.register(notifyRoutes, { prefix: '/api' })
@@ -149,8 +151,12 @@ app.listen({ host: config.host, port: config.port }).then(() => {
   app.log.info({ host: config.host, port: config.port }, 'meditation-api up')
   // Cron-воркер пушей. Стартует после успешного listen, чтобы не блокировать.
   startNotifier(app)
-  // Cron-воркер уведомлений об окончании подписки (daily 10:00 МСК)
-  startExpirationNotifier(app)
+  // Cron-воркер уведомлений об окончании подписки ОТКЛЮЧЁН 2026-07-30:
+  // подписок больше нет, письма «подписка заканчивается» звали бы на
+  // несуществующую оплату (docs/38). Импорт и сам job оставлены как точка
+  // отката — при возврате монетизации достаточно раскомментировать строку.
+  // startExpirationNotifier(app)
+  void startExpirationNotifier
   // Cron-воркер broadcast-рассылок (каждую минуту, до 25 писем за тик)
   startBroadcastWorker(app)
 })

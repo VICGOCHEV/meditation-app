@@ -70,8 +70,17 @@ async function tick(app, now = new Date()) {
   async function phrasesFor(phaseKey, audience) {
     const key = `${phaseKey}|${audience}`
     if (phraseCache.has(key)) return phraseCache.get(key)
-    const candidates = await db.pushPhrase.findMany({ where: { audience, active: true } })
-    const list = candidates.filter((p) => parsePhases(p.phases).includes(phaseKey))
+    const inPhase = (rows) => rows.filter((p) => parsePhases(p.phases).includes(phaseKey))
+    let list = inPhase(
+      await db.pushPhrase.findMany({ where: { audience, active: true } })
+    )
+    // С 2026-07-30 подписок нет — все подписчики считаются 'free'. Фразы,
+    // заведённые клиентом для аудитории 'paid', иначе просто перестали бы
+    // отправляться, и в фазе без 'free'-фраз пуш бы не ушёл вовсе.
+    // Поэтому при пустой выборке берём любые активные фразы этой фазы.
+    if (list.length === 0) {
+      list = inPhase(await db.pushPhrase.findMany({ where: { active: true } }))
+    }
     phraseCache.set(key, list)
     return list
   }

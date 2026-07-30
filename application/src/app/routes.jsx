@@ -17,8 +17,10 @@ import ResetPasswordConfirm from '../pages/Auth/ResetPasswordConfirm'
 import Home from '../pages/Home'
 import Checkin from '../pages/Checkin'
 import DeepAnalysis from '../pages/DeepAnalysis'
-import Subscription from '../pages/Subscription'
 import Profile from '../pages/Profile'
+// pages/Subscription выведен из роутинга 2026-07-30 (docs/38): подписки нет,
+// весь контент бесплатный. Файл оставлен в репозитории как точка отката —
+// он не импортируется, поэтому в бандл не попадает.
 
 const Player = lazy(() => import('../pages/Player'))
 
@@ -76,7 +78,6 @@ export default function AppRoutes() {
               </ProtectedRoute>
             }
           />
-          <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />

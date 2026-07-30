@@ -1,12 +1,10 @@
 import { useProgressStore } from '../store/useProgressStore'
 
-// AWARENESS_ORDER зеркалит backend/progressionRules — массив id-шек в
-// порядке открытия. При месячной ротации содержание меняется в CMS, но
-// слот-индекс 1..6 сохраняется.
-const AWARENESS_ORDER = ['a1', 'a2', 'a3', 'a4', 'a5', 'a6']
+// Текст возле заблокированной практики — формулировка клиента 2026-07-30.
+export const LOCKED_HINT =
+  'Следующая практика откроется после полного прослушивания предыдущей.'
 
 export function useProgression() {
-  const subscription = useProgressStore((s) => s.subscription)
   const unlockedPractices = useProgressStore((s) => s.unlockedPractices)
   const completedPractices = useProgressStore((s) => s.completedPractices)
   const lastKT = useProgressStore((s) => s.lastKT)
@@ -15,26 +13,19 @@ export function useProgression() {
   const nextAwarenessUnlock = useProgressStore((s) => s.nextAwarenessUnlock)
 
   // DA доступен только если сервер вернул один из 3 чекпоинтов
-  // ('start' | 'mid' | 'final'). Кулдауна по дням больше нет —
-  // вся логика на сервере (см. backend/src/utils/progressionRules.js).
+  // ('start' | 'mid' | 'final'). Сам он больше ничего не открывает — с
+  // 2026-07-30 практики открываются только прослушиванием предыдущей
+  // (см. backend/src/utils/progressionRules.js).
   const canDoDeepAnalysis = daCheckpoint != null
 
-  // На фронте больше нет «бонусной» страницы — её сняли в правках
-  // клиента 2026-05-20. Если что-то ещё читает legacy bonusUnlocked,
-  // возвращаем пустой массив.
-  const bonusUnlocked = []
-
   return {
-    subscription,
     unlockedPractices,
     completedPractices,
-    bonusUnlocked,
     canDoDeepAnalysis,
     daCheckpoint,
     nextAwarenessUnlock,
     lastKT,
     ktHistory,
-    awarenessOrder: AWARENESS_ORDER,
     isPracticeUnlocked: (id) => unlockedPractices.includes(id),
     isPracticeCompleted: (id) => completedPractices.includes(id),
   }
