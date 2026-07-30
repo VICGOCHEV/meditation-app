@@ -36,6 +36,19 @@ test('цепочка склеивает блоки по порядку внут�
   assert.deepEqual(shuffled.sequence, ['a1', 'a2', 'a3', 'b1'])
 })
 
+test('одинаковый order даёт стабильный порядок, а не зависящий от выдачи БД', () => {
+  // На проде две практики awareness2 лежат с order = 4. Порядок открытия
+  // не должен зависеть от того, как Postgres вернул строки.
+  const tied = [
+    { slug: 'z-vtoraya', block: 'awareness2', order: 4 },
+    { slug: 'a-pervaya', block: 'awareness2', order: 4 },
+  ]
+  const direct = buildChain(tied).sequence
+  const reversed = buildChain([...tied].reverse()).sequence
+  assert.deepEqual(direct, reversed)
+  assert.deepEqual(direct, ['a-pervaya', 'z-vtoraya'])
+})
+
 test('пустой контент падает на фолбэк, а не на пустую цепочку', () => {
   const fallback = buildChain([])
   assert.ok(fallback.free.length > 0)

@@ -44,7 +44,13 @@ export function buildChain(rows) {
   const free = []
   const byBlock = new Map(SEQUENTIAL_BLOCKS.map((b) => [b, []]))
 
-  const sorted = [...rows].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  // Тай-брейк по slug обязателен: в CMS `order` не уникален, и на проде уже
+  // есть две практики awareness2 с order = 4. Без него порядок открытия
+  // зависел бы от того, в каком порядке Postgres вернул строки, то есть мог
+  // меняться между запросами.
+  const sorted = [...rows].sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0) || String(a.slug).localeCompare(String(b.slug))
+  )
   for (const p of sorted) {
     if (p.block === FREE_BLOCK) free.push(p.slug)
     else if (byBlock.has(p.block)) byBlock.get(p.block).push(p.slug)
