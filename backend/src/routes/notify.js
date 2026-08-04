@@ -29,15 +29,20 @@ const VALID_TZ = (tz) => {
 export async function notifyRoutes(app) {
   app.addHook('preHandler', app.authenticate)
 
+  // Тумблер живёт на User.notificationsEnabled (единственный источник правды,
+  // его же читает notifier). В NotifyPrefs осталась только таймзона.
   app.get('/notify/prefs', async (req) => {
-    const prefs = await db.notifyPrefs.findUnique({ where: { userId: req.user.id } })
-    return {
-      enabled: prefs?.enabled ?? true,
-      timezone: prefs?.timezone ?? 'Europe/Moscow',
-      hasTg: !!(await db.user.findUnique({
+    const [me, prefs] = await Promise.all([
+      db.user.findUnique({
         where: { id: req.user.id },
-        select: { tgUserId: true },
-      }))?.tgUserId,
+        select: { tgUserId: true, notificationsEnabled: true },
+      }),
+      db.notifyPrefs.findUnique({ where: { userId: req.user.id } }),
+    ])
+    return {
+      enabled: me?.notificationsEnabled ?? true,
+      timezone: prefs?.timezone ?? 'Europe/Moscow',
+      hasTg: !!me?.tgUserId,
     }
   })
 
@@ -55,44 +60,59 @@ export async function notifyRoutes(app) {
       },
     },
     async (req, reply) => {
-      const data = {}
-      if (typeof req.body.enabled === 'boolean') data.enabled = req.body.enabled
+      const nextEnabled =
+        typeof req.body.enabled === 'boolean' ? req.body.enabled : undefined
+      let nextTz
       if (typeof req.body.timezone === 'string') {
         if (!VALID_TZ(req.body.timezone)) {
           return reply.code(400).send({ error: 'неизвестный часовой пояс' })
         }
-        data.timezone = req.body.timezone
+        nextTz = req.body.timezone
       }
-      if (Object.keys(data).length === 0) {
+      if (nextEnabled === undefined && nextTz === undefined) {
         return reply.code(400).send({ error: 'нечего обновлять' })
       }
 
-      // Если меняется тумблер на off, сбрасываем lastSlotKey — при следующем
-      // вкл первая возможная фраза снова отстреливает.
-      if (data.enabled === false) data.lastSlotKey = null
-
-      const prefs = await db.notifyPrefs.upsert({
-        where: { userId: req.user.id },
-        create: { userId: req.user.id, ...data },
-        update: data,
+      const me = await db.user.update({
+        where: { id: req.user.id },
+        data: nextEnabled === undefined ? {} : { notificationsEnabled: nextEnabled },
+        select: { notificationsEnabled: true },
       })
 
-      // Зеркалим настройки в подписчика бота (если аккаунт привязан): тумблер
-      // «Напоминания» и таймзона из апп — авторитетны для доставки пушей.
-      const mirror = {}
-      if (typeof data.enabled === 'boolean') mirror.enabled = data.enabled
-      if (typeof data.timezone === 'string') mirror.timezone = data.timezone
-      if (Object.keys(mirror).length) {
+      const prefs =
+        nextTz === undefined
+          ? await db.notifyPrefs.findUnique({ where: { userId: req.user.id } })
+          : await db.notifyPrefs.upsert({
+              where: { userId: req.user.id },
+              create: { userId: req.user.id, timezone: nextTz },
+              update: { timezone: nextTz },
+            })
+
+      // Таймзона зеркалится в подписчика бота — по ней notifier считает фазу дня.
+      if (nextTz !== undefined) {
         await db.tgSubscriber.updateMany({
           where: { userId: req.user.id },
-          data: mirror,
+          data: { timezone: nextTz },
+        })
+      }
+
+      // Включение тумблера — явное «хочу получать пуши», поэтому оживляем и
+      // канал: юзер мог когда-то прислать боту /stop и забыть про это. Иначе
+      // тумблер показывал бы «Вкл» при мёртвой доставке — ровно тот рассинхрон,
+      // ради которого флаг и переехал на User.
+      // Выключение канал НЕ трогает: хватает флага на юзере, а гасить подписчика
+      // незачем — вернуть его сможет сам тумблер.
+      if (nextEnabled === true) {
+        await db.tgSubscriber.updateMany({
+          where: { userId: req.user.id },
+          data: { enabled: true },
         })
       }
 
       return {
         ok: true,
-        enabled: prefs.enabled,
-        timezone: prefs.timezone,
+        enabled: me.notificationsEnabled,
+        timezone: prefs?.timezone ?? 'Europe/Moscow',
       }
     }
   )

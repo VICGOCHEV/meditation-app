@@ -66,10 +66,20 @@ function localParts(date, timeZone) {
 
 async function tick(app, now = new Date()) {
 
-  // Все подписчики бота с включённой доставкой + привязанный аккаунт (если есть)
-  // для audience/таймзоны. «Слать всем, кто в боте».
+  // Все подписчики бота с живым каналом + привязанный аккаунт (если есть) для
+  // audience/таймзоны. «Слать всем, кто в боте».
+  //
+  // Два независимых условия:
+  //   enabled            — жив ли канал (не было /stop, бот не заблокирован);
+  //   notificationsEnabled — тумблер «Напоминания» самого юзера.
+  // Bot-only подписчик (userId = null) аккаунта не имеет, для него достаточно
+  // первого условия. Выключенный тумблер отсекает подписчика ДО выбора фразы,
+  // поэтому курсор ротации у него не двигается.
   const subs = await db.tgSubscriber.findMany({
-    where: { enabled: true },
+    where: {
+      enabled: true,
+      OR: [{ userId: null }, { user: { notificationsEnabled: true } }],
+    },
     include: { user: { include: { subscription: true } } },
   })
 

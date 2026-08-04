@@ -111,7 +111,14 @@ async function linkTelegramByCode(code, from) {
     }
     await tx.user.update({
       where: { id: target.id },
-      data: { tgUserId: tgId, tgLinkCode: null, tgLinkCodeExp: null },
+      data: {
+        tgUserId: tgId,
+        tgLinkCode: null,
+        tgLinkCodeExp: null,
+        // Привязка из Профиля — явное «хочу пуши»: включаем тумблер, иначе
+        // юзер подключил Telegram, а доставка осталась выключенной.
+        notificationsEnabled: true,
+      },
     })
     await tx.notifyPrefs.upsert({
       where: { userId: target.id },
@@ -178,6 +185,16 @@ export async function tgRoutes(app) {
         reEnable: isStart,
         enabled: isStop ? false : undefined,
       })
+
+      // /start и /stop — такой же явный выбор юзера, как тумблер в Профиле,
+      // поэтому синхронизируем флаг на аккаунте. Без этого после /stop профиль
+      // показывал «Напоминания: Вкл», а пуши не приходили.
+      if (isStart || isStop) {
+        await db.user.updateMany({
+          where: { tgSubscriber: { chatId: BigInt(chatId) } },
+          data: { notificationsEnabled: isStart },
+        })
+      }
 
       if (isStart && payload.startsWith('link_')) {
         // Deep-link привязки Telegram к аккаунту из Профиля.

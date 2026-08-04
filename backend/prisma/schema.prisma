@@ -27,6 +27,14 @@ model User {
   tgLinkCodeExp     DateTime?            @map("tg_link_code_exp")
   // VK Mini App identity (если зашёл из vk.com/app54600947)
   vkUserId          BigInt?              @unique @map("vk_user_id")
+  // Тумблер «Напоминания» — ЕДИНСТВЕННЫЙ источник правды по желанию юзера
+  // получать пуши. Дефолт на уровне схемы (а не кода регистрации), поэтому
+  // новый юзер включён без единой строчки в /auth/register.
+  // notifier читает его напрямую; TgSubscriber.enabled означает теперь только
+  // «жив ли канал» (не было /stop, бот не заблокирован).
+  // NotifyPrefs.enabled остаётся legacy-колонкой (как PushPhrase.slot) —
+  // отправщик её не читал никогда, что и давало рассинхрон с интерфейсом.
+  notificationsEnabled Boolean           @default(true) @map("notifications_enabled")
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   subscription      Subscription?
