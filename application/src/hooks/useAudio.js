@@ -14,7 +14,13 @@ export function useAudio(src, { initialPosition = 0, onEnd } = {}) {
   const [loaded, setLoaded] = useState(false)
   // Сколько секунд практика реально играла. Не сбрасывается при смене src:
   // переключение голоса/музыки посреди практики — это тот же сеанс.
+  //
+  // Считаем по РЕАЛЬНОМУ времени между play и pause/end, а не по числу тиков
+  // интервала: на мобильном в фоне таймеры throttl'ятся, аудио при этом
+  // продолжает играть — практика была бы дослушана, но не засчитана.
   const listenedRef = useRef(0)
+  // Момент последнего старта воспроизведения (мс), null — сейчас не играет.
+  const playingSinceRef = useRef(null)
   const completedRef = useRef(false)
   // onEnd держим в ref: колбэк пересоздаётся на каждый рендер Player'а, а
   // Howl создаётся один раз на src — иначе в onend залипнет старая версия.
@@ -26,6 +32,22 @@ export function useAudio(src, { initialPosition = 0, onEnd } = {}) {
     completedRef.current = true
     onEndRef.current?.()
   }, [])
+
+  // Забирает накопленное с момента последнего play и останавливает счётчик.
+  const flushListened = useCallback(() => {
+    if (playingSinceRef.current == null) return listenedRef.current
+    listenedRef.current += (Date.now() - playingSinceRef.current) / 1000
+    playingSinceRef.current = null
+    return listenedRef.current
+  }, [])
+
+  // Прослушано на данный момент, включая текущий незакрытый отрезок.
+  const listenedNow = useCallback(
+    () =>
+      listenedRef.current +
+      (playingSinceRef.current == null ? 0 : (Date.now() - playingSinceRef.current) / 1000),
+    []
+  )
 
   useEffect(() => {
     if (!src) return
@@ -66,18 +88,26 @@ export function useAudio(src, { initialPosition = 0, onEnd } = {}) {
       },
       onplay: () => {
         setPlaying(true)
+        playingSinceRef.current = Date.now()
         try { howl.fade(0, 1, FADE_MS) } catch { /* ignore */ }
       },
-      onpause: () => setPlaying(false),
-      onstop: () => setPlaying(false),
+      onpause: () => {
+        setPlaying(false)
+        flushListened()
+      },
+      onstop: () => {
+        setPlaying(false)
+        flushListened()
+      },
       onend: () => {
         setPlaying(false)
         setPosition(0)
         // Трек доиграл до конца — но засчитываем, только если он реально
         // звучал. Скип в конец (если он когда-нибудь появится в UI) даст
         // onend при почти нулевом listened и завершением считаться не будет.
+        const listened = flushListened()
         const total = howl.duration() || 0
-        if (total === 0 || listenedRef.current >= total * COMPLETE_RATIO) {
+        if (total === 0 || listened >= total * COMPLETE_RATIO) {
           fireComplete()
         }
       },
@@ -112,16 +142,17 @@ export function useAudio(src, { initialPosition = 0, onEnd } = {}) {
       if (typeof cur === 'number' && Number.isFinite(cur)) setPosition(cur)
 
       if (!h.playing()) return
-      listenedRef.current += TICK_MS / 1000
       // Хвост трека (тишина, затухание) часть юзеров не дослушивает физически —
       // 95% реального времени достаточно, ждать onend необязательно.
+      // Интервал здесь только опрашивает счётчик; само время считается по
+      // часам, поэтому throttling таймера в фоне ничего не теряет.
       const total = h.duration() || 0
-      if (total > 0 && listenedRef.current >= total * COMPLETE_RATIO) {
+      if (total > 0 && listenedNow() >= total * COMPLETE_RATIO) {
         fireComplete()
       }
     }, TICK_MS)
     return () => clearInterval(id)
-  }, [loaded, fireComplete])
+  }, [loaded, fireComplete, listenedNow])
 
   const play = useCallback(() => howlRef.current?.play(), [])
   const pause = useCallback(() => howlRef.current?.pause(), [])

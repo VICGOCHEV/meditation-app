@@ -79,9 +79,15 @@ function buildHtml({ subject, body }) {
  *  5. Если sent+failed >= totalCount — помечает status=done
  */
 export function startBroadcastWorker(app) {
-  cron.schedule('* * * * *', () => tick(app).catch((e) =>
+  // noOverlap: пачка из 25 отправок может не уложиться в минуту (Telegram
+  // отвечает не мгновенно). Без опции следующий тик стартовал бы поверх
+  // текущего и увёл бы курсор пагинации — часть получателей пропустилась бы.
+  const task = cron.schedule('* * * * *', () => tick(app).catch((e) =>
     app.log.warn({ err: e?.message }, 'broadcast tick failed')
-  ))
+  ), { noOverlap: true })
+  task.on?.('execution:overlap', () => {
+    app.log.warn('broadcast tick skipped: предыдущий ещё выполняется')
+  })
   app.log.info('broadcast worker started (every minute)')
 }
 
@@ -123,31 +129,44 @@ async function tick(app) {
 
   const isTelegram = job.channel === 'telegram'
 
-  // Выгребаем следующих получателей. Offset = sentCount + failedCount.
-  // Telegram-канал шлёт ПОДПИСЧИКАМ БОТА (все, кто в боте), email — юзерам
-  // с почтой. Пагинация по стабильному set'у (enabled не мутируем в процессе).
-  const offset = job.sentCount + job.failedCount
-  const recipients = isTelegram
+  // Выгребаем следующих получателей ПО КУРСОРУ, а не через skip.
+  //
+  // skip = sentCount + failedCount считал позицию в живой выборке: стоило
+  // кому-то отписаться или подписаться посреди рассылки, и окно съезжало —
+  // часть людей пропускалась, часть получала сообщение второй раз. Курсор по
+  // id от изменений состава не зависит.
+  //
+  // Дополнительно не выходим за totalCount, посчитанный при создании job:
+  // тот, кто подписался уже после запуска, не должен получить старую рассылку.
+  const cursor = job.lastRecipientId || 0
+  const processed = job.sentCount + job.failedCount
+  const remaining = Math.max(0, job.totalCount - processed)
+  const take = Math.min(BATCH_PER_TICK, remaining)
+
+  const recipients = take === 0 ? [] : isTelegram
     ? await db.tgSubscriber.findMany({
-        where: buildTgSubscriberWhere(job.audience),
+        where: { AND: [buildTgSubscriberWhere(job.audience), { id: { gt: cursor } }] },
         select: { id: true, chatId: true },
         orderBy: { id: 'asc' },
-        skip: offset,
-        take: BATCH_PER_TICK,
+        take,
       })
     : await db.user.findMany({
-        where: buildEmailWhere(job.audience),
+        where: { AND: [buildEmailWhere(job.audience), { id: { gt: cursor } }] },
         select: { id: true, email: true, name: true },
         orderBy: { id: 'asc' },
-        skip: offset,
-        take: BATCH_PER_TICK,
+        take,
       })
 
   if (recipients.length === 0) {
     // Аудитория исчерпана. Рассылка, у которой не ушло ни одного сообщения,
     // это не «готово»: раньше такой job показывался в CMS зелёным `done`,
     // хотя все отправки упали (или получателей не нашлось вовсе).
-    const status = job.sentCount === 0 && job.failedCount > 0 ? 'failed' : 'done'
+    // Три исхода вместо двух: часть получателей могла не получить сообщение,
+    // и зелёное «готово» это скрывало.
+    const status =
+      job.failedCount === 0 ? 'done'
+        : job.sentCount === 0 ? 'failed'
+          : 'partial'
     await db.broadcastJob.update({
       where: { id: job.id },
       data: { status, finishedAt: new Date(), lastTickAt: new Date() },
@@ -252,6 +271,9 @@ async function tick(app) {
       sentCount: { increment: sent },
       failedCount: { increment: failed },
       lastTickAt: new Date(),
+      // Двигаем курсор на последнего обработанного — и при успехе, и при
+      // ошибке: иначе упавший получатель блокировал бы всю очередь.
+      lastRecipientId: recipients[recipients.length - 1].id,
     },
   })
 }

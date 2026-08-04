@@ -161,6 +161,31 @@ test('buildOrder: первый элемент нового круга не ра�
   }
 })
 
+test('buildOrder sequential: первый элемент не повторяет последний прошлого цикла', () => {
+  const p = pool(5)
+  // Прошлый цикл (например, ещё в режиме shuffled) закончился фразой 1,
+  // а sequential начал бы ровно с неё — это повтор два дня подряд.
+  const order = buildOrder(p, 'sequential', 1)
+  assert.notEqual(order[0], 1)
+  assert.deepEqual(order, [2, 3, 4, 5, 1], 'порядок сохранён, сдвинута точка входа')
+})
+
+test('переключение shuffled -> sequential не даёт повтора на стыке', () => {
+  const p = pool(6)
+  // Доигрываем shuffled-цикл до конца, запоминаем последнюю выданную фразу.
+  const rnd = rng(5)
+  let state = null
+  let last = null
+  for (let i = 0; i < 6; i++) {
+    const res = pickNext({ state, pool: p, mode: 'shuffled', rnd })
+    state = res.nextState
+    last = res.phraseId
+  }
+  // Клиент переключил режим в CMS — следующий цикл собирается sequential.
+  const next = pickNext({ state, pool: p, mode: 'sequential', rnd })
+  assert.notEqual(next.phraseId, last, 'та же фраза два дня подряд')
+})
+
 test('buildOrder: пул из одной фразы не зацикливает перестановку', () => {
   const order = buildOrder([{ id: 1, order: 0 }], 'shuffled', 1)
   assert.deepEqual(order, [1])

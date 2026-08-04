@@ -103,6 +103,16 @@ export async function adminBroadcastRoutes(app) {
       const mb = Math.round(config.maxAudioBytes / 1024 / 1024)
       return reply.code(413).send({ error: `Файл больше ${mb} МБ` })
     }
+    // Общий multipart-лимит рассчитан на аудио (60 МБ), а Telegram принимает
+    // фото байтами только до 10 МБ. Без этой проверки картинка спокойно
+    // загрузилась бы, рассылка создалась — и все отправки упали бы.
+    if (saved.sizeBytes > config.maxImageBytes) {
+      await deleteAudioFile(saved.filename)
+      const mb = Math.round(config.maxImageBytes / 1024 / 1024)
+      return reply.code(413).send({
+        error: `Картинка больше ${mb} МБ — Telegram такую не примет`,
+      })
+    }
     const url = `${publicBase()}${config.mediaUrlBase}/${saved.filename}`
     return { ok: true, url }
   })

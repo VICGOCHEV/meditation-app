@@ -359,7 +359,10 @@ export default function Home() {
             awareness → awareness2 → author это одна сквозная цепочка, а не три
             независимые: повтор обещания в шапке каждого блока читался бы как
             ошибка вёрстки. В «Точке тишины» текста нет — там прогрессии нет. */}
-        {chainHasLocked && texts.chainIntro && (
+        {/* Когда закрыт сам вход в цепочку, ниже показывается отдельный текст
+            с конкретной причиной — общее правило рядом с ним читалось бы как
+            второе объяснение того же замка. */}
+        {chainHasLocked && texts.chainIntro && !(chainEntryLocked && texts.chainLockedEntry) && (
           <p className="mb-3 text-[13px] leading-relaxed text-fg-2">
             {texts.chainIntro}
           </p>

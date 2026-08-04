@@ -327,7 +327,9 @@ export default function Broadcasts() {
                           width: `${pct}%`,
                           background: j.status === 'done'
                             ? 'linear-gradient(90deg, #7be1a3, #b4a0ff)'
-                            : 'linear-gradient(90deg, #b4a0ff, #7be1a3)',
+                            : j.status === 'partial' || j.status === 'failed'
+                              ? 'linear-gradient(90deg, #f0b445, #e06a6a)'
+                              : 'linear-gradient(90deg, #b4a0ff, #7be1a3)',
                         }}
                       />
                     </div>
@@ -347,6 +349,7 @@ function statusChip(status) {
     pending: ['в очереди', 'bg-fg-3/15 text-fg-2'],
     running: ['идёт', 'bg-lilac/15 text-lilac'],
     done: ['готово', 'bg-emerald-500/15 text-emerald-300'],
+    partial: ['частично', 'bg-amber-400/15 text-amber-300'],
     failed: ['ошибка', 'bg-err/15 text-err'],
   }
   const [label, cls] = map[status] || [status, 'bg-fg-3/15 text-fg-2']

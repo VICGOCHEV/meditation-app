@@ -24,6 +24,10 @@ export const config = {
   adminJwtTtlRemember: process.env.ADMIN_JWT_TTL_REMEMBER || '30d',
   // Лимит размера одного аудиофайла (байт). По умолчанию 60 МБ.
   maxAudioBytes: Number(process.env.MAX_AUDIO_BYTES) || 60 * 1024 * 1024,
+  // Лимит картинки для telegram-рассылки. Жёстко ограничен Telegram: загрузка
+  // фото байтами — не больше 10 МБ. Больший файл примется в CMS, но КАЖДАЯ
+  // отправка упадёт, поэтому режем на входе.
+  maxImageBytes: Number(process.env.MAX_IMAGE_BYTES) || 10 * 1024 * 1024,
 }
 
 if (!config.jwtSecret) {

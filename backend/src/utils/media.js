@@ -84,11 +84,22 @@ export async function readLocalMediaByUrl(url) {
   const contentType = EXT_MIME[ext]
   if (!contentType) return null
 
+  const absPath = path.join(config.uploadDir, filename)
   try {
-    const buffer = await fs.readFile(path.join(config.uploadDir, filename))
+    // basename отсекает `..` и абсолютные пути, но не symlink: файл внутри
+    // uploads может указывать наружу. Сверяем реальные пути — читаем, только
+    // если после разрешения ссылок файл всё ещё внутри папки загрузок.
+    const [realFile, realDir] = await Promise.all([
+      fs.realpath(absPath),
+      fs.realpath(config.uploadDir),
+    ])
+    if (realFile !== realDir && !realFile.startsWith(realDir + path.sep)) {
+      return null
+    }
+    const buffer = await fs.readFile(realFile)
     return { buffer, filename, contentType }
   } catch {
-    return null // файла нет на диске
+    return null // файла нет на диске или битая ссылка
   }
 }
 

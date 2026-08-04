@@ -71,6 +71,28 @@ test('path traversal обрезается до basename и не выходит �
   }
 })
 
+test('symlink наружу из uploads не читается', async () => {
+  const secret = path.join(TMP, '..', `secret-${path.basename(TMP)}.jpg`)
+  await fs.writeFile(secret, 'секрет снаружи uploads')
+  const link = path.join(TMP, 'innocent.jpg')
+  await fs.symlink(secret, link)
+  try {
+    assert.equal(
+      await readLocalMediaByUrl(`${BASE}/cms-media/innocent.jpg`),
+      null,
+      'ссылка наружу должна быть отвергнута'
+    )
+  } finally {
+    await fs.rm(link, { force: true })
+    await fs.rm(secret, { force: true })
+  }
+})
+
+test('обычный файл внутри uploads по-прежнему читается', async () => {
+  await fs.writeFile(path.join(TMP, 'ok.jpg'), 'x')
+  assert.ok(await readLocalMediaByUrl(`${BASE}/cms-media/ok.jpg`))
+})
+
 test('не абсолютный URL — null', async () => {
   assert.equal(await readLocalMediaByUrl('/cms-media/abc123.jpg'), null)
   assert.equal(await readLocalMediaByUrl(''), null)

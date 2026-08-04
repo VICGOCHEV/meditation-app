@@ -181,23 +181,41 @@ export async function paymentRoutes(app) {
         return { ok: true, duplicate: true }
       }
 
-      // Лог транзакции пишем ДО апдейта подписки — он же и есть отметка выше.
-      // Ошибку больше НЕ проглатываем: без записи в Payment повторная доставка
-      // не отличит себя от первой. Не записалось — отвечаем 5xx и просим
-      // ЮKassa повторить.
       const amountKopecks = Math.round(parseFloat(actual.amount?.value || '0') * 100)
       const paidAt = actual.captured_at ? new Date(actual.captured_at) : new Date()
+
+      // Отметка и активация — ОДНОЙ транзакцией.
+      //
+      // Порознь их разводить нельзя: если записать Payment, а потом упасть на
+      // Subscription, то ретрай от ЮKassa увидит отметку, посчитает событие
+      // обработанным и выйдет — деньги списаны, подписка не активирована, и
+      // починить это можно только руками. В транзакции падение откатывает и
+      // отметку, поэтому повторная доставка честно проходит путь заново.
       try {
-        await db.payment.create({
-          data: {
-            yookassaId: actual.id,
-            userId,
-            amount: amountKopecks,
-            currency: actual.amount?.currency || 'RUB',
-            tier,
-            status: actual.status,
-            paidAt,
-          },
+        await db.$transaction(async (tx) => {
+          await tx.payment.create({
+            data: {
+              yookassaId: actual.id,
+              userId,
+              amount: amountKopecks,
+              currency: actual.amount?.currency || 'RUB',
+              tier,
+              status: actual.status,
+              paidAt,
+            },
+          })
+
+          // Активируем (или продлеваем) подписку. Логика как в POST /subscription.
+          const now = new Date()
+          const sub = await tx.subscription.findUnique({ where: { userId } })
+          const base = sub?.active && sub.expiresAt && sub.expiresAt > now ? sub.expiresAt : now
+          const expiresAt = new Date(base.getTime() + ONE_MONTH_MS)
+
+          await tx.subscription.upsert({
+            where: { userId },
+            create: { userId, active: true, expiresAt, tier, expirationNotifiedAt: null },
+            update: { active: true, expiresAt, tier, expirationNotifiedAt: null },
+          })
         })
       } catch (e) {
         // P2002 — параллельная доставка того же события успела записать первой.
@@ -208,18 +226,6 @@ export async function paymentRoutes(app) {
         }
         throw e
       }
-
-      // Активируем (или продлеваем) подписку. Логика как в POST /subscription.
-      const now = new Date()
-      const sub = await db.subscription.findUnique({ where: { userId } })
-      const base = sub?.active && sub.expiresAt && sub.expiresAt > now ? sub.expiresAt : now
-      const expiresAt = new Date(base.getTime() + ONE_MONTH_MS)
-
-      await db.subscription.upsert({
-        where: { userId },
-        create: { userId, active: true, expiresAt, tier, expirationNotifiedAt: null },
-        update: { active: true, expiresAt, tier, expirationNotifiedAt: null },
-      })
 
       // Если платёж шёл с промокодом — отмечаем его как использованный.
       // Делаем это здесь (а не при создании платежа), чтобы не «спалить»

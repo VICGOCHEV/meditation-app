@@ -286,13 +286,18 @@ model BroadcastJob {
   imageUrl    String?  @map("image_url")
   // 'all' / 'paid' / 'free' / 'specific' (на будущее, фильтры)
   audience    String
-  // pending / running / done / failed
+  // pending / running / done / partial / failed
   status      String   @default("pending")
   totalCount  Int      @default(0) @map("total_count")
   sentCount   Int      @default(0) @map("sent_count")
   failedCount Int      @default(0) @map("failed_count")
   // Когда последний раз воркер обрабатывал эту рассылку — для дедлока.
   lastTickAt  DateTime? @map("last_tick_at")
+  // Курсор пагинации: id последнего обработанного получателя.
+  // Раньше воркер брал пачку через skip = sentCount + failedCount, и любое
+  // изменение аудитории во время рассылки (кто-то нажал /stop, кто-то пришёл)
+  // сдвигало окно — часть получателей пропускалась или получала дубль.
+  lastRecipientId Int?  @map("last_recipient_id")
   createdAt   DateTime @default(now())
   finishedAt  DateTime? @map("finished_at")
   // Кто запустил (id админа CMS).

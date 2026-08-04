@@ -44,12 +44,24 @@ export function buildOrder(pool, mode, lastPushId = null, rnd = Math.random) {
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.id - b.id)
     .map((p) => p.id)
 
-  if (normalizeMode(mode) !== 'shuffled' || ids.length < 2) return ids
+  // При пуле из одной фразы повтор неизбежен — защищать нечего.
+  if (ids.length < 2) return ids
 
-  const order = shuffle(ids, rnd)
   // Стык циклов: первый элемент нового круга не должен совпасть с последним
   // элементом предыдущего — иначе один и тот же текст придёт два дня подряд.
-  // При пуле из одной фразы повтор неизбежен, это отсекается условием выше.
+  // Правило действует в ОБОИХ режимах, включая переключение shuffled ->
+  // sequential: иначе после смены режима в CMS первая фраза списка могла
+  // совпасть с только что отправленной.
+  if (normalizeMode(mode) !== 'shuffled') {
+    // sequential: порядок менять нельзя, поэтому просто начинаем со
+    // следующего элемента — цикл тот же, сдвинута точка входа.
+    if (lastPushId != null && ids[0] === lastPushId) {
+      return [...ids.slice(1), ids[0]]
+    }
+    return ids
+  }
+
+  const order = shuffle(ids, rnd)
   if (lastPushId != null && order[0] === lastPushId) {
     const j = 1 + Math.floor(rnd() * (order.length - 1))
     ;[order[0], order[j]] = [order[j], order[0]]

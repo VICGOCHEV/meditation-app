@@ -149,6 +149,29 @@ async function tick(app, now = new Date()) {
     }
     const phrase = phrases.find((p) => p.id === picked.phraseId)
 
+    // ЗАХВАТ СЛОТА ДО ОТПРАВКИ.
+    //
+    // Раньше lastSlotKey писался после успешного sendMessage — то есть между
+    // проверкой и записью было окно, в которое второй тик (или второй процесс)
+    // успевал отправить тот же пуш. Условие `lastSlotKey: { not: slotKey }`
+    // делает захват атомарным на уровне БД: обновится ровно одна строка,
+    // остальные попытки получат count = 0 и выйдут.
+    //
+    // Плата за это — при падении отправки слот нужно освободить, иначе ретрая
+    // в окне :00–:04 не будет. Освобождаем в catch.
+    // NULL в условии пишем явно: у нового подписчика lastSlotKey пустой, а
+    // `{ not: slotKey }` в SQL превращается в `<> 'x'`, что для NULL даёт NULL,
+    // а не TRUE. Без ветки на null первый в жизни пуш такому подписчику
+    // никогда бы не захватился.
+    const claim = await db.tgSubscriber.updateMany({
+      where: {
+        id: s.id,
+        OR: [{ lastSlotKey: null }, { lastSlotKey: { not: slotKey } }],
+      },
+      data: { lastSlotKey: slotKey },
+    })
+    if (claim.count === 0) continue // слот уже занят другим тиком
+
     try {
       await sendMessage(Number(s.chatId), phrase.text, {
         reply_markup: {
@@ -157,25 +180,18 @@ async function tick(app, now = new Date()) {
           ],
         },
       })
-      // Антидубль и курсор — атомарно: либо доставка засчитана целиком, либо
-      // (при падении транзакции) ретрай в окне отдаст тот же текст.
+      // Слот уже захвачен выше — здесь двигаем только курсор ротации.
       const sentAt = new Date()
-      await db.$transaction([
-        db.tgSubscriber.update({
-          where: { id: s.id },
-          data: { lastSlotKey: slotKey },
-        }),
-        db.pushRotationState.upsert({
-          where: rotationKey,
-          create: {
-            subscriberId: s.id,
-            phase: phase.key,
-            ...picked.nextState,
-            lastSentAt: sentAt,
-          },
-          update: { ...picked.nextState, lastSentAt: sentAt },
-        }),
-      ])
+      await db.pushRotationState.upsert({
+        where: rotationKey,
+        create: {
+          subscriberId: s.id,
+          phase: phase.key,
+          ...picked.nextState,
+          lastSentAt: sentAt,
+        },
+        update: { ...picked.nextState, lastSentAt: sentAt },
+      })
       app.log.info(
         {
           subId: s.id,
@@ -199,8 +215,15 @@ async function tick(app, now = new Date()) {
           'subscriber disabled (dead chat)'
         )
       } else {
-        // Курсор не сдвинут — следующая попытка в окне :00–:04 отдаст тот же
-        // текст. Логируем каждую неуспешную попытку с минутой окна.
+        // ОСВОБОЖДАЕМ слот, захваченный до отправки: иначе фаза считалась бы
+        // отстрелянной и ретрая в окне :00–:04 не случилось бы.
+        // Возвращаем прежнее значение, а не null: так не сломается антидубль
+        // предыдущей фазы того же дня.
+        await db.tgSubscriber.updateMany({
+          where: { id: s.id, lastSlotKey: slotKey },
+          data: { lastSlotKey: s.lastSlotKey },
+        })
+        // Курсор не сдвинут — следующая попытка отдаст тот же текст.
         app.log.warn(
           {
             err: e.message,
@@ -224,12 +247,19 @@ export function startNotifier(app) {
   }
   // Каждую минуту. cron в TZ сервера — не важно, мы всё равно считаем
   // локально для каждого юзера.
+  // noOverlap: тик по подписчикам ходит в БД и в Telegram, на большой
+  // аудитории он может не уложиться в минуту. Без этой опции node-cron
+  // запустил бы следующий поверх текущего, и два тика конкурировали бы за
+  // один слот. Захват слота в БД это выдержит, но лишняя работа ни к чему.
   const task = cron.schedule('* * * * *', async () => {
     try {
       await tick(app)
     } catch (e) {
       app.log.error({ err: e.message, stack: e.stack }, 'notifier tick crashed')
     }
+  }, { noOverlap: true })
+  task.on?.('execution:overlap', () => {
+    app.log.warn('notifier tick skipped: предыдущий ещё выполняется')
   })
   app.log.info(
     { phases: PHASES.map((p) => `${p.key}@${p.hour}:00`) },
