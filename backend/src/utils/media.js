@@ -41,6 +41,57 @@ export async function saveImageStream(fileStream, mime) {
   return { filename, absPath, sizeBytes: stat.size }
 }
 
+// MIME по расширению — для отдачи файла в Telegram multipart'ом.
+const EXT_MIME = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+}
+
+/**
+ * Достаёт локальный файл по публичному URL картинки из CMS.
+ *
+ * Нужен broadcast'у: картинку в Telegram приходится слать байтами, потому что
+ * по ссылке её скачивает сам Telegram, а до нашего хоста он не доходит
+ * (см. utils/tgBot.js).
+ *
+ * Возвращает { buffer, filename, contentType } или null, если URL не наш,
+ * файла нет или расширение не картиночное. null — сигнал вызывающему
+ * откатиться на прежнее поведение, а не падать.
+ *
+ * @param {string} url — например https://all-relaxme.ru/cms-media/ab12.jpg
+ */
+export async function readLocalMediaByUrl(url) {
+  if (!url || typeof url !== 'string') return null
+
+  let pathname
+  try {
+    pathname = new URL(url).pathname
+  } catch {
+    return null // не абсолютный URL
+  }
+
+  const prefix = `${config.mediaUrlBase.replace(/\/+$/, '')}/`
+  if (!pathname.startsWith(prefix)) return null
+
+  // Только базовое имя: защита от ../ в пути. path.basename срезает любые
+  // сегменты, поэтому выйти за uploadDir нельзя даже подделанным URL'ом.
+  const filename = path.basename(decodeURIComponent(pathname.slice(prefix.length)))
+  if (!filename || filename.startsWith('.')) return null
+
+  const ext = filename.split('.').pop()?.toLowerCase()
+  const contentType = EXT_MIME[ext]
+  if (!contentType) return null
+
+  try {
+    const buffer = await fs.readFile(path.join(config.uploadDir, filename))
+    return { buffer, filename, contentType }
+  } catch {
+    return null // файла нет на диске
+  }
+}
+
 // Гарантируем, что папка загрузок существует (idempotent).
 export async function ensureUploadDir() {
   await fs.mkdir(config.uploadDir, { recursive: true })

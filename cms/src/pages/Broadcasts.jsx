@@ -225,6 +225,15 @@ export default function Broadcasts() {
                 ? 'Уйдёт как пуш в бота с кнопкой «Открыть приложение».'
                 : 'Plain text — обернём в HTML в дизайне аппки. Переносы строк сохраняются.'}
             </span>
+            {/* Подпись к фото Telegram режет на 1024 символах. Раньше текст
+                обрезался молча, уже после отправки. */}
+            {isTg && imageUrl && body.length + subject.length > 1000 && (
+              <span className="mt-1 block text-xs text-err">
+                С картинкой Telegram обрежет текст до 1024 символов. Сейчас
+                заголовок и текст занимают {body.length + subject.length + 2} —
+                хвост не дойдёт.
+              </span>
+            )}
           </label>
 
           {/* Картинка — только для Telegram */}

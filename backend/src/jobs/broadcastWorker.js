@@ -1,7 +1,8 @@
 import cron from 'node-cron'
 import { db } from '../db.js'
 import { sendMail } from '../utils/mailer.js'
-import { sendMessage, sendPhoto, webAppKeyboard } from '../utils/tgBot.js'
+import { sendMessage, sendPhoto, sendPhotoFile, photoFileId, webAppKeyboard } from '../utils/tgBot.js'
+import { readLocalMediaByUrl } from '../utils/media.js'
 import { buildEmailWhere, buildTgSubscriberWhere } from '../routes/admin/broadcast.js'
 
 // Сколько адресатов обрабатываем за один тик (каждую минуту).
@@ -15,6 +16,18 @@ const BATCH_PER_TICK = 25
 // После фикса аудитории такой job на первом же тике улетел бы всем — это
 // внезапная рассылка старого текста, которую никто не запускал.
 const STALE_PENDING_HOURS = 24
+
+// file_id уже загруженной в Telegram картинки, по jobId.
+//
+// Картинка уходит байтами (по ссылке Telegram её не заберёт — см. tgBot.js),
+// но заливать один и тот же файл каждому получателю не нужно: после первой
+// успешной отправки Telegram возвращает file_id, и остальным шлём уже по нему.
+// Кеш живёт в памяти процесса — после рестарта файл просто зальётся ещё раз,
+// это дешевле, чем колонка в БД ради временного значения.
+const photoFileIdByJob = new Map()
+
+// Лимит Telegram на подпись к фото. У обычного сообщения лимит 4096.
+const TG_CAPTION_LIMIT = 1024
 
 const MINI_APP_URL = process.env.TG_MINI_APP_URL || 'https://all-relaxme.ru/'
 
@@ -139,6 +152,7 @@ async function tick(app) {
       where: { id: job.id },
       data: { status, finishedAt: new Date(), lastTickAt: new Date() },
     })
+    photoFileIdByJob.delete(job.id)
     app.log.info(
       {
         jobId: job.id,
@@ -159,14 +173,51 @@ async function tick(app) {
   if (isTelegram) {
     const text = buildTgText({ subject: job.subject, body: job.body })
     const keyboard = webAppKeyboard(MINI_APP_URL, 'Открыть приложение')
+
+    // Картинку читаем с диска ОДИН раз на тик, а не на каждого получателя.
+    // null означает «URL не наш или файла нет» — тогда работаем как раньше,
+    // ссылкой: для внешней картинки это по-прежнему рабочий путь.
+    // Подпись к фото Telegram режет на 1024 символах. Раньше это происходило
+    // молча — админ не знал, что часть текста не дошла.
+    if (job.imageUrl && text.length > TG_CAPTION_LIMIT) {
+      app.log.warn(
+        { jobId: job.id, length: text.length, limit: TG_CAPTION_LIMIT },
+        'broadcast caption truncated by Telegram limit'
+      )
+    }
+
+    let fileId = job.imageUrl ? photoFileIdByJob.get(job.id) || null : null
+    let localFile = null
+    if (job.imageUrl && !fileId) {
+      localFile = await readLocalMediaByUrl(job.imageUrl)
+      if (!localFile) {
+        app.log.warn(
+          { jobId: job.id, imageUrl: job.imageUrl },
+          'broadcast image not found locally, falling back to URL'
+        )
+      }
+    }
+
     for (const r of recipients) {
       try {
-        if (job.imageUrl) {
+        if (!job.imageUrl) {
+          await sendMessage(Number(r.chatId), text, { reply_markup: keyboard })
+        } else if (fileId) {
+          // Уже залита — шлём по file_id, без повторной заливки.
+          await sendPhoto(Number(r.chatId), fileId, text, { reply_markup: keyboard })
+        } else if (localFile) {
+          const msg = await sendPhotoFile(Number(r.chatId), localFile, text, {
+            reply_markup: keyboard,
+          })
+          const id = photoFileId(msg)
+          if (id) {
+            fileId = id
+            photoFileIdByJob.set(job.id, id)
+          }
+        } else {
           await sendPhoto(Number(r.chatId), job.imageUrl, text, {
             reply_markup: keyboard,
           })
-        } else {
-          await sendMessage(Number(r.chatId), text, { reply_markup: keyboard })
         }
         sent++
       } catch (e) {

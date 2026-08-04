@@ -42,6 +42,52 @@ async function call(method, body) {
   return data.result
 }
 
+// Тот же вызов, но телом идёт multipart/form-data — нужно, когда файл
+// заливается БАЙТАМИ, а не ссылкой.
+//
+// Зачем вообще байтами: при передаче ссылки картинку скачивают серверы
+// Telegram, и идти им пришлось бы на наш российский хостинг — этот путь
+// (Telegram → мы) DPI режет так же, как обратный, а relay проксирует только
+// исходящее направление. С multipart картинка уходит вместе с запросом через
+// relay, и Telegram к нам не ходит вовсе.
+//
+// Relay пробрасывает content-type и сырое тело как есть (deploy/tg-relay/
+// worker.js), поэтому boundary не ломается и менять Worker не требуется.
+//
+// fetch сам проставляет content-type с boundary по FormData — вручную его
+// НЕ выставляем, иначе boundary потеряется.
+async function callMultipart(method, fields, file) {
+  const form = new FormData()
+  for (const [k, v] of Object.entries(fields)) {
+    if (v === undefined || v === null) continue
+    // Непримитивные поля Bot API ждёт JSON-строкой (reply_markup и подобные).
+    form.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v))
+  }
+  form.append(
+    'photo',
+    new Blob([file.buffer], { type: file.contentType || 'application/octet-stream' }),
+    file.filename || 'image'
+  )
+
+  const headers = {}
+  if (process.env.TG_RELAY_SECRET) {
+    headers['X-Relay-Auth'] = process.env.TG_RELAY_SECRET
+  }
+  const res = await fetch(`${API_BASE}/bot${token()}/${method}`, {
+    method: 'POST',
+    headers,
+    body: form,
+  })
+  const data = await res.json()
+  if (!data.ok) {
+    const err = new Error(`TG ${method}: ${data.description || res.status}`)
+    err.code = data.error_code
+    err.description = data.description || ''
+    throw err
+  }
+  return data.result
+}
+
 // true, если этому chat_id слать больше нет смысла: юзер заблокировал бота,
 // удалил аккаунт, или чат не найден. Такого подписчика гасим (enabled=false),
 // чтобы не долбить мёртвый чат на каждой фазе.
@@ -68,8 +114,13 @@ export async function sendMessage(chatId, text, extra = {}) {
   })
 }
 
-// Отправка фото с подписью. `photo` — абсолютный https-URL (Telegram сам
-// подтянет картинку). Используется для broadcast-пушей об оффлайн-мероприятиях.
+// Отправка фото с подписью по ССЫЛКЕ или по file_id.
+//
+// ⚠️ Ссылку Telegram скачивает сам, приходя на наш хост — с российского
+// хостинга этот путь не работает (см. комментарий к callMultipart). Для
+// картинок из CMS используйте sendPhotoFile. Здесь ссылка оставлена ради
+// file_id: он выглядит так же (строка) и работает всегда.
+//
 // caption ограничен 1024 символами на стороне Telegram — обрезаем заранее.
 export async function sendPhoto(chatId, photo, caption = '', extra = {}) {
   return call('sendPhoto', {
@@ -79,6 +130,28 @@ export async function sendPhoto(chatId, photo, caption = '', extra = {}) {
     parse_mode: 'HTML',
     ...extra,
   })
+}
+
+// Отправка фото БАЙТАМИ (multipart). `file` = { buffer, filename, contentType }.
+// Лимит Telegram на загрузку фото — 10 МБ (против 5 МБ при передаче ссылкой).
+//
+// Возвращает Message; из него можно достать file_id (см. photoFileId) и слать
+// остальным получателям уже по нему, не заливая файл повторно.
+export async function sendPhotoFile(chatId, file, caption = '', extra = {}) {
+  return callMultipart('sendPhoto', {
+    chat_id: chatId,
+    caption: caption ? caption.slice(0, 1024) : undefined,
+    parse_mode: 'HTML',
+    ...extra,
+  }, file)
+}
+
+// file_id самой крупной версии фото из ответа sendPhoto.
+// Telegram отдаёт массив размеров; последний — оригинал.
+export function photoFileId(message) {
+  const sizes = message?.photo
+  if (!Array.isArray(sizes) || sizes.length === 0) return null
+  return sizes[sizes.length - 1]?.file_id || null
 }
 
 export async function setWebhook(url, secretToken) {
