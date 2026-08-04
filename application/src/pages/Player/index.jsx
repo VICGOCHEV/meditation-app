@@ -11,6 +11,13 @@ import { usePlayerStore } from '../../store/usePlayerStore'
 import { useProgressStore } from '../../store/useProgressStore'
 import { formatTime } from '../../hooks/useAudio'
 import { isDonateAllowed, openDonate } from '../../lib/donate'
+import { reachGoal, GOALS } from '../../lib/metrika'
+import {
+  DONATE_BANNER_TEXT,
+  DONATE_BANNER_TEXT_VK,
+  DONATE_BANNER_SUPPORT_LABEL,
+  DONATE_BANNER_CONTINUE_LABEL,
+} from '../../constants/texts'
 
 // Карта (voice + musicId) → ключ в practice.audioByVariant. Та же
 // нотация что использует CMS (см. backend/utils/contentShape.js).
@@ -77,9 +84,6 @@ export default function Player() {
   const [practice, setPractice] = useState(() => findFromMock(id))
   const [practiceLoaded, setPracticeLoaded] = useState(false)
   const [completed, setCompleted] = useState(false)
-  // Открылась ли следующая практика этим прослушиванием — приходит с сервера
-  // в ответе на complete (backend/utils/progressionRules.js).
-  const [unlockedNext, setUnlockedNext] = useState(false)
   const [finishConfirm, setFinishConfirm] = useState(false)
   // Донат показываем только там, где это разрешает площадка (не в VK).
   const donateAllowed = isDonateAllowed()
@@ -119,6 +123,12 @@ export default function Player() {
     }
   }, [id])
 
+  // Показ плашки — один раз на завершённое прослушивание (модалка живёт внутри
+  // одного маунта плеера, повторный вход в практику монтирует его заново).
+  useEffect(() => {
+    if (completed) reachGoal(GOALS.donateBannerShown, { practiceId: id })
+  }, [completed, id])
+
   // Раньше при сохранённой позиции > 10c показывалась модалка «Продолжить?»
   // Клиент 04.06: убрать — практика всегда начинается с начала.
   // savePosition в фоне продолжает писать (используем как трекинг сколько
@@ -142,12 +152,21 @@ export default function Player() {
     // markPracticeComplete is now async — it does both completion +
     // today's tracker entry in a single server call.
     try {
-      const res = await markComplete(id)
-      setUnlockedNext(!!res?.newlyUnlockedId)
+      await markComplete(id)
     } catch {
       /* progress saved locally even on network failure */
     }
     setCompleted(true)
+  }
+
+  // Обе кнопки плашки уводят с экрана, поэтому цель шлём до навигации.
+  const onSupportClick = () => {
+    reachGoal(GOALS.donateBannerSupportClick, { practiceId: id })
+    openDonate()
+  }
+  const onContinueClick = () => {
+    reachGoal(GOALS.donateBannerContinueClick, { practiceId: id })
+    exit('/')
   }
 
   const availableMusics = availableMusicsOf(practice)
@@ -222,38 +241,26 @@ export default function Player() {
           доната не рендерится совсем (правила ВК 5.4.1/5.4.2, см. lib/donate). */}
       <Modal
         open={completed}
-        onClose={() => exit('/')}
+        onClose={onContinueClick}
         title="Практика завершена"
       >
-        <p className="text-[14px] leading-relaxed text-fg-1">
-          Спасибо, что прошли её до конца.
-          {donateAllowed && (
-            <>
-              {' '}
-              Если эта практика была для вас полезной, вы можете поддержать
-              развитие проекта добровольным донатом.
-            </>
-          )}
+        <p className="whitespace-pre-line text-[14px] leading-relaxed text-fg-1">
+          {donateAllowed ? DONATE_BANNER_TEXT : DONATE_BANNER_TEXT_VK}
         </p>
-        {unlockedNext && (
-          <p className="mt-3 text-[13px] text-lilac">
-            Следующая практика уже доступна.
-          </p>
-        )}
 
         {donateAllowed ? (
           <div className="mt-5 flex flex-col gap-3">
-            <Button fullWidth onClick={openDonate}>
-              Поддержать проект
+            <Button fullWidth onClick={onSupportClick}>
+              {DONATE_BANNER_SUPPORT_LABEL}
             </Button>
-            <Button variant="secondary" fullWidth onClick={() => exit('/')}>
-              Продолжить без доната
+            <Button variant="secondary" fullWidth onClick={onContinueClick}>
+              {DONATE_BANNER_CONTINUE_LABEL}
             </Button>
           </div>
         ) : (
           <div className="mt-5">
-            <Button fullWidth onClick={() => exit('/')}>
-              Продолжить
+            <Button fullWidth onClick={onContinueClick}>
+              {DONATE_BANNER_CONTINUE_LABEL}
             </Button>
           </div>
         )}

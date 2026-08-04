@@ -1,12 +1,31 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Howl } from 'howler'
 
+// Доля длительности, которую нужно РЕАЛЬНО прослушать, чтобы практика
+// считалась завершённой. Считаем накопленное время воспроизведения, а не
+// позицию плейхеда: позицию можно перемотать, накопленное время — нет.
+const COMPLETE_RATIO = 0.95
+
 export function useAudio(src, { initialPosition = 0, onEnd } = {}) {
   const howlRef = useRef(null)
   const [isPlaying, setPlaying] = useState(false)
   const [duration, setDuration] = useState(0)
   const [position, setPosition] = useState(initialPosition)
   const [loaded, setLoaded] = useState(false)
+  // Сколько секунд практика реально играла. Не сбрасывается при смене src:
+  // переключение голоса/музыки посреди практики — это тот же сеанс.
+  const listenedRef = useRef(0)
+  const completedRef = useRef(false)
+  // onEnd держим в ref: колбэк пересоздаётся на каждый рендер Player'а, а
+  // Howl создаётся один раз на src — иначе в onend залипнет старая версия.
+  const onEndRef = useRef(onEnd)
+  onEndRef.current = onEnd
+
+  const fireComplete = useCallback(() => {
+    if (completedRef.current) return
+    completedRef.current = true
+    onEndRef.current?.()
+  }, [])
 
   useEffect(() => {
     if (!src) return
@@ -54,7 +73,13 @@ export function useAudio(src, { initialPosition = 0, onEnd } = {}) {
       onend: () => {
         setPlaying(false)
         setPosition(0)
-        onEnd?.()
+        // Трек доиграл до конца — но засчитываем, только если он реально
+        // звучал. Скип в конец (если он когда-нибудь появится в UI) даст
+        // onend при почти нулевом listened и завершением считаться не будет.
+        const total = howl.duration() || 0
+        if (total === 0 || listenedRef.current >= total * COMPLETE_RATIO) {
+          fireComplete()
+        }
       },
     })
     howlRef.current = howl
@@ -79,14 +104,24 @@ export function useAudio(src, { initialPosition = 0, onEnd } = {}) {
     if (!loaded) return
     // 250 мс вместо 500 — плавнее ходит курсор. Читаем howl.seek() даже
     // на паузе чтобы не было лага в визуале после ±15 или drag-перемотки.
+    const TICK_MS = 250
     const id = setInterval(() => {
       const h = howlRef.current
       if (!h) return
       const cur = h.seek()
       if (typeof cur === 'number' && Number.isFinite(cur)) setPosition(cur)
-    }, 250)
+
+      if (!h.playing()) return
+      listenedRef.current += TICK_MS / 1000
+      // Хвост трека (тишина, затухание) часть юзеров не дослушивает физически —
+      // 95% реального времени достаточно, ждать onend необязательно.
+      const total = h.duration() || 0
+      if (total > 0 && listenedRef.current >= total * COMPLETE_RATIO) {
+        fireComplete()
+      }
+    }, TICK_MS)
     return () => clearInterval(id)
-  }, [loaded])
+  }, [loaded, fireComplete])
 
   const play = useCallback(() => howlRef.current?.play(), [])
   const pause = useCallback(() => howlRef.current?.pause(), [])
