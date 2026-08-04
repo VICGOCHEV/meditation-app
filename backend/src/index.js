@@ -22,6 +22,7 @@ import { subscriptionRoutes } from './routes/subscription.js'
 import { paymentRoutes } from './routes/payments.js'
 import { donationRoutes } from './routes/donations.js'
 import { tgRoutes } from './routes/tg.js'
+import { vpnRoutes } from './routes/vpn.js'
 import { feedbackRoutes } from './routes/feedback.js'
 import { notifyRoutes } from './routes/notify.js'
 import { startNotifier } from './jobs/notifier.js'
@@ -117,6 +118,8 @@ await app.register(subscriptionRoutes, { prefix: '/api' })
 await app.register(paymentRoutes, { prefix: '/api' })
 await app.register(donationRoutes, { prefix: '/api' })
 await app.register(tgRoutes, { prefix: '/api' })
+// Публичный: заглушка при VPN показывается до онбординга и авторизации.
+await app.register(vpnRoutes, { prefix: '/api' })
 await app.register(feedbackRoutes, { prefix: '/api' })
 await app.register(notifyRoutes, { prefix: '/api' })
 await app.register(promocodeRoutes, { prefix: '/api' })

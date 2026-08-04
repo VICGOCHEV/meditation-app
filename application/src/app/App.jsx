@@ -4,6 +4,7 @@ import Lenis from 'lenis'
 import AppRoutes from './routes'
 import AppBackground from '../components/AppBackground'
 import Preloader from '../components/Preloader'
+import VpnGate from '../components/VpnGate'
 import BottomNav from '../components/ui/BottomNav'
 import { LiquidGlassFilter } from '../components/ui/LiquidGlass'
 import { useAuthStore } from '../store/useAuthStore'
@@ -103,13 +104,16 @@ export default function App() {
   if (!ready) return null
 
   return (
-    <>
+    // VpnGate оборачивает всё приложение, но НЕ задерживает его рендер:
+    // проверка уходит в фон, а заглушка накрывает экран поверх, только если
+    // VPN действительно обнаружен и рубильник в CMS включён.
+    <VpnGate>
       <AppBackground />
       <LiquidGlassFilter />
       <AuthGate />
       {preloaderDone && <AppRoutes />}
       {preloaderDone && <ShouldShowNav />}
       <Preloader onDone={() => setPreloaderDone(true)} />
-    </>
+    </VpnGate>
   )
 }

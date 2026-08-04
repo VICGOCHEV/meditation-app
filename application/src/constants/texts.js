@@ -18,3 +18,12 @@ export const DONATE_BANNER_TEXT_VK =
 
 export const DONATE_BANNER_SUPPORT_LABEL = 'Поддержать проект'
 export const DONATE_BANNER_CONTINUE_LABEL = 'Продолжить путь'
+
+// ─── Заглушка при включённом VPN ────────────────────────────────────────────
+export const VPN_GATE_TITLE = 'Отключите VPN'
+
+export const VPN_GATE_TEXT =
+  'Приложение работает некорректно при включённом VPN.\nОтключите его и обновите страницу, чтобы продолжить.'
+
+export const VPN_GATE_REFRESH_LABEL = 'Обновить'
+export const VPN_GATE_CONTINUE_LABEL = 'Продолжить без отключения'

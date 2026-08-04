@@ -7,36 +7,41 @@ import { ROTATION_MODES, DEFAULT_ROTATION_MODE } from '../../utils/pushRotation.
 export async function adminSettingsRoutes(app) {
   app.addHook('preHandler', adminAuthenticate)
 
-  // GET /api/admin/settings
-  app.get('/admin/settings', async () => ({
+  const readAll = async () => ({
     pushRotationMode: await getSetting(
       SETTING_KEYS.pushRotationMode,
       DEFAULT_ROTATION_MODE
     ),
-  }))
+    // Гейт по умолчанию выключен: включать фичу, которая может закрыть вход,
+    // должен человек осознанно.
+    vpnGateEnabled: (await getSetting(SETTING_KEYS.vpnGateEnabled, '0')) === '1',
+  })
 
-  // PUT /api/admin/settings { pushRotationMode? }
+  // GET /api/admin/settings
+  app.get('/admin/settings', readAll)
+
+  // PUT /api/admin/settings { pushRotationMode?, vpnGateEnabled? }
   app.put('/admin/settings', {
     schema: {
       body: {
         type: 'object',
         properties: {
           pushRotationMode: { type: 'string', enum: ROTATION_MODES },
+          vpnGateEnabled: { type: 'boolean' },
         },
       },
     },
   }, async (req, reply) => {
+    let touched = false
     if (typeof req.body.pushRotationMode === 'string') {
       await setSetting(SETTING_KEYS.pushRotationMode, req.body.pushRotationMode)
-    } else {
-      return reply.code(400).send({ error: 'нечего обновлять' })
+      touched = true
     }
-    return {
-      ok: true,
-      pushRotationMode: await getSetting(
-        SETTING_KEYS.pushRotationMode,
-        DEFAULT_ROTATION_MODE
-      ),
+    if (typeof req.body.vpnGateEnabled === 'boolean') {
+      await setSetting(SETTING_KEYS.vpnGateEnabled, req.body.vpnGateEnabled ? '1' : '0')
+      touched = true
     }
+    if (!touched) return reply.code(400).send({ error: 'нечего обновлять' })
+    return { ok: true, ...(await readAll()) }
   })
 }
