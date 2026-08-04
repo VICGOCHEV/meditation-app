@@ -13,11 +13,12 @@ import { formatTime } from '../../hooks/useAudio'
 import { isDonateAllowed, openDonate } from '../../lib/donate'
 import { reachGoal, GOALS } from '../../lib/metrika'
 import {
-  DONATE_BANNER_TEXT,
-  DONATE_BANNER_TEXT_VK,
+  APP_TEXT_DEFAULTS,
+  donateBannerText,
   DONATE_BANNER_SUPPORT_LABEL,
   DONATE_BANNER_CONTINUE_LABEL,
 } from '../../constants/texts'
+import { fetchAppTexts } from '../../api/texts'
 
 // Карта (voice + musicId) → ключ в practice.audioByVariant. Та же
 // нотация что использует CMS (см. backend/utils/contentShape.js).
@@ -84,6 +85,10 @@ export default function Player() {
   const [practice, setPractice] = useState(() => findFromMock(id))
   const [practiceLoaded, setPracticeLoaded] = useState(false)
   const [completed, setCompleted] = useState(false)
+  // Практика была последней в сквозной цепочке — плашка не обещает следующую.
+  const [isLastInChain, setIsLastInChain] = useState(false)
+  // Тексты из CMS; до ответа сети — утверждённые дефолты.
+  const [texts, setTexts] = useState(APP_TEXT_DEFAULTS)
   const [finishConfirm, setFinishConfirm] = useState(false)
   // Донат показываем только там, где это разрешает площадка (не в VK).
   const donateAllowed = isDonateAllowed()
@@ -123,6 +128,12 @@ export default function Player() {
     }
   }, [id])
 
+  useEffect(() => {
+    let alive = true
+    fetchAppTexts().then((t) => alive && setTexts(t))
+    return () => { alive = false }
+  }, [])
+
   // Показ плашки — один раз на завершённое прослушивание (модалка живёт внутри
   // одного маунта плеера, повторный вход в практику монтирует его заново).
   useEffect(() => {
@@ -152,7 +163,8 @@ export default function Player() {
     // markPracticeComplete is now async — it does both completion +
     // today's tracker entry in a single server call.
     try {
-      await markComplete(id)
+      const res = await markComplete(id)
+      setIsLastInChain(!!res?.isLastInChain)
     } catch {
       /* progress saved locally even on network failure */
     }
@@ -245,7 +257,7 @@ export default function Player() {
         title="Практика завершена"
       >
         <p className="whitespace-pre-line text-[14px] leading-relaxed text-fg-1">
-          {donateAllowed ? DONATE_BANNER_TEXT : DONATE_BANNER_TEXT_VK}
+          {donateBannerText(texts, { donateAllowed, isLastInChain })}
         </p>
 
         {donateAllowed ? (

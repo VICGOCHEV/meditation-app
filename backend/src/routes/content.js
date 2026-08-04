@@ -8,6 +8,7 @@ import {
   musicPublicForm,
 } from '../utils/contentShape.js'
 import { BLOCK_KEYS, mergeBlock } from '../utils/blockDefaults.js'
+import { mergeTexts } from '../utils/appTexts.js'
 
 // Публичный контент для аппки — замена Strapi REST. Отдаёт ту же форму,
 // что парсил src/api/cms.js, поэтому фронт переключается сменой VITE_CMS_URL
@@ -41,6 +42,17 @@ export async function contentRoutes(app) {
     const out = {}
     for (const key of BLOCK_KEYS) out[key] = mergeBlock(key, byKey[key])
     return out
+  })
+
+  // GET /api/content/texts → тексты приложения, редактируемые в CMS.
+  // Аппка держит те же дефолты у себя, поэтому экран рисуется мгновенно, а
+  // сетевой ответ лишь накладывается поверх.
+  app.get('/content/texts', async (_req, reply) => {
+    cache(reply)
+    const rows = await db.appSetting.findMany({
+      where: { key: { startsWith: 'text.' } },
+    })
+    return mergeTexts(rows)
   })
 
   // GET /api/content/practices/:slug → одна практика (по публичному slug)

@@ -63,6 +63,18 @@ const persist = (state) => {
 }
 
 // ── Mock-режим: зеркала серверных progressionRules ──────────────────────────
+// Последняя ли это практика сквозной цепочки.
+//
+// На реальном бэке ответ даёт сервер (isLastInChain в ответе complete) —
+// цепочка строится из контента CMS и клиенту целиком неизвестна. Здесь только
+// mock-режим; при сетевом сбое честно возвращаем false, и плашка показывает
+// обычный вариант, как и до этой правки.
+function isLastLocal(id) {
+  if (!USE_MOCK) return false
+  const seq = MOCK_CHAIN.sequence
+  return seq.length > 0 && seq[seq.length - 1] === id
+}
+
 function mockNextUnlock({ unlockedPractices, completedPractices }) {
   const unlocked = new Set(unlockedPractices)
   const completed = new Set(completedPractices)
@@ -143,7 +155,13 @@ export const useProgressStore = create((set, get) => ({
       try {
         const res = await apiCompletePractice(id)
         await get().loadFromServer()
-        return { id, newlyUnlockedId: res?.newlyUnlockedId ?? null }
+        return {
+          id,
+          newlyUnlockedId: res?.newlyUnlockedId ?? null,
+          // Последняя практика цепочки — финальная плашка выбирает вариант
+          // текста без обещания следующей практики.
+          isLastInChain: !!res?.isLastInChain,
+        }
       } catch (e) {
         // Сетевой сбой / 5xx — кладём id в очередь pending sync чтобы
         // прогресс не потерялся. flushPendingCompletions попробует
@@ -156,7 +174,7 @@ export const useProgressStore = create((set, get) => ({
         } catch { /* ignore */ }
         // eslint-disable-next-line no-console
         console.warn('practice completion pending sync', id, e?.message || e)
-        return { id, newlyUnlockedId: null }
+        return { id, newlyUnlockedId: null, isLastInChain: isLastLocal(id) }
       }
     }
 
@@ -172,7 +190,7 @@ export const useProgressStore = create((set, get) => ({
       daCheckpoint: mockDaCheckpoint({ ...s, unlockedPractices }),
     })
     persist(get())
-    return { id, newlyUnlockedId: unlock.id }
+    return { id, newlyUnlockedId: unlock.id, isLastInChain: isLastLocal(id) }
   },
 
   // Попытка дослать pending-completions из localStorage. Вызывается из App.jsx

@@ -48,6 +48,7 @@ const NAV = [
   { group: 'Контент', items: [
     { to: '/practices', label: 'Практики', icon: IconLayers },
     { to: '/blocks', label: 'Блоки', icon: IconHeading },
+    { to: '/texts', label: 'Тексты приложения', icon: IconHeading },
     { to: '/voices', label: 'Голоса', icon: IconMic },
     { to: '/music', label: 'Музыка', icon: IconMusic },
     { to: '/push-phrases', label: 'Тексты пушей', icon: IconBell },
@@ -72,6 +73,7 @@ function crumb(pathname) {
   if (pathname.startsWith('/practices/')) return 'Практики · редактор'
   if (pathname.startsWith('/practices')) return 'Практики'
   if (pathname.startsWith('/blocks')) return 'Блоки'
+  if (pathname.startsWith('/texts')) return 'Тексты приложения'
   if (pathname.startsWith('/voices')) return 'Голоса'
   if (pathname.startsWith('/music')) return 'Музыка'
   if (pathname.startsWith('/users')) return 'Юзеры и подписки'

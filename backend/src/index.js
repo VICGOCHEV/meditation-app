@@ -32,6 +32,7 @@ import { promocodeRoutes } from './routes/promocodes.js'
 import { adminBroadcastRoutes } from './routes/admin/broadcast.js'
 import { adminPromocodesRoutes } from './routes/admin/promocodes.js'
 import { adminSettingsRoutes } from './routes/admin/settings.js'
+import { adminTextsRoutes } from './routes/admin/texts.js'
 import { contentRoutes } from './routes/content.js'
 import { adminAuthRoutes } from './routes/admin/auth.js'
 import { adminAccountRoutes } from './routes/admin/account.js'
@@ -142,6 +143,7 @@ await app.register(adminBlocksRoutes, { prefix: '/api' })
 await app.register(adminBroadcastRoutes, { prefix: '/api' })
 await app.register(adminPromocodesRoutes, { prefix: '/api' })
 await app.register(adminSettingsRoutes, { prefix: '/api' })
+await app.register(adminTextsRoutes, { prefix: '/api' })
 
 const close = async () => {
   app.log.info('shutting down...')

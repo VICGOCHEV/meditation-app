@@ -5,6 +5,7 @@ import Shell from './components/Shell.jsx'
 import Practices from './pages/Practices.jsx'
 import PracticeEditor from './pages/PracticeEditor.jsx'
 import Blocks from './pages/Blocks.jsx'
+import Texts from './pages/Texts.jsx'
 import Voices from './pages/Voices.jsx'
 import Music from './pages/Music.jsx'
 import Users from './pages/Users.jsx'
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/practices/new" element={<PracticeEditor mode="new" />} />
         <Route path="/practices/:id" element={<PracticeEditor mode="edit" />} />
         <Route path="/blocks" element={<Blocks />} />
+        <Route path="/texts" element={<Texts />} />
         <Route path="/voices" element={<Voices />} />
         <Route path="/music" element={<Music />} />
         <Route path="/users" element={<Users />} />

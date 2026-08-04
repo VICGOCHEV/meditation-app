@@ -56,12 +56,20 @@ export async function practicesRoutes(app) {
       newlyUnlockedId = next.id
     }
 
+    // Последняя практика сквозной цепочки: финальная плашка не должна обещать
+    // следующую практику, которой нет. Считаем по составу цепочки, а не по
+    // nextReason: 'all-unlocked' приходит и когда юзер переслушал давнюю
+    // практику при уже открытой цепочке.
+    const seq = chain.sequence
+    const isLastInChain = seq.length > 0 && seq[seq.length - 1] === practiceId
+
     return {
       ok: true,
       practiceId,
       trackerDate: today.toISOString().slice(0, 10),
       newlyUnlockedId,
       nextReason: next.reason,
+      isLastInChain,
     }
   })
 }

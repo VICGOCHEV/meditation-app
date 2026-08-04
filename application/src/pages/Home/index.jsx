@@ -11,6 +11,8 @@ import { fetchPractices } from '../../api/practices'
 import { fetchBlocks, BLOCK_DEFAULTS } from '../../api/blocks'
 import { useCheckinStore } from '../../store/useCheckinStore'
 import { useProgression, LOCKED_HINT } from '../../hooks/useProgression'
+import { fetchAppTexts } from '../../api/texts'
+import { APP_TEXT_DEFAULTS } from '../../constants/texts'
 
 const EASE = [0.22, 0.8, 0.36, 1]
 const gridContainer = {
@@ -149,7 +151,7 @@ function SectionHead({ eyebrow, title, sub, chip }) {
 // Подсказка возле заблокированных практик. Заменила блок «Оформи подписку»
 // после отказа от платного доступа (клиент 2026-07-30). Показывается только
 // если в секции реально есть закрытые карточки.
-function LockedHint() {
+function LockedHint({ text = LOCKED_HINT }) {
   return (
     <div className="mb-3 flex items-start gap-3 rounded-md border border-line-2 bg-white/5 px-4 py-3">
       <svg
@@ -163,7 +165,7 @@ function LockedHint() {
         <rect x="5" y="10" width="14" height="10" rx="2" />
         <path d="M8 10V7a4 4 0 1 1 8 0v3" />
       </svg>
-      <span className="text-[13px] leading-snug text-fg-1">{LOCKED_HINT}</span>
+      <span className="text-[13px] leading-snug text-fg-1">{text}</span>
     </div>
   )
 }
@@ -212,6 +214,8 @@ export default function Home() {
   // Заголовки секций (eyebrow/title/sub/chip) — редактируются в CMS «Блоки».
   // Стартуем с дефолтов, чтобы не было мигания, затем подменяем сетевыми.
   const [blocks, setBlocks] = useState(BLOCK_DEFAULTS)
+  // Тексты прогрессии — редактируются в CMS «Тексты приложения».
+  const [texts, setTexts] = useState(APP_TEXT_DEFAULTS)
 
   useEffect(() => {
     if (!todayDone && !redirecting) {
@@ -260,6 +264,24 @@ export default function Home() {
       alive = false
     }
   }, [])
+
+  useEffect(() => {
+    let alive = true
+    fetchAppTexts().then((t) => alive && setTexts(t))
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  // Вход в сквозную цепочку закрыт, пока не пройден весь блок «Точка тишины»
+  // (backend/src/utils/progressionRules.js, reason 'free-not-completed').
+  // Пользователь видит замок на ПЕРВОЙ практике «Осознанности» и без отдельной
+  // подсказки не понимает причину: обычный LOCKED_HINT говорит про предыдущую
+  // практику, а её тут нет.
+  const chainEntryLocked =
+    (practices.awareness?.length || 0) > 0 &&
+    !isPracticeUnlocked(practices.awareness[0].id) &&
+    (practices.relaxation || []).some((p) => !isPracticeCompleted(p.id))
 
   const goPlay = (id) => navigate(`/player/${id}`)
 
@@ -322,7 +344,28 @@ export default function Home() {
           chip={blocks.awareness?.chip}
         />
 
-        {practices.awareness.some((p) => !isPracticeUnlocked(p.id)) && <LockedHint />}
+        {/* Правило прогрессии — ОДИН раз, перед первым блоком цепочки.
+            awareness → awareness2 → author это одна сквозная цепочка, а не три
+            независимые: повтор обещания в шапке каждого блока читался бы как
+            ошибка вёрстки. В «Точке тишины» текста нет — там прогрессии нет. */}
+        {texts.chainIntro && (
+          <p className="mb-3 text-[13px] leading-relaxed text-fg-2">
+            {texts.chainIntro}
+          </p>
+        )}
+
+        {practices.awareness.some((p) => !isPracticeUnlocked(p.id)) && (
+          <LockedHint
+            text={
+              // Закрыт сам вход в цепочку — причина другая, и для неё свой
+              // текст. Пока клиент его не прислал (пустая строка), показываем
+              // прежнюю подсказку, а не выдуманную формулировку.
+              chainEntryLocked && texts.chainLockedEntry
+                ? texts.chainLockedEntry
+                : LOCKED_HINT
+            }
+          />
+        )}
 
         <motion.div
           className="grid grid-cols-2 gap-3"
