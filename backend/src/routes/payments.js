@@ -169,15 +169,27 @@ export async function paymentRoutes(app) {
         return { ok: true, ignored: 'bad-metadata' }
       }
 
-      // Лог транзакции — пишем ДО апдейта подписки. Идемпотентно по
-      // yookassaId: если ЮKassa зачем-то ретранслировала webhook —
-      // upsert не создаст дубликата.
+      // ── Идемпотентность ──────────────────────────────────────────────────
+      // Payment.yookassaId уникален и служит отметкой «этот платёж уже
+      // обработан». До появления ретраев (webhook всегда отвечал 200) повтор
+      // был невозможен, поэтому отметки и не требовалось. Теперь ретраи есть,
+      // и без неё повторная доставка продлила бы подписку ещё на месяц и
+      // второй раз списала лимит промокода.
+      const already = await db.payment.findUnique({ where: { yookassaId: actual.id } })
+      if (already) {
+        app.log.info({ paymentId: actual.id, userId }, 'webhook duplicate ignored')
+        return { ok: true, duplicate: true }
+      }
+
+      // Лог транзакции пишем ДО апдейта подписки — он же и есть отметка выше.
+      // Ошибку больше НЕ проглатываем: без записи в Payment повторная доставка
+      // не отличит себя от первой. Не записалось — отвечаем 5xx и просим
+      // ЮKassa повторить.
+      const amountKopecks = Math.round(parseFloat(actual.amount?.value || '0') * 100)
+      const paidAt = actual.captured_at ? new Date(actual.captured_at) : new Date()
       try {
-        const amountKopecks = Math.round(parseFloat(actual.amount?.value || '0') * 100)
-        const paidAt = actual.captured_at ? new Date(actual.captured_at) : new Date()
-        await db.payment.upsert({
-          where: { yookassaId: actual.id },
-          create: {
+        await db.payment.create({
+          data: {
             yookassaId: actual.id,
             userId,
             amount: amountKopecks,
@@ -186,11 +198,15 @@ export async function paymentRoutes(app) {
             status: actual.status,
             paidAt,
           },
-          update: { status: actual.status },
         })
-      } catch (logErr) {
-        // Не блокируем активацию подписки, если лог не записался.
-        app.log.warn({ err: logErr.message, paymentId: actual.id }, 'payment log upsert failed')
+      } catch (e) {
+        // P2002 — параллельная доставка того же события успела записать первой.
+        // Это дубликат, а не сбой: выходим без второй активации.
+        if (e?.code === 'P2002') {
+          app.log.info({ paymentId: actual.id, userId }, 'webhook duplicate ignored (race)')
+          return { ok: true, duplicate: true }
+        }
+        throw e
       }
 
       // Активируем (или продлеваем) подписку. Логика как в POST /subscription.
@@ -215,23 +231,44 @@ export async function paymentRoutes(app) {
           if (promo) {
             const baseAmount = TIERS[tier]?.amount || 0
             const finalAmount = Math.round(parseFloat(actual.amount?.value || '0'))
-            await db.promoCodeUse.upsert({
-              where: { promoCodeId_userId: { promoCodeId: promo.id, userId } },
-              create: {
-                promoCodeId: promo.id,
-                userId,
-                discountKopecks: Math.max(0, (baseAmount - finalAmount) * 100),
-                paymentId: actual.id,
-              },
-              update: { paymentId: actual.id },
-            })
-            await db.promoCode.update({
-              where: { id: promo.id },
-              data: { usedCount: { increment: 1 } },
+            // usedCount инкрементим ТОЛЬКО вместе с созданием записи об
+            // использовании, одной транзакцией. Прежний код делал upsert и
+            // инкремент по отдельности: повторный webhook (а с ретраями он
+            // теперь реален) наращивал счётчик, и лимит промокода сгорал
+            // впустую — следующим пользователям код отказывал.
+            await db.$transaction(async (tx) => {
+              const existing = await tx.promoCodeUse.findUnique({
+                where: { promoCodeId_userId: { promoCodeId: promo.id, userId } },
+              })
+              if (existing) {
+                if (!existing.paymentId) {
+                  await tx.promoCodeUse.update({
+                    where: { id: existing.id },
+                    data: { paymentId: actual.id },
+                  })
+                }
+                return
+              }
+              await tx.promoCodeUse.create({
+                data: {
+                  promoCodeId: promo.id,
+                  userId,
+                  discountKopecks: Math.max(0, (baseAmount - finalAmount) * 100),
+                  paymentId: actual.id,
+                },
+              })
+              await tx.promoCode.update({
+                where: { id: promo.id },
+                data: { usedCount: { increment: 1 } },
+              })
             })
           }
         } catch (e) {
-          app.log.warn({ err: e?.message, code: promoCodeStr }, 'promo use upsert failed')
+          // Гонка двух доставок: unique(promoCodeId,userId) откатит транзакцию
+          // целиком — вместе с инкрементом. Это ожидаемо, не ошибка.
+          if (e?.code !== 'P2002') {
+            app.log.warn({ err: e?.message, code: promoCodeStr }, 'promo use upsert failed')
+          }
         }
       }
 
@@ -241,9 +278,22 @@ export async function paymentRoutes(app) {
       app.log.info({ userId, tier, paymentId: paymentObj.id }, 'subscription activated')
       return { ok: true, activated: true }
     } catch (err) {
-      app.log.error({ err: err.message }, 'YooKassa webhook failed')
-      // Возвращаем 200, чтобы ЮKassa не повторяла webhook — лог есть, разберём.
-      return { ok: true, error: err.message }
+      app.log.error(
+        { err: err.message, stack: err.stack, paymentId: paymentObj.id },
+        'YooKassa webhook failed'
+      )
+      // 5xx, чтобы ЮKassa повторила доставку. Раньше здесь возвращался 200:
+      // ЮKassa считала событие доставленным и больше не приходила, а платёж
+      // оставался необработанным — подписка не активировалась, донат не
+      // попадал в учёт, и восстановить это можно было только руками по логам.
+      //
+      // Сюда попадают только НЕОЖИДАННЫЕ сбои (сеть до ЮKassa, недоступная
+      // БД). Штатные «не наше событие» и «плохая metadata» отвечают 200 выше
+      // по коду — на них ретрай бессмысленен.
+      //
+      // Повторная обработка безопасна: отметка по Payment.yookassaId и
+      // upsert донатов по тому же ключу делают webhook идемпотентным.
+      throw app.httpErrors.serviceUnavailable('webhook processing failed')
     }
   })
 }
