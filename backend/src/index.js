@@ -30,6 +30,7 @@ import { startBroadcastWorker } from './jobs/broadcastWorker.js'
 import { promocodeRoutes } from './routes/promocodes.js'
 import { adminBroadcastRoutes } from './routes/admin/broadcast.js'
 import { adminPromocodesRoutes } from './routes/admin/promocodes.js'
+import { adminSettingsRoutes } from './routes/admin/settings.js'
 import { contentRoutes } from './routes/content.js'
 import { adminAuthRoutes } from './routes/admin/auth.js'
 import { adminAccountRoutes } from './routes/admin/account.js'
@@ -137,6 +138,7 @@ await app.register(adminPushPhrasesRoutes, { prefix: '/api' })
 await app.register(adminBlocksRoutes, { prefix: '/api' })
 await app.register(adminBroadcastRoutes, { prefix: '/api' })
 await app.register(adminPromocodesRoutes, { prefix: '/api' })
+await app.register(adminSettingsRoutes, { prefix: '/api' })
 
 const close = async () => {
   app.log.info('shutting down...')

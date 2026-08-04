@@ -29,6 +29,84 @@ const AUDIENCES = [
   },
 ]
 
+const ROTATION_MODES = [
+  {
+    value: 'shuffled',
+    label: 'Вперемешку',
+    desc: 'Случайный порядок без повторов, пока не кончится пул. Затем новый круг.',
+  },
+  {
+    value: 'sequential',
+    label: 'По порядку',
+    desc: 'Строго сверху вниз по списку, затем сначала.',
+  },
+]
+
+// Режим ротации — глобальный, хранится в AppSetting. Порядок считается на
+// каждого подписчика отдельно, поэтому смена режима не сбивает чужие курсоры:
+// текущий круг доигрывается, следующий собирается уже по новому режиму.
+function RotationMode() {
+  const toast = useToast()
+  const [mode, setMode] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.get('/admin/settings')
+      .then(({ data }) => setMode(data?.pushRotationMode || 'shuffled'))
+      .catch(() => setMode('shuffled'))
+  }, [])
+
+  async function change(next) {
+    if (saving || next === mode) return
+    const prev = mode
+    setMode(next)
+    setSaving(true)
+    try {
+      await api.put('/admin/settings', { pushRotationMode: next })
+      toast.ok('Режим ротации сохранён')
+    } catch (e) {
+      setMode(prev)
+      toast.err(errText(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="text-sm font-semibold text-fg-0">Порядок выдачи</div>
+      <div className="mt-1 text-[12px] text-fg-3">
+        Один и тот же текст не приходит два дня подряд ни в одном из режимов.
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-3">
+        {ROTATION_MODES.map((m) => (
+          <button
+            key={m.value}
+            type="button"
+            disabled={saving || mode === null}
+            onClick={() => change(m.value)}
+            className={
+              'rounded-md border px-4 py-3 text-left transition disabled:opacity-60 ' +
+              (mode === m.value
+                ? 'border-violet bg-violet/10'
+                : 'border-line bg-bg-1 hover:border-fg-3/40')
+            }
+          >
+            <div
+              className={
+                'text-sm font-semibold ' + (mode === m.value ? 'text-fg-0' : 'text-fg-1')
+              }
+            >
+              {m.label}
+            </div>
+            <div className="mt-1 text-[12px] text-fg-3">{m.desc}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function PhaseChips({ phases }) {
   return (
     <div className="mt-1.5 flex flex-wrap gap-1">
@@ -303,10 +381,15 @@ export default function PushPhrases() {
             дня — <span className="text-fg-1">утро {PHASES[0].time}</span>,{' '}
             <span className="text-fg-1">день {PHASES[1].time}</span>,{' '}
             <span className="text-fg-1">вечер {PHASES[2].time}</span> (по часовому
-            поясу юзера). Для наступившей фазы крон выбирает случайную{' '}
-            <span className="text-fg-1">active</span> фразу.
+            поясу юзера). Для наступившей фазы крон выдаёт{' '}
+            <span className="text-fg-1">следующую по ротации</span> active-фразу —
+            у каждого пользователя свой порядок, без повторов внутри круга.
           </p>
         </div>
+      </div>
+
+      <div className="card px-4 py-4">
+        <RotationMode />
       </div>
 
       {/* Переключатель аудитории */}

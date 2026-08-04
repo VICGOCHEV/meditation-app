@@ -67,8 +67,47 @@ model TgSubscriber {
   createdAt   DateTime  @default(now())
   lastSeenAt  DateTime  @default(now()) @map("last_seen_at")
   updatedAt   DateTime  @updatedAt
+  rotation    PushRotationState[]
 
   @@index([enabled])
+}
+
+// Курсор ротации push-фраз: «какой текст этому подписчику выдавать следующим».
+//
+// Ключ — (подписчик бота, фаза дня), а НЕ (юзер, слот): аудитория пушей это
+// TgSubscriber, и у большинства из них аккаунта нет вовсе (userId = null) —
+// на ключе по userId такие подписчики остались бы вообще без ротации. Строка
+// TgSubscriber переживает привязку аккаунта (апсерт идёт по chat_id), так что
+// курсор при логине не теряется.
+//
+// orderJson — порядок выдачи на текущий цикл (массив PushPhrase.id), position —
+// индекс следующего элемента, cycleNumber — номер круга (диагностика), а
+// lastPushId нужен, чтобы первый элемент нового круга не совпал с последним
+// элементом предыдущего.
+//
+// Курсор двигается ТОЛЬКО после успешной отправки — см. notifier.js.
+model PushRotationState {
+  id           Int          @id @default(autoincrement())
+  subscriberId Int          @map("subscriber_id")
+  subscriber   TgSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  // 'morning' | 'day' | 'evening' (utils/pushPhases.js)
+  phase        String
+  orderJson    Json         @default("[]") @map("order_json")
+  position     Int          @default(0)
+  cycleNumber  Int          @default(0) @map("cycle_number")
+  lastPushId   Int?         @map("last_push_id")
+  lastSentAt   DateTime?    @map("last_sent_at")
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([subscriberId, phase])
+}
+
+// Глобальные рубильники, которые владелец переключает в CMS без деплоя:
+// push_rotation_mode (sequential|shuffled), vpn_gate_enabled (0|1).
+model AppSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 // Лог транзакций ЮKassa. Каждое payment.succeeded из webhook'а пишется
