@@ -9,6 +9,13 @@ import { buildEmailWhere, buildTgSubscriberWhere } from '../routes/admin/broadca
 // Telegram: лимит бота ~30 msg/сек, но relay + вежливость → та же пачка 25.
 const BATCH_PER_TICK = 25
 
+// Сколько часов pending-job без единой попытки считается протухшим.
+// Защита от «воскрешения»: рассылка, у которой аудитория когда-то посчиталась
+// в 0 (старая paid/free-сегментация Telegram), лежала в pending неделями.
+// После фикса аудитории такой job на первом же тике улетел бы всем — это
+// внезапная рассылка старого текста, которую никто не запускал.
+const STALE_PENDING_HOURS = 24
+
 const MINI_APP_URL = process.env.TG_MINI_APP_URL || 'https://all-relaxme.ru/'
 
 const escapeHtml = (s) => String(s)
@@ -76,6 +83,23 @@ async function tick(app) {
   })
   if (!job) return
 
+  // Протухший pending (создан давно, не отправлено ни одного сообщения) —
+  // закрываем как failed, не рассылая. Иначе он забьёт очередь собой и/или
+  // выстрелит устаревшим текстом. running не трогаем: большая рассылка
+  // легально идёт сутками (25/мин).
+  const staleBefore = new Date(Date.now() - STALE_PENDING_HOURS * 3600_000)
+  if (job.status === 'pending' && job.createdAt < staleBefore) {
+    await db.broadcastJob.update({
+      where: { id: job.id },
+      data: { status: 'failed', finishedAt: new Date(), lastTickAt: new Date() },
+    })
+    app.log.warn(
+      { jobId: job.id, channel: job.channel, audience: job.audience, createdAt: job.createdAt },
+      'broadcast skipped as stale pending'
+    )
+    return
+  }
+
   // Переводим в running при первом тике
   if (job.status === 'pending') {
     await db.broadcastJob.update({
@@ -107,12 +131,25 @@ async function tick(app) {
       })
 
   if (recipients.length === 0) {
-    // Аудитория исчерпана — помечаем как done
+    // Аудитория исчерпана. Рассылка, у которой не ушло ни одного сообщения,
+    // это не «готово»: раньше такой job показывался в CMS зелёным `done`,
+    // хотя все отправки упали (или получателей не нашлось вовсе).
+    const status = job.sentCount === 0 && job.failedCount > 0 ? 'failed' : 'done'
     await db.broadcastJob.update({
       where: { id: job.id },
-      data: { status: 'done', finishedAt: new Date(), lastTickAt: new Date() },
+      data: { status, finishedAt: new Date(), lastTickAt: new Date() },
     })
-    app.log.info({ jobId: job.id, sent: job.sentCount, failed: job.failedCount }, 'broadcast done')
+    app.log.info(
+      {
+        jobId: job.id,
+        channel: job.channel,
+        audience: job.audience,
+        sent: job.sentCount,
+        failed: job.failedCount,
+        status,
+      },
+      'broadcast finished'
+    )
     return
   }
 
@@ -137,7 +174,7 @@ async function tick(app) {
         // enabled-set'ом — если убрать строки в процессе, окно съедет и живые
         // получатели пропустятся. Заблокировавших вычистит notifier по фазам.
         failed++
-        app.log.warn({ err: e?.message, subId: r.id }, 'broadcast tg send failed')
+        app.log.warn({ err: e?.message, jobId: job.id, subId: r.id }, 'broadcast tg send failed')
       }
     }
   } else {
@@ -153,7 +190,7 @@ async function tick(app) {
         sent++
       } catch (e) {
         failed++
-        app.log.warn({ err: e?.message, userId: r.id }, 'broadcast send failed')
+        app.log.warn({ err: e?.message, jobId: job.id, userId: r.id }, 'broadcast send failed')
       }
     }
   }

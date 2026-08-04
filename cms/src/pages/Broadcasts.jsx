@@ -21,6 +21,11 @@ const AUDIENCES = [
   { value: 'free', label: 'Без подписки', desc: 'Без активной подписки.' },
 ]
 
+// Для Telegram сегментов нет: аудитория пуша — подписчики бота, у большинства
+// аккаунта (и подписки) не существует. Показывать «С подпиской» здесь значит
+// предлагать заведомо пустой выбор — раньше такая рассылка уходила в никуда.
+const TG_AUDIENCES = AUDIENCES.filter((a) => a.value === 'all')
+
 export default function Broadcasts() {
   const toast = useToast()
   const fileRef = useRef(null)
@@ -36,6 +41,13 @@ export default function Broadcasts() {
   const [busy, setBusy] = useState(false)
 
   const isTg = channel === 'telegram'
+  const audiences = isTg ? TG_AUDIENCES : AUDIENCES
+
+  // Переключились на Telegram с выбранным сегментом — возвращаем «Все»,
+  // иначе форма показывала бы охват одной аудитории, а ушло бы всем.
+  useEffect(() => {
+    if (isTg && audience !== 'all') setAudience('all')
+  }, [isTg, audience])
 
   async function load() {
     try {
@@ -156,8 +168,8 @@ export default function Broadcasts() {
         <div className="grid grid-cols-1 gap-3">
           <label className="block">
             <span className="label">Кому</span>
-            <div className="mt-1 grid grid-cols-3 gap-2">
-              {AUDIENCES.map((a) => (
+            <div className={`mt-1 grid gap-2 ${isTg ? 'grid-cols-1' : 'grid-cols-3'}`}>
+              {audiences.map((a) => (
                 <button
                   key={a.value}
                   type="button"
@@ -249,8 +261,15 @@ export default function Broadcasts() {
           )}
         </div>
 
-        <div className="mt-4 flex justify-end">
-          <button type="submit" className="btn-primary" disabled={busy || uploading}>
+        <div className="mt-4 flex items-center justify-end gap-3">
+          {preview === 0 && (
+            <span className="text-xs text-err">Получателей нет — отправлять некому</span>
+          )}
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={busy || uploading || preview === 0}
+          >
             <IconPlus /> Запустить рассылку
           </button>
         </div>

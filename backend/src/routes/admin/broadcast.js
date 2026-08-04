@@ -6,6 +6,17 @@ import { isAllowedImage, saveImageStream, deleteAudioFile } from '../../utils/me
 const AUDIENCES = ['all', 'paid', 'free']
 const CHANNELS = ['email', 'telegram']
 
+// С 2026-07-30 подписок нет (docs/38), и сегментация paid/free для Telegram
+// потеряла смысл: аудитория пушей — подписчики бота (TgSubscriber), у которых
+// в большинстве вообще нет аккаунта, а значит и Subscription. Раньше выбор
+// «С подпиской» давал 0 получателей, воркер не находил кого слать и молча
+// помечал рассылку `done` — админ видел «готово» при нуле доставок.
+// Нормализуем аудиторию TG в 'all' и на входе в API, и в preview, чтобы
+// сохранённый в job `audience` совпадал с тем, по чему считался охват.
+function normalizeAudience(audience, channel) {
+  return channel === 'telegram' ? 'all' : audience
+}
+
 // Абсолютный публичный базовый URL (для картинок, которые Telegram подтягивает
 // сам через sendPhoto). Берём из TG_MINI_APP_URL / PUBLIC_APP_URL.
 function publicBase() {
@@ -39,11 +50,23 @@ export async function adminBroadcastRoutes(app) {
       },
     },
   }, async (req, reply) => {
-    const { subject, body, audience } = req.body
+    const { subject, body } = req.body
     const channel = req.body.channel || 'email'
+    const audience = normalizeAudience(req.body.audience, channel)
     const imageUrl = channel === 'telegram' ? (req.body.imageUrl || null) : null
     // Считаем потенциальную аудиторию заранее — сколько улетит.
     const totalCount = await countAudience(audience, channel)
+
+    // Пустая аудитория — это ошибка ввода, а не «успешная рассылка на ноль».
+    // Раньше такой job создавался, воркер сразу ставил ему `done`, и в CMS
+    // это выглядело как отправленная рассылка.
+    if (totalCount === 0) {
+      return reply.code(400).send({
+        error: channel === 'telegram'
+          ? 'Некому отправлять: ни одного активного подписчика бота'
+          : 'Некому отправлять: нет получателей с email для этой аудитории',
+      })
+    }
 
     const job = await db.broadcastJob.create({
       data: {
@@ -114,7 +137,8 @@ export async function adminBroadcastRoutes(app) {
       },
     },
   }, async (req) => {
-    const totalCount = await countAudience(req.body.audience, req.body.channel || 'email')
+    const channel = req.body.channel || 'email'
+    const totalCount = await countAudience(normalizeAudience(req.body.audience, channel), channel)
     return { totalCount }
   })
 }
@@ -129,25 +153,17 @@ export function buildEmailWhere(audience) {
   return base
 }
 
-// Telegram-аудитория — по подписчикам бота (TgSubscriber), «все, кто в боте».
-// paid/free считаются по подписке привязанного аккаунта; bot-only (userId=null)
-// попадают в 'free' и в 'all'.
-export function buildTgSubscriberWhere(audience) {
-  const base = { enabled: true }
-  if (audience === 'paid') {
-    return { ...base, user: { subscription: { active: true } } }
-  }
-  if (audience === 'free') {
-    return {
-      ...base,
-      OR: [
-        { userId: null },
-        { user: { subscription: null } },
-        { user: { subscription: { active: false } } },
-      ],
-    }
-  }
-  return base
+// Telegram-аудитория — все включённые подписчики бота, «все, кто в боте».
+//
+// Сегментация paid/free здесь убрана намеренно (см. normalizeAudience выше):
+// подписок с 2026-07-30 нет, `Subscription.active` в БД больше не отражает
+// доступ, а bot-only подписчики аккаунта не имеют вовсе. Параметр оставлен в
+// сигнатуре, чтобы не трогать вызовы в broadcastWorker и старые job'ы с
+// audience='paid'/'free' в истории обрабатывались одинаково.
+// Email-сегментация (buildEmailWhere) не меняется — там paid/free всё ещё
+// осмысленны для истории платежей.
+export function buildTgSubscriberWhere(_audience) {
+  return { enabled: true }
 }
 
 // Универсальный подсчёт охвата по каналу.
