@@ -283,6 +283,17 @@ export default function Home() {
     !isPracticeUnlocked(practices.awareness[0].id) &&
     (practices.relaxation || []).some((p) => !isPracticeCompleted(p.id))
 
+  // Текст правила объясняет замки — значит живёт ровно столько, сколько они
+  // есть. Считаем по ВСЕЙ сквозной цепочке, а не по одному блоку: замок может
+  // остаться в «Авторских», когда «Осознанность» уже пройдена целиком.
+  // Прошёл всё и вернулся переслушать — объяснения про закрытые практики уже
+  // не показываем.
+  const chainHasLocked = [
+    ...(practices.awareness || []),
+    ...(practices.awareness2 || []),
+    ...(practices.author || []),
+  ].some((p) => !isPracticeUnlocked(p.id))
+
   const goPlay = (id) => navigate(`/player/${id}`)
 
   return (
@@ -348,7 +359,7 @@ export default function Home() {
             awareness → awareness2 → author это одна сквозная цепочка, а не три
             независимые: повтор обещания в шапке каждого блока читался бы как
             ошибка вёрстки. В «Точке тишины» текста нет — там прогрессии нет. */}
-        {texts.chainIntro && (
+        {chainHasLocked && texts.chainIntro && (
           <p className="mb-3 text-[13px] leading-relaxed text-fg-2">
             {texts.chainIntro}
           </p>
