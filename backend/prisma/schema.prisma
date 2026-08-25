@@ -494,3 +494,37 @@ model AdminUser {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+// Юридический документ (оферта, политика конфиденциальности, согласие на ОПД
+// и любые новые). Владелец заводит и правит их в CMS «Юр. документы» без
+// деплоя — раньше это были три PDF, вкомпилированных в бандл фронта.
+//
+// Режим показа ВЫВОДИТСЯ из данных, отдельного флага нет (он бы
+// рассинхронизировался с содержимым):
+//   body не пустой            → внутренняя страница аппки /legal/:slug
+//   body пустой, есть fileUrl → прямая ссылка на PDF
+//   пусто и там и там         → публично не отдаётся (нечего показывать)
+model LegalDoc {
+  id           Int      @id @default(autoincrement())
+  // Часть публичного URL /legal/:slug. Менять у живого документа опасно —
+  // ломает внешние ссылки, поэтому в CMS предупреждаем.
+  slug         String   @unique
+  title        String
+  // Короткое имя для подвала и чекбокса регистрации («Оферта»). Пусто → title.
+  shortTitle   String?  @map("short_title")
+  // Текст в разметке markdown-lite (см. application/components/ui/LegalBody).
+  body         String   @default("")
+  fileUrl      String?  @map("file_url")
+  // Имя файла на диске в UPLOAD_DIR — нужно, чтобы удалить PDF при замене.
+  // null у засиженных документов: их PDF лежат в статике фронта, не у нас.
+  filePath     String?  @map("file_path")
+  version      String?
+  published    Boolean  @default(true)
+  showInFooter Boolean  @default(true) @map("show_in_footer")
+  showAtSignup Boolean  @default(false) @map("show_at_signup")
+  order        Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([published, order])
+}

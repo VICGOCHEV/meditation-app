@@ -41,6 +41,27 @@ export async function saveImageStream(fileStream, mime) {
   return { filename, absPath, sizeBytes: stat.size }
 }
 
+// PDF юридических документов из CMS (docs/41). Отдельно от картинок:
+// другой лимит размера и другое место использования.
+export function isAllowedPdf(mime) {
+  return (mime || '').toLowerCase() === 'application/pdf'
+}
+
+// Стримит загруженный PDF в UPLOAD_DIR. Возвращает { filename, sizeBytes }.
+export async function savePdfStream(fileStream) {
+  await ensureUploadDir()
+  const filename = `${crypto.randomBytes(12).toString('hex')}.pdf`
+  const absPath = path.join(config.uploadDir, filename)
+  try {
+    await pipeline(fileStream, createWriteStream(absPath))
+  } catch (e) {
+    await deleteAudioFile(filename)
+    throw e
+  }
+  const stat = await fs.stat(absPath)
+  return { filename, absPath, sizeBytes: stat.size }
+}
+
 // MIME по расширению — для отдачи файла в Telegram multipart'ом.
 const EXT_MIME = {
   jpg: 'image/jpeg',

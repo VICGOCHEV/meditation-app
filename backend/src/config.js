@@ -28,6 +28,9 @@ export const config = {
   // фото байтами — не больше 10 МБ. Больший файл примется в CMS, но КАЖДАЯ
   // отправка упадёт, поэтому режем на входе.
   maxImageBytes: Number(process.env.MAX_IMAGE_BYTES) || 10 * 1024 * 1024,
+  // Лимит PDF юридического документа, загружаемого в CMS. 20 МБ с запасом:
+  // подписанная оферта со сканами печатей — типично 1-3 МБ.
+  maxPdfBytes: Number(process.env.MAX_PDF_BYTES) || 20 * 1024 * 1024,
 }
 
 if (!config.jwtSecret) {

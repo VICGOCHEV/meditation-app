@@ -44,6 +44,15 @@ function IconKey(props) {
   )
 }
 
+function IconDoc(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5z" />
+      <path d="M14 3v5h5M9 13h6M9 17h4" />
+    </svg>
+  )
+}
+
 const NAV = [
   { group: 'Контент', items: [
     { to: '/practices', label: 'Практики', icon: IconLayers },
@@ -63,6 +72,9 @@ const NAV = [
     { to: '/users', label: 'Юзеры и подписки', icon: IconUsers },
     { to: '/feedback', label: 'Обратная связь', icon: IconMessage },
   ] },
+  { group: 'Юридическое', items: [
+    { to: '/legal', label: 'Юр. документы', icon: IconDoc },
+  ] },
   { group: 'Система', items: [
     { to: '/account', label: 'Аккаунт и доступы', icon: IconKey },
   ] },
@@ -81,6 +93,9 @@ function crumb(pathname) {
   if (pathname.startsWith('/push-phrases')) return 'Тексты пушей'
   if (pathname.startsWith('/promocodes')) return 'Промокоды'
   if (pathname.startsWith('/broadcasts')) return 'Пуш/email рассылка'
+  if (pathname.startsWith('/legal/new')) return 'Юр. документы · новый'
+  if (pathname.startsWith('/legal/')) return 'Юр. документы · редактор'
+  if (pathname.startsWith('/legal')) return 'Юр. документы'
   if (pathname.startsWith('/account')) return 'Аккаунт и доступы'
   return ''
 }

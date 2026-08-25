@@ -156,11 +156,16 @@
 
   <a class="back" href="/">Вернуться в приложение</a>
 
-  <footer>
-    <a href="/docs/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Оферта</a>
-    <span> · </span>
-    <a href="/docs/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политика конфиденциальности</a>
-    <span class="req">ИП Смирнов А. В. · ИНН 590772796420</span>
+  <!-- Юр. подвал. Разметка ниже — ФОЛБЭК на прежние PDF: если API не ответит,
+       ссылки остаются рабочими ровно как раньше. Скрипт в конце страницы
+       подменяет их актуальными документами из CMS (/api/content/legal). -->
+  <footer id="legal">
+    <span class="links" id="legal-links">
+      <a href="/docs/user-agreement.pdf" target="_blank" rel="noopener noreferrer">Оферта</a>
+      <span> · </span>
+      <a href="/docs/privacy-policy.pdf" target="_blank" rel="noopener noreferrer">Политика конфиденциальности</a>
+    </span>
+    <span class="req" id="legal-req">ИП Смирнов А. В. · ИНН 590772796420</span>
   </footer>
 </div>
 
@@ -284,6 +289,52 @@
         say(err.message || 'Что-то пошло не так', 'error')
       })
   })
+})()
+
+// Юр. документы из CMS. Страница статическая и текст документа отрисовать не
+// может, поэтому ссылка ведёт либо на страницу приложения (/legal/<slug> —
+// документ ведётся текстом), либо прямо на PDF. Источник тот же, что у самого
+// приложения, — владелец правит документы в одном месте.
+//
+// Молча выходим при любой ошибке: в разметке уже лежат рабочие ссылки на PDF.
+;(function () {
+  var box = document.getElementById('legal-links')
+  var req = document.getElementById('legal-req')
+  if (!box || !window.fetch) return
+
+  fetch('/api/content/legal')
+    .then(function (r) { return r.ok ? r.json() : null })
+    .then(function (data) {
+      if (!data || !data.items || !data.items.length) return
+      var items = data.items.filter(function (d) {
+        return d && d.href && d.showInFooter !== false
+      })
+      if (!items.length) return
+
+      box.textContent = ''
+      items.forEach(function (doc, i) {
+        if (i > 0) {
+          var dot = document.createElement('span')
+          dot.textContent = ' · '
+          box.appendChild(dot)
+        }
+        var a = document.createElement('a')
+        a.href = doc.href
+        a.textContent = doc.shortTitle || doc.title
+        // Страница приложения открывается в этой же вкладке (пользователь
+        // вернётся кнопкой «назад»), PDF — в новой, как и раньше.
+        if (!doc.isPage) {
+          a.target = '_blank'
+          a.rel = 'noopener noreferrer'
+        }
+        box.appendChild(a)
+      })
+
+      if (req && typeof data.requisites === 'string' && data.requisites) {
+        req.textContent = data.requisites
+      }
+    })
+    .catch(function () { /* остаются фолбэк-ссылки из разметки */ })
 })()
 </script>
 </body>

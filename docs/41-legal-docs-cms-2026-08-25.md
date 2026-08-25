@@ -1,0 +1,240 @@
+# 41. Юридические документы в CMS (2026-08-25)
+
+> SUPPORT-заход (billable, после сдачи 10.06.2026).
+> Задача: владелец должен уметь **сам** заводить и править юр. документы
+> (оферта, политика конфиденциальности, согласие на ОПД и любые новые)
+> без деплоя. Отдельная вкладка в CMS.
+
+---
+
+## 1. Как устроено сейчас (факты по коду)
+
+| Что | Где | Проблема |
+|---|---|---|
+| 3 PDF | `application/public/docs/{user-agreement,privacy-policy,personal-data-consent}.pdf` | Вкомпилированы в бандл фронта. Замена = правка репо + `npm run build` + деплой. |
+| Подвал со ссылками | `application/src/components/ui/LegalLinks.jsx` | Названия и пути **захардкожены**. Реквизиты «ИП Смирнов А. В. · ИНН 590772796420» — тоже хардкод. |
+| Использование подвала | `pages/Profile/index.jsx:745`. `pages/Subscription/index.jsx:563` — **вне роутинга** с 30.07 (docs/38) | Реально видно только в профиле. |
+| Чекбокс согласия | `pages/Auth/Register.jsx:175-178` — три прямые ссылки на те же PDF | Дубль списка документов. |
+| Внешняя страница доната | `donate/index.html:160-162` — ссылки на `/docs/*.pdf` | Статика вне SPA, живёт своей жизнью. |
+
+Известный долг (память проекта, 10.06): в тексте PDF фигурирует **старый бот
+`@Relaxplayer_bot`**, клиент должен пересохранить документы. Сейчас у него нет
+способа сделать это самому — только через разработчика.
+
+### Что уже есть в CMS и переиспользуется
+
+- **Паттерн «редактируемый без деплоя контент»**: `AppSetting` (key/value,
+  кеш 30 с) + `admin/texts.js` + публичный `GET /api/content/texts` +
+  фронтовый `api/texts.js` с фолбэком на `constants/texts.js`.
+  Это готовый шаблон для «реквизитов в подвале».
+- **Паттерн CRUD-раздела**: `routes/admin/promocodes.js` (+ `requireAdmin`)
+  и `cms/src/pages/PromoCodes.jsx`.
+- **Паттерн «список + отдельный роут-редактор»**: `Practices.jsx` +
+  `PracticeEditor.jsx`, роуты `/practices`, `/practices/new`, `/practices/:id`.
+- **Паттерн загрузки файла**: `admin/broadcast.js` (картинка) →
+  `utils/media.js: isAllowedImage / saveImageStream / deleteAudioFile`,
+  лимит из `config.maxImageBytes`, статика через `config.mediaUrlBase`
+  (`/cms-media`, на проде раздаёт Caddy).
+- **Идемпотентные SQL-миграции**: `backend/sql/001..012`, следующая — `013`.
+- **Публичный контент-слой**: `routes/content.js`, `Cache-Control: max-age=60`.
+
+---
+
+## 2. Решения (и почему именно так)
+
+**2.1. Документ хранится текстом в БД, PDF — опционально.**
+PDF нельзя «редактировать в CMS» — можно только заменить файл. Поэтому у
+документа два режима, и режим **выводится из данных**, а не задаётся флагом
+(флаг рассинхронизируется с содержимым):
+
+- `body` не пустой → документ показывается **внутренней страницей** `/legal/:slug`;
+- `body` пустой, есть `fileUrl` → ссылка ведёт **на PDF**;
+- пусто и там и там → документ не отдаётся публично (нечего показывать).
+
+Это даёт бесшовную миграцию: сидим 3 существующих документа с
+`fileUrl = /docs/*.pdf` → сегодня всё работает ровно как раньше, а клиент в
+любой момент вставляет текст и документ становится нативной страницей.
+
+**2.2. Разметка — «markdown-lite», рендер без `dangerouslySetInnerHTML`.**
+Клиент вставляет текст из Word. Полноценный markdown-парсер тянуть незачем
+(в `application/package.json` его нет, а лишняя зависимость на фронте =
+лишний вес бандла и XSS-поверхность). Поддерживаем минимум:
+`## / ###` заголовки, `- ` маркеры, `**жирный**`, `[текст](url)`, **строка =
+абзац**. Именно строка, а не «абзац до пустой строки»: текст приходит
+копипастом из Word, где переносом разделены сами абзацы и пустых строк между
+ними нет — склейка схлопнула бы документ в одно полотно, а пункты «1.1.» и
+«1.2.» слиплись бы в одну строку. Нумерацию пунктов («1.1.», «2.3.4.») **не трогаем** — она
+остаётся частью текста абзаца, никаких `<ol>` с автонумерацией: в юр. тексте
+номер пункта обязан совпадать с оригиналом. Рендер собирает React-элементы,
+HTML из строки не вставляется никогда.
+
+**2.3. Реквизиты в подвале — редактируемая настройка.**
+Через `AppSetting` (`legal.requisites`), рядом со списком документов на той же
+вкладке CMS. Дефолт — текущая строка из `LegalLinks.jsx`.
+
+**2.4. Список документов — единый источник для трёх мест.**
+Подвал (`LegalLinks`), чекбокс на регистрации (`Register.jsx`) и страница
+документа читают один и тот же `GET /api/content/legal`. Флаги
+`showInFooter` / `showAtSignup` управляют тем, где документ появляется.
+
+**2.5. Фолбэк обязателен.**
+`application/src/constants/legal.js` содержит те же 3 документа с путями на
+PDF. Если API недоступен — подвал и регистрация показывают их. Юр. ссылки не
+имеют права исчезнуть из-за сетевой ошибки (152-ФЗ рядом с формой сбора ПД).
+
+**2.6. Права.**
+Создание/правка — `editor` и `admin` (это контент). **Удаление документа —
+только `admin`** (`requireAdmin`): снос юр. документа — деструктив с
+юридическими последствиями, как и удаление промокода/админа.
+
+**2.7. Страница доната — тот же источник, но своим способом.**
+`donate/index.html` — статический HTML вне SPA, отрисовать текст документа он
+не может. Поэтому в разметке остаются рабочие ссылки на PDF (фолбэк), а
+маленький скрипт подменяет их актуальным списком из `/api/content/legal`:
+документ-текст → `/legal/<slug>`, документ-файл → PDF. Реквизиты тоже
+подтягиваются. При любой ошибке страница остаётся ровно в прежнем виде.
+
+**2.8. Что НЕ делаем.**
+- PDF-файлы из `application/public/docs/` **не удаляем**: они остаются
+  фолбэком и для приложения, и для страницы доната.
+- Версионирование/история правок документа — не делаем. Есть поле `version`
+  («ред. от 25.08.2026») и `updatedAt`; полноценный аудит-лог правок — это
+  отдельная задача, здесь избыточен.
+- Приём согласия пользователя с конкретной редакцией (лог acceptance) — вне
+  объёма. Отмечено как возможное развитие.
+
+---
+
+## 3. Реализация
+
+### 3.1. БД
+
+`backend/prisma/schema.prisma` — новая модель:
+
+```prisma
+model LegalDoc {
+  id           Int       @id @default(autoincrement())
+  slug         String    @unique              // user-agreement, privacy-policy…
+  title        String                          // «Публичная оферта»
+  shortTitle   String?   @map("short_title")   // «Оферта» — для подвала
+  body         String    @default("")          // markdown-lite; пусто = ведём PDF
+  fileUrl      String?   @map("file_url")      // /cms-media/… или /docs/….pdf
+  filePath     String?   @map("file_path")     // имя на диске (для удаления)
+  version      String?                          // «ред. от 25.08.2026»
+  published    Boolean   @default(true)
+  showInFooter Boolean   @default(true)  @map("show_in_footer")
+  showAtSignup Boolean   @default(false) @map("show_at_signup")
+  order        Int       @default(0)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([published, order])
+}
+```
+
+`backend/sql/013_legal_docs.sql` — идемпотентно (`IF NOT EXISTS`), плюс сид
+трёх текущих документов через `ON CONFLICT (slug) DO NOTHING` с
+`file_url = '/docs/*.pdf'`. Повторный прогон на проде безопасен и не затирает
+правки клиента.
+
+### 3.2. Бэкенд
+
+- `src/utils/legalDocs.js` — константы (`SLUG_RE`, лимиты), `legalPublicForm()`
+  (форма для аппки: slug, title, shortTitle, href, isPage, version),
+  `legalAdminForm()`, дефолт реквизитов + ключ `legal.requisites`
+  в `SETTING_KEYS`.
+- `src/utils/media.js` — `isAllowedPdf(mime)` + `savePdfStream(stream)`
+  (по образцу `saveImageStream`). `config.maxPdfBytes` = 20 МБ.
+- `src/routes/admin/legal.js`:
+  | Метод | Путь | Права |
+  |---|---|---|
+  | GET | `/api/admin/legal` | editor — список + `requisites` |
+  | POST | `/api/admin/legal` | editor — создать |
+  | GET | `/api/admin/legal/:id` | editor — один документ с `body` |
+  | PUT | `/api/admin/legal/:id` | editor — обновить |
+  | DELETE | `/api/admin/legal/:id` | **admin** |
+  | POST | `/api/admin/legal/:id/file` | editor — загрузить PDF (multipart) |
+  | DELETE | `/api/admin/legal/:id/file` | editor — отвязать/удалить PDF |
+  | PUT | `/api/admin/legal/reorder` | editor — порядок в подвале |
+  | PUT | `/api/admin/legal/requisites` | editor — строка реквизитов |
+- `src/routes/content.js` — публичные:
+  - `GET /api/content/legal` → `{ requisites, items: [...] }` (только
+    `published` и с содержимым), кеш 60 с;
+  - `GET /api/content/legal/:slug` → документ с `body`, 404 если нет.
+- Регистрация роутов в `src/index.js`.
+
+Валидация: `slug` — `^[a-z0-9-]{2,60}$`, уникален (409 при дубле); `title`
+≤ 200; `body` ≤ 200 000 символов; PDF — только `application/pdf`, проверка
+`part.file.truncated` → 413 (как в media/broadcast).
+
+### 3.3. CMS (`cms/`)
+
+- Новая группа навигации **«Юридическое»** в `Shell.jsx` → пункт
+  **«Юр. документы»** (`/legal`), иконка — inline SVG «документ» (эмодзи
+  запрещены, п. 16 PROJECT_CONTEXT).
+- `pages/LegalDocs.jsx` — список: перетаскивание порядка кнопками ↑↓,
+  бейдж режима («страница в приложении» / «PDF-файл»), тумблеры
+  «опубликован» / «в подвале» / «на регистрации», удаление (видно только роли
+  `admin`). Внизу — поле «Реквизиты в подвале».
+- `pages/LegalDocEditor.jsx` — роуты `/legal/new` и `/legal/:id`:
+  заголовок, короткое название, slug, редакция, большая textarea для текста,
+  подсказка по разметке, загрузка/удаление PDF, флаги, сохранение.
+- Регистрация роутов в `cms/src/App.jsx` + `crumb()` в `Shell.jsx`.
+
+### 3.4. Приложение (`application/`)
+
+- `constants/legal.js` — фолбэк-список (3 текущих PDF) + дефолт реквизитов.
+- `api/legal.js` — `fetchLegalDocs()` / `fetchLegalDoc(slug)`, всегда
+  резолвится (ошибка/мок → фолбэк).
+- `components/ui/LegalBody.jsx` — рендер markdown-lite в React-элементы.
+- `pages/Legal/index.jsx` — экран `/legal/:slug`: заголовок, редакция,
+  кнопка «назад», тело документа. Публичный роут (открывается с экрана
+  регистрации, до авторизации).
+- `components/ui/LegalLinks.jsx` — тянет список из API, `showInFooter`;
+  внутренние документы → `<Link to="/legal/:slug">`, PDF → `<a target="_blank">`;
+  реквизиты из API.
+- `pages/Auth/Register.jsx` — ссылки в чекбоксе строятся из `showAtSignup`
+  (фолбэк — текущие три ссылки, формулировка предложения не меняется).
+
+### 3.5. Страница доната (`donate/`)
+
+`index.html` — статика, раздаётся Caddy прямо из репозитория
+(`deploy/donate.Caddyfile`), сборки не требует. Юр. подвал получает id-шники,
+инлайновый скрипт заменяет ссылки и реквизиты данными из
+`/api/content/legal`. Разметка-фолбэк не трогается при ошибке.
+- `app/routes.jsx` — `<Route path="/legal/:slug" element={<Legal />} />`
+  **до** `ProtectedRoute`-блока. Переход — opacity-only (п. 6 conventions).
+
+### 3.6. Деплой
+
+```
+git pull --ff-only
+psql -f backend/sql/013_legal_docs.sql          # идемпотентно
+cd backend && npm install && npx prisma generate
+cd ../application && npm run build
+cd ../cms && npm run build
+systemctl restart meditation-api
+```
+**Лендинг не билдить** (на проде заглушка, `build:landing` её затрёт).
+
+---
+
+## 4. Проверка
+
+1. `npm run build` в `application` и `cms` — обязательно (п. 13 conventions).
+2. CMS `/manage/legal`: создать документ, вставить текст, опубликовать →
+   в аппке `/legal/<slug>` открывается, ссылка появилась в подвале профиля.
+3. Загрузить PDF в документ с пустым текстом → ссылка ведёт на файл.
+4. Выключить `published` → ссылка исчезла из подвала, `/legal/<slug>` → 404-экран.
+5. Погасить бэкенд → подвал и регистрация показывают фолбэк-ссылки на PDF.
+6. Роль `editor` не видит кнопку удаления; `DELETE` из-под неё → 403.
+7. Никаких headless-браузеров (п. 17) — проверка глазами на localhost.
+
+---
+
+## 5. Открытое / дальше
+
+- Клиент по-прежнему должен прислать актуальные тексты (в PDF фигурирует
+  старый `@Relaxplayer_bot`). Теперь он сможет вставить их сам.
+- Возможное развитие: лог принятия конкретной редакции пользователем
+  (`User.legalAcceptedVersion`) — если понадобится доказуемость согласия.

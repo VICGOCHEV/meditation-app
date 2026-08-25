@@ -9,6 +9,14 @@ import {
 } from '../utils/contentShape.js'
 import { BLOCK_KEYS, mergeBlock } from '../utils/blockDefaults.js'
 import { mergeTexts } from '../utils/appTexts.js'
+import {
+  LEGAL_REQUISITES_KEY,
+  LEGAL_REQUISITES_DEFAULT,
+  hasContent,
+  legalListForm,
+  legalPublicForm,
+} from '../utils/legalDocs.js'
+import { getSetting } from '../utils/appSettings.js'
 
 // Публичный контент для аппки — замена Strapi REST. Отдаёт ту же форму,
 // что парсил src/api/cms.js, поэтому фронт переключается сменой VITE_CMS_URL
@@ -53,6 +61,32 @@ export async function contentRoutes(app) {
       where: { key: { startsWith: 'text.' } },
     })
     return mergeTexts(rows)
+  })
+
+  // GET /api/content/legal → { requisites, items: [...] }
+  // Юр. документы: подвал профиля и чекбокс на регистрации строятся отсюда.
+  // Отдаём только опубликованные и только те, где реально есть что открыть
+  // (текст или PDF) — иначе в подвале появилась бы мёртвая ссылка.
+  app.get('/content/legal', async (_req, reply) => {
+    cache(reply)
+    const rows = await db.legalDoc.findMany({
+      where: { published: true },
+      orderBy: [{ order: 'asc' }, { id: 'asc' }],
+    })
+    return {
+      requisites: await getSetting(LEGAL_REQUISITES_KEY, LEGAL_REQUISITES_DEFAULT),
+      items: rows.filter(hasContent).map(legalListForm),
+    }
+  })
+
+  // GET /api/content/legal/:slug → документ целиком для страницы /legal/:slug.
+  app.get('/content/legal/:slug', async (req, reply) => {
+    const doc = await db.legalDoc.findFirst({
+      where: { slug: req.params.slug, published: true },
+    })
+    if (!doc || !hasContent(doc)) return reply.code(404).send({ error: 'not found' })
+    cache(reply)
+    return legalPublicForm(doc)
   })
 
   // GET /api/content/practices/:slug → одна практика (по публичному slug)

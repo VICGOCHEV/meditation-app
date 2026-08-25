@@ -14,6 +14,8 @@ import PushPhrases from './pages/PushPhrases.jsx'
 import PromoCodes from './pages/PromoCodes.jsx'
 import Broadcasts from './pages/Broadcasts.jsx'
 import Account from './pages/Account.jsx'
+import LegalDocs from './pages/LegalDocs.jsx'
+import LegalDocEditor from './pages/LegalDocEditor.jsx'
 
 export default function App() {
   const token = useAuth((s) => s.token)
@@ -36,6 +38,9 @@ export default function App() {
         <Route path="/push-phrases" element={<PushPhrases />} />
         <Route path="/promocodes" element={<PromoCodes />} />
         <Route path="/broadcasts" element={<Broadcasts />} />
+        <Route path="/legal" element={<LegalDocs />} />
+        <Route path="/legal/new" element={<LegalDocEditor mode="new" />} />
+        <Route path="/legal/:id" element={<LegalDocEditor mode="edit" />} />
         <Route path="/account" element={<Account />} />
         <Route path="*" element={<Navigate to="/practices" replace />} />
       </Routes>

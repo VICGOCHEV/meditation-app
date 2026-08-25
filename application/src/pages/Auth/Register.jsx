@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import AuthShell, { Field } from './AuthShell'
 import Button from '../../components/ui/Button'
@@ -6,11 +6,65 @@ import PasswordInput from './PasswordInput'
 import { PASSWORD_RE, passwordChecks } from './passwordRules'
 import { register, verifyCode } from '../../api/auth'
 import { useAuthStore } from '../../store/useAuthStore'
+import { fetchLegalDocs } from '../../api/legal'
+import { FALLBACK_LEGAL_DOCS } from '../../constants/legal'
 
 // Те же правила что и на бэке (backend/src/routes/auth.js):
 // 8+ символов, хотя бы одна буква и хотя бы одна цифра ИЛИ символ.
 // Раньше фронт требовал именно цифру — backend пропускал «Password!»,
 // фронт нет → юзер думал что правильный пароль отвергают.
+
+// Ссылки на юр. документы в чекбоксе согласия. Приходят из CMS
+// (/api/content/legal, флаг «на регистрации»), фолбэк — те же три PDF, что
+// были захардкожены раньше.
+//
+// Формулировку согласия клиент утверждал дословно, поэтому она сохраняется
+// как есть, пока набор документов совпадает с утверждённой тройкой — меняются
+// только адреса ссылок. Если владелец изменил состав документов в CMS,
+// подставить их в утверждённое предложение без искажения смысла нельзя,
+// поэтому переходим на нейтральную рамку-перечисление.
+const APPROVED_SIGNUP_SLUGS = ['user-agreement', 'privacy-policy', 'personal-data-consent']
+
+function DocLink({ doc, children }) {
+  const cls = 'text-lilac underline-offset-2 hover:underline'
+  return doc.isPage ? (
+    <Link to={doc.href} className={cls}>{children}</Link>
+  ) : (
+    <a href={doc.href} target="_blank" rel="noopener noreferrer" className={cls}>{children}</a>
+  )
+}
+
+function LegalConsentText({ docs }) {
+  const bySlug = Object.fromEntries(docs.map((d) => [d.slug, d]))
+  const isApproved =
+    docs.length === APPROVED_SIGNUP_SLUGS.length &&
+    APPROVED_SIGNUP_SLUGS.every((slug) => bySlug[slug])
+
+  if (isApproved) {
+    return (
+      <>
+        Я ознакомился и принимаю{' '}
+        <DocLink doc={bySlug['user-agreement']}>оферту</DocLink>,{' '}
+        <DocLink doc={bySlug['privacy-policy']}>политику&nbsp;конфиденциальности</DocLink>{' '}
+        и даю{' '}
+        <DocLink doc={bySlug['personal-data-consent']}>согласие&nbsp;на&nbsp;обработку&nbsp;персональных&nbsp;данных</DocLink>.
+      </>
+    )
+  }
+
+  return (
+    <>
+      Я ознакомился и принимаю:{' '}
+      {docs.map((doc, i) => (
+        <span key={doc.slug}>
+          {i > 0 && (i === docs.length - 1 ? ' и ' : ', ')}
+          <DocLink doc={doc}>{doc.shortTitle || doc.title}</DocLink>
+        </span>
+      ))}
+      .
+    </>
+  )
+}
 
 function PasswordHints({ pwd, show }) {
   const c = passwordChecks(pwd)
@@ -59,6 +113,24 @@ export default function Register() {
   // для регистрации (152-ФЗ + Закон о защите прав потребителей). Без
   // галки кнопка «Присоединиться» задизейблена.
   const [legalOk, setLegalOk] = useState(false)
+  // Документы для чекбокса согласия. Стартуем с фолбэка — ссылки должны быть
+  // на месте с первого кадра, до ответа сети.
+  const [legalDocs, setLegalDocs] = useState(() =>
+    FALLBACK_LEGAL_DOCS.filter((d) => d.showAtSignup),
+  )
+
+  useEffect(() => {
+    let alive = true
+    fetchLegalDocs().then(({ items }) => {
+      if (!alive) return
+      const forSignup = items.filter((d) => d.showAtSignup)
+      // Пустой список означал бы форму регистрации без юр. ссылок — этого
+      // допускать нельзя, оставляем прежний набор.
+      if (forSignup.length > 0) setLegalDocs(forSignup)
+    })
+    return () => { alive = false }
+  }, [])
+
 
   const pwdOk = useMemo(() => PASSWORD_RE.test(password), [password])
   const matchOk = passwordRepeat.length > 0 && password === passwordRepeat
@@ -171,11 +243,7 @@ export default function Register() {
               }}
             />
             <span className="text-[12px] leading-snug text-fg-2">
-              Я ознакомился и принимаю{' '}
-              <a href="/docs/user-agreement.pdf" target="_blank" rel="noopener noreferrer" className="text-lilac underline-offset-2 hover:underline">оферту</a>,{' '}
-              <a href="/docs/privacy-policy.pdf" target="_blank" rel="noopener noreferrer" className="text-lilac underline-offset-2 hover:underline">политику&nbsp;конфиденциальности</a>{' '}
-              и даю{' '}
-              <a href="/docs/personal-data-consent.pdf" target="_blank" rel="noopener noreferrer" className="text-lilac underline-offset-2 hover:underline">согласие&nbsp;на&nbsp;обработку&nbsp;персональных&nbsp;данных</a>.
+              <LegalConsentText docs={legalDocs} />
             </span>
           </label>
 

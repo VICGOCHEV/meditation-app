@@ -18,6 +18,7 @@ import Home from '../pages/Home'
 import Checkin from '../pages/Checkin'
 import DeepAnalysis from '../pages/DeepAnalysis'
 import Profile from '../pages/Profile'
+import Legal from '../pages/Legal'
 // pages/Subscription выведен из роутинга 2026-07-30 (docs/38): подписки нет,
 // весь контент бесплатный. Файл оставлен в репозитории как точка отката —
 // он не импортируется, поэтому в бандл не попадает.
@@ -64,6 +65,11 @@ export default function AppRoutes() {
           {/* Backwards-compat: старые письма уже могли уйти со ссылкой
               /auth/reset-password — редиректим её на актуальный путь. */}
           <Route path="/auth/reset-password" element={<Navigate to="/auth/reset" replace />} />
+
+          {/* Юр. документы — публично: ссылки на них стоят в чекбоксе
+              согласия на регистрации, то есть до авторизации. Содержимое
+              редактируется в CMS («Юр. документы»). */}
+          <Route path="/legal/:slug" element={<Legal />} />
 
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
           <Route path="/checkin" element={<ProtectedRoute><Checkin /></ProtectedRoute>} />
